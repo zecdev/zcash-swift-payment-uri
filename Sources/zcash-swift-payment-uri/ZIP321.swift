@@ -4,7 +4,7 @@
 // Created by Pacu 2023-11-07
 import Foundation
 
-enum ZIP321 {
+public enum ZIP321 {
     /// Allows to specify the resulting URI String to match the possible variants specified by [ZIP-321](https://zips.z.cash/zip-0321)
     ///
     /// `.enumerateAllPayments` will generate a URI where all of its `queryparams` have an index indicating it payment index starting with the index 1
@@ -12,14 +12,14 @@ enum ZIP321 {
     /// `.useEmptyParamIndex(false)` will generate a URI where the first parameter will contain an empty parameter index `zcash:address=zs1...`
     ///
     /// `.useEmptyParamIndex(false)` will generate a URI where the first parameter will contain an empty parameter index and the address label will be omitted for the first payment `zcash:zs1...&amount=0.1`
-    enum FormattingOptions {
+    public enum FormattingOptions {
         case enumerateAllPayments
         case useEmptyParamIndex(omitAddressLabel: Bool)
     }
 }
 
 
-extension ZIP321 {
+public extension ZIP321 {
     /// Transforms this `PaymentRequest` struct into a [ZIP-321](https://zips.z.cash/zip-0321)
     /// payment request `String`
     /// - parameter request: a `PaymentRequest` struct
