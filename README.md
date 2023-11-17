@@ -15,11 +15,12 @@ can be parsed by several applications across the ecosystem
 
 ## Project Roadmap
 
-### 1. ZIP-321 construction
+### 1. ZIP-321 construction 
 
-- Provide an API that lets users build a Payment Request URI from its bare-bone components.
-- There's a comprehensive set of tests that exercises the logic above according with what is defined on [ZIP-321](https://zips.z.cash/zip-0321) 
-- (Optional) Mechanism for callers to provide logic for validating of Zcash addresses
+- Provide an API that lets users build a Payment Request URI from its bare-bone components. ✅
+- There's a comprehensive set of tests that exercises the logic above according with what is defined on [ZIP-321](https://zips.z.cash/zip-0321) ✅
+- (Optional) Mechanism for callers to provide logic for validating of Zcash addresses ✅
+
 
 ### 2. ZIP-321 built-in validation
 - Built-in mechanism to validate the provided input. This will entail leveraging some sort of FFI calls to [`zcash_address` crate](https://crates.io/crates/zcash_address/0.1.0)
@@ -31,6 +32,76 @@ can be parsed by several applications across the ecosystem
 - The parser checks the integrity of the provided URI as defined on [ZIP-321](https://zips.z.cash/zip-0321)
 - There's a comprehensive set of Unit Tests that exercise the point above.
 
+## Getting Started
 
+### Requesting a payment to a Zcash address
+Payments requests that do not specify any other information than recipient address.
+
+`zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez`
+
+````Swift
+let recipient = RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez")!
+
+ZIP321.request(recipient)
+````
+
+### Requesting a payment specifying amount and other parameters.
+Desired Payment URI
+`zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=1&memo=VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg&message=Thank%20you%20for%20your%20purchase`
+
+````Swift
+ let recipient = RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez")!
+
+let payment = Payment(
+    recipientAddress: recipient,
+    amount: try Amount(value: 1),
+    memo: try MemoBytes(utf8String: "This is a simple memo."),
+    label: nil,
+    message: "Thank you for your purchase",
+    otherParams: nil
+)
+
+let paymentURI = ZIP321.request(payment, formattingOptions: .useEmptyParamIndex(omitAddressLabel: true))
+````
+
+### Requesting Payments to multiple recipients
+Desired Payment URI:
+`zcash:?address=tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU&amount=123.456&address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=0.789&memo.1=VGhpcyBpcyBhIHVuaWNvZGUgbWVtbyDinKjwn6aE8J-PhvCfjok`
+
+This payment Request is using `paramlabel`s with empty `paramindex` and number indices. This Request String generation API allows callers to specify their format of choice for parameters and indices. 
+
+````Swift
+
+
+let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
+
+let recipient0 = RecipientAddress(value: address0)!
+
+let payment0 = Payment(
+    recipientAddress: recipient0,
+    amount: try Amount(value: 123.456),
+    memo: nil,
+    label: nil,
+    message: nil,
+    otherParams: nil
+)
+
+let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
+
+let recipient1 = RecipientAddress(value: address1)!
+
+let payment1 = Payment(
+    recipientAddress: recipient1,
+    amount: try Amount(value: 0.789),
+    memo: try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"),
+    label: nil,
+    message: nil,
+    otherParams: nil
+)
+
+let paymentRequest = PaymentRequest(payments: [payment0, payment1])
+
+let paymentURIString = ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false))
+````
 # License 
 This project is under MIT License. See [LICENSE.md](LICENSE.md) for more details.
