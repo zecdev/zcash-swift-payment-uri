@@ -7,12 +7,12 @@
 
 import Foundation
 
-struct PaymentRequest {
+public struct PaymentRequest {
     let payments: [Payment]
 }
 
 /// A Single payment that will be requested
-struct Payment {
+public struct Payment {
     /// Recipient of the payment.
     let recipientAddress: RecipientAddress
     /// The amount of the payment expressed in decimal ZEC
@@ -28,12 +28,12 @@ struct Payment {
     let otherParams: [RequestParams]?
 }
 
-typealias RequestParams = (String, String)
+public typealias RequestParams = (String, String)
 
 /// An *non-negative* decimal ZEC amount represented as specified in ZIP-321.
 /// Amount can be from 1 zatoshi (0.00000001) to the `maxSupply` of 21M ZEC (`21_000_000`)
-struct Amount {
-    enum AmountError: Error {
+public struct Amount {
+    public enum AmountError: Error {
         case negativeAmount
         case greaterThanSupply
         case tooManyFractionalDigits
@@ -57,7 +57,7 @@ struct Amount {
     /// - parameter value: decimal representation of the desired amount. **Important:** `Decimal` values with more than 8 fractional digits ** will be rounded** using bankers rounding.
     /// - returns A valid ZEC amount
     /// - throws `Amount.AmountError` then the provided value can't represent or can't be rounded to a non-negative non-zero ZEC decimal amount.
-    init(value: Decimal) throws {
+    public init(value: Decimal) throws {
         guard value > 0 else { throw AmountError.negativeAmount }
 
         guard value <= Self.maxSupply else { throw AmountError.greaterThanSupply }
@@ -65,7 +65,7 @@ struct Amount {
         self.value = value
     }
 
-    init(string: String) throws {
+    public init(string: String) throws {
         let formatter = NumberFormatter.zcashNumberFormatter
 
         guard let decimalAmount = formatter.number(from: string)?.decimalValue else {
@@ -79,7 +79,7 @@ struct Amount {
         try self.init(value: decimalAmount)
     }
 
-    func toString() -> String {
+    public func toString() -> String {
         let formatter = NumberFormatter.zcashNumberFormatter
 
         let decimal = NSDecimalNumber(decimal: self.value)
@@ -88,14 +88,14 @@ struct Amount {
     }
 }
 
-struct RecipientAddress {
+public struct RecipientAddress {
     let value: String
 
     /// Initialize an opaque Recipient address that's conversible to a String with or without a validating function.
     /// - Parameter value: the string representing the recipient
     /// - Parameter validating: a closure that validates the given input.
     /// - Returns: `nil` if the validating function resolves the input as invalid, or a `RecipientAddress` if the input is valid or no validating closure is passed.
-    init?(value: String, validating: ((String) -> Bool)? = nil) {
+    public init?(value: String, validating: ((String) -> Bool)? = nil) {
         switch validating?(value) {
         case .none, .some(true):
             self.value = value
@@ -105,17 +105,17 @@ struct RecipientAddress {
     }
 }
 
-struct MemoBytes {
-    enum MemoError: Error {
+public struct MemoBytes {
+    public enum MemoError: Error {
         case memoTooLong
         case memoEmpty
         case notUTF8String
     }
 
-    let maxLength = 512
+    public let maxLength = 512
     let data: Data
 
-    init(bytes: [UInt8]) throws {
+    public init(bytes: [UInt8]) throws {
         guard bytes.count > 0 else {
             throw MemoError.memoEmpty
         }
@@ -126,7 +126,7 @@ struct MemoBytes {
         self.data = Data(bytes)
     }
 
-    init(utf8String: String) throws {
+    public init(utf8String: String) throws {
         guard !utf8String.isEmpty else {
             throw MemoError.memoEmpty
         }
@@ -144,7 +144,7 @@ struct MemoBytes {
 
     /// Conversion of the present bytes to Base64URL
     /// - Notes: According to https://en.wikipedia.org/wiki/Base64#Variants_summary_table
-    func toBase64URL() -> String {
+    public func toBase64URL() -> String {
         self.data.base64EncodedString()
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "+", with: "-")
