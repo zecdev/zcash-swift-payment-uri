@@ -42,16 +42,16 @@ public struct Amount {
     
     static let maxFractionalDecimalDigits: Int16 = 8
     static let decimalHandler = NSDecimalNumberHandler(
-            roundingMode: NSDecimalNumber.RoundingMode.bankers,
-            scale: Self.maxFractionalDecimalDigits,
-            raiseOnExactness: true,
-            raiseOnOverflow: true,
-            raiseOnUnderflow: true,
-            raiseOnDivideByZero: true
+        roundingMode: NSDecimalNumber.RoundingMode.bankers,
+        scale: Self.maxFractionalDecimalDigits,
+        raiseOnExactness: true,
+        raiseOnOverflow: true,
+        raiseOnUnderflow: true,
+        raiseOnDivideByZero: true
     )
-
+    
     static let maxSupply: Decimal = 21_000_000
-
+    
     let value: Decimal
     /// Initializes an Amount from a `Decimal` number
     /// - parameter value: decimal representation of the desired amount. **Important:** `Decimal` values with more than 8 fractional digits ** will be rounded** using bankers rounding.
@@ -59,38 +59,38 @@ public struct Amount {
     /// - throws `Amount.AmountError` then the provided value can't represent or can't be rounded to a non-negative non-zero ZEC decimal amount.
     public init(value: Decimal) throws {
         guard value > 0 else { throw AmountError.negativeAmount }
-
+        
         guard value <= Self.maxSupply else { throw AmountError.greaterThanSupply }
-
+        
         self.value = value
     }
-
+    
     public init(string: String) throws {
         let formatter = NumberFormatter.zcashNumberFormatter
-
+        
         guard let decimalAmount = formatter.number(from: string)?.decimalValue else {
             throw AmountError.invalidTextInput
         }
-
+        
         guard decimalAmount.significantFractionalDecimalDigits <= Self.maxFractionalDecimalDigits else {
             throw AmountError.tooManyFractionalDigits
         }
-
+        
         try self.init(value: decimalAmount)
     }
-
+    
     public func toString() -> String {
         let formatter = NumberFormatter.zcashNumberFormatter
-
+        
         let decimal = NSDecimalNumber(decimal: self.value)
-
+        
         return formatter.string(from: decimal.rounding(accordingToBehavior: Self.decimalHandler)) ?? "" // this value is already validated.
     }
 }
 
 public struct RecipientAddress {
     let value: String
-
+    
     /// Initialize an opaque Recipient address that's conversible to a String with or without a validating function.
     /// - Parameter value: the string representing the recipient
     /// - Parameter validating: a closure that validates the given input.
@@ -111,37 +111,37 @@ public struct MemoBytes {
         case memoEmpty
         case notUTF8String
     }
-
+    
     public let maxLength = 512
     let data: Data
-
+    
     public init(bytes: [UInt8]) throws {
-        guard bytes.count > 0 else {
+        guard !bytes.isEmpty else {
             throw MemoError.memoEmpty
         }
         guard bytes.count <= maxLength else {
             throw MemoError.memoTooLong
         }
-
+        
         self.data = Data(bytes)
     }
-
+    
     public init(utf8String: String) throws {
         guard !utf8String.isEmpty else {
             throw MemoError.memoEmpty
         }
-
+        
         guard let memoStringData = utf8String.data(using: .utf8) else {
             throw MemoError.notUTF8String
         }
-
+        
         guard memoStringData.count <= maxLength else {
             throw MemoError.memoTooLong
         }
-
+        
         self.data = memoStringData
     }
-
+    
     /// Conversion of the present bytes to Base64URL
     /// - Notes: According to https://en.wikipedia.org/wiki/Base64#Variants_summary_table
     public func toBase64URL() -> String {
@@ -160,7 +160,7 @@ extension NumberFormatter {
         formatter.numberStyle = .decimal
         formatter.usesGroupingSeparator = false
         formatter.decimalSeparator = "."
-
+        
         return formatter
     }()
 }
@@ -188,7 +188,7 @@ extension String {
     /// pct-encoded   = "%" HEXDIG HEXDIG
     func qcharEncoded() -> String? {
         let qcharEncodeAllowed = CharacterSet.qchar.subtracting(.qcharComplement)
-
+        
         return self.addingPercentEncoding(withAllowedCharacters: qcharEncodeAllowed)
     }
 }
@@ -198,7 +198,7 @@ extension CharacterSet {
     static let ASCIICharacters = CharacterSet(
         charactersIn: UnicodeScalar(0) ... UnicodeScalar(127)
     )
-
+    
     /// `unreserved`character set defined on [rfc3986](https://www.rfc-editor.org/rfc/rfc3986.html#appendix-A)
     static let unreserved = CharacterSet
         .ASCIICharacters
@@ -208,38 +208,38 @@ extension CharacterSet {
     static let allowedDelims = CharacterSet(
         arrayLiteral: "!", "$", "'", "(", ")", "*", "+", ",", ";"
     )
-
+    
     /// ASCII control characters from 0x00 to 0x1F
     static let ASCIIControl = CharacterSet((0x00...0x1F).map { UnicodeScalar($0) })
-
+    
     /// All characters of qchar as defined on [ZIP-321](https://zips.z.cash/zip-0321)
     static let qchar = CharacterSet()
         .union(.ASCIIControl)
         .union(.unreserved)
         .union(.allowedDelims)
         .union(CharacterSet(arrayLiteral: "@", ":"))
-
+    
     static let qcharComplement = CharacterSet.ASCIIControl
         .union(
-            CharacterSet(arrayLiteral:
-                 " ",
-                 "\"",
-                 "#",
-                 "%",
-                 "&",
-                 "/",
-                 "<",
-                 "=",
-                 ">",
-                 "?",
-                 "[",
-                 "\\",
-                 "]",
-                 "^",
-                 "`",
-                 "{",
-                 "|",
-                 "}"
+            CharacterSet(
+                arrayLiteral: " ",
+                "\"",
+                "#",
+                "%",
+                "&",
+                "/",
+                "<",
+                "=",
+                ">",
+                "?",
+                "[",
+                "\\",
+                "]",
+                "^",
+                "`",
+                "{",
+                "|",
+                "}"
             )
         )
 }

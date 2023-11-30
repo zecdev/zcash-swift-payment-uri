@@ -8,14 +8,14 @@
 import Foundation
 
 enum ParamName: String {
-    case address = "address"
-    case amount = "amount"
-    case label = "label"
-    case memo = "memo"
-    case message = "message"
+    case address
+    case amount
+    case label
+    case memo
+    case message
 }
 enum Render {
-    // TODO: validate the idx, since zero is not a valid number
+    // TODO [#5]: validate the idx, since zero is not a valid number
     // see: https://github.com/pacu/zcash-swift-payment-uri/issues/5
     static func parameterIndex(_ idx: UInt?) -> String {
         switch idx {
@@ -27,7 +27,6 @@ enum Render {
     }
 
     static func parameter(label: String, value: String, index: UInt?) -> String? {
-
         guard let qcharValue = value.qcharEncoded() else {
             return nil
         }
@@ -44,7 +43,6 @@ enum Render {
     }
 
     static func parameter(_ address: RecipientAddress, index: UInt?, omittingAddressLabel: Bool = false) -> String {
-
         if index == nil && omittingAddressLabel {
             address.value
         } else {
@@ -53,12 +51,14 @@ enum Render {
     }
 
     static func parameter(label: String, index: UInt?) -> String {
-        // TODO: Handle format issues of qchar encoding
+        // TODO: [#6] Handle format issues of qchar encoding
+        // https://github.com/pacu/zcash-swift-payment-uri/issues/6
         parameter(label: ParamName.label.rawValue, value: label, index: index) ?? ""
     }
 
     static func parameter(message: String, index: UInt?) -> String {
-        // TODO: Handle format issues of qchar encoding
+        // TODO: [#6] Handle format issues of qchar encoding
+        // https://github.com/pacu/zcash-swift-payment-uri/issues/6
         parameter(label: ParamName.message.rawValue, value: message, index: index) ?? ""
     }
 
@@ -101,7 +101,6 @@ enum Render {
     }
 
     static func request(_ paymentRequest: PaymentRequest, startIndex: UInt?, omittingFirstAddressLabel: Bool = false) -> String {
-
         var result = "zcash:"
 
         // we want this to be a contiguous array so we can trust the `enumerated()` iterator to have contiguous indices.
@@ -128,7 +127,6 @@ enum Render {
         let count = payments.count
 
         for (elementIndex, element) in payments.enumerated() {
-
             let paramIndex = UInt(elementIndex) + paramIndexOffset
 
             result.append(payment(element, index: paramIndex))
@@ -141,4 +139,3 @@ enum Render {
         return result
     }
 }
-

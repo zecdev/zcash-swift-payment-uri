@@ -8,7 +8,6 @@
 import XCTest
 @testable import zcash_swift_payment_uri
 final class RendererTests: XCTestCase {
-
     func testAmountRendersNoParamIndex() throws {
         let expected = "amount=123.456"
         
@@ -52,7 +51,6 @@ final class RendererTests: XCTestCase {
 
         XCTAssertEqual(Render.parameter(recipient0, index: 1), expected)
     }
-
 
     func testMessageParamRendersNoParamIndex() throws {
         let expected = "message=Thank%20you%20for%20your%20purchase"
@@ -127,6 +125,7 @@ final class RendererTests: XCTestCase {
     }
 
     func testPaymentRendersWithParamIndex() throws {
+        // swiftlint:disable:next line_length
         let expected = "address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=0.789&memo.1=VGhpcyBpcyBhIHVuaWNvZGUgbWVtbyDinKjwn6aE8J-PhvCfjok"
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
@@ -171,6 +170,7 @@ final class RendererTests: XCTestCase {
     }
 
     func testPaymentRendererIgnoresLabelOmissionWhenIndexIsProvided() throws {
+        // swiftlint:disable:next line_length
         let expected = "address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=0.789&memo.1=VGhpcyBpcyBhIHVuaWNvZGUgbWVtbyDinKjwn6aE8J-PhvCfjok"
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"

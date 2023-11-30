@@ -18,7 +18,6 @@ public enum ZIP321 {
     }
 }
 
-
 public extension ZIP321 {
     /// Transforms this `PaymentRequest` struct into a [ZIP-321](https://zips.z.cash/zip-0321)
     /// payment request `String`
@@ -46,7 +45,6 @@ public extension ZIP321 {
     }
 
     static func request(_ payment: Payment, formattingOptions: FormattingOptions = .enumerateAllPayments) -> String {
-        uriString(from: PaymentRequest(payments: [payment]),formattingOptions: formattingOptions)
+        uriString(from: PaymentRequest(payments: [payment]), formattingOptions: formattingOptions)
     }
 }
-
