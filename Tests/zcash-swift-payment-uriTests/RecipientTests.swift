@@ -18,7 +18,6 @@ final class RecipientTests: XCTestCase {
 
         XCTAssertNotNil(recipient)
         XCTAssertEqual(recipient?.value, "asdf")
-
     }
 
     func testRecipientInitNotNilWhenNoValidationProvided() {
@@ -27,6 +26,5 @@ final class RecipientTests: XCTestCase {
 
         XCTAssertNotNil(recipient)
         XCTAssertEqual(recipient?.value, "asdf")
-
     }
 }

@@ -47,7 +47,6 @@ final class EncodingTests: XCTestCase {
         XCTAssertEqual("{".qcharEncoded(), "%7B")
         XCTAssertEqual("|".qcharEncoded(), "%7C")
         XCTAssertEqual("}".qcharEncoded(), "%7D")
-
     }
 
     func test_thatUnallowedCharactersAreEscaped() {
@@ -90,7 +89,10 @@ final class EncodingTests: XCTestCase {
                     return
                 }
 
-                XCTAssert(qcharEncoded.contains(where: { $0 == "%" }), "Control character '\(controlChar) should have been percent-encoded but it was not.")
+                XCTAssert(
+                    qcharEncoded.contains(where: { $0 == "%" }),
+                    "Control character '\(controlChar) should have been percent-encoded but it was not."
+                )
             }
     }
 }

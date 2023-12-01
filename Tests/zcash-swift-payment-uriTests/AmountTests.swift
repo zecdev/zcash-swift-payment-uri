@@ -47,5 +47,4 @@ final class AmountTests: XCTestCase {
     func testAmountParsesMaxAmount() throws {
         XCTAssertEqual(try Amount(string: "21000000").toString(), try Amount(value: 21_000_000).toString())
     }
-
 }
