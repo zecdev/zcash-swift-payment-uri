@@ -2,11 +2,43 @@
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
+#if os(macOS) && os(iOS)
+let dependencies: [Package.Dependency] = [
+    .package(url: "https://github.com/realm/SwiftLint.git", from: "0.54.0"),
+]
+
+let targets: [Target] = [
+    // Targets are the basic building blocks of a package, defining a module or a test suite.
+    // Targets can depend on other targets in this package and products from dependencies.
+    .target(
+        name: "zcash-swift-payment-uri",
+        plugins: [.plugin(name: "SwiftLintPlugin", package: "SwiftLint")]),
+    .testTarget(
+        name: "zcash-swift-payment-uriTests",
+        dependencies: ["zcash-swift-payment-uri"],
+        plugins: [.plugin(name: "SwiftLintPlugin", package: "SwiftLint")]),
+]
+#else // linux and others
+let dependencies: [Package.Dependency] = []
+
+let targets: [Target] = [
+    // Targets are the basic building blocks of a package, defining a module or a test suite.
+    // Targets can depend on other targets in this package and products from dependencies.
+    .target(
+        name: "zcash-swift-payment-uri"
+    ),
+    .testTarget(
+        name: "zcash-swift-payment-uriTests",
+        dependencies: ["zcash-swift-payment-uri"]
+    ),
+]
+#endif
 
 let package = Package(
     name: "zcash-swift-payment-uri",
     platforms: [
-        .macOS(.v12)
+        .macOS(.v12),
+        .iOS(.v16),
     ],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
@@ -14,18 +46,6 @@ let package = Package(
             name: "zcash-swift-payment-uri",
             targets: ["zcash-swift-payment-uri"]),
     ],
-    dependencies: [
-        .package(url: "https://github.com/realm/SwiftLint.git", from: "0.54.0"),
-    ],
-    targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
-        .target(
-            name: "zcash-swift-payment-uri"
-        ),
-        .testTarget(
-            name: "zcash-swift-payment-uriTests",
-            dependencies: ["zcash-swift-payment-uri"]
-        ),
-    ]
+    dependencies: dependencies,
+    targets: targets
 )
