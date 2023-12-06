@@ -1,3 +1,5 @@
+[![Swift](https://github.com/pacu/zcash-swift-payment-uri/actions/workflows/swift.yml/badge.svg?branch=main)](https://github.com/pacu/zcash-swift-payment-uri/actions/workflows/swift.yml)
+
 # zcash-swift-payment-uri
 Prototype of Zcash Payment URIs defined on ZIP-321 for Swift
 
