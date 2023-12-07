@@ -16,6 +16,26 @@ public enum ZIP321 {
         case enumerateAllPayments
         case useEmptyParamIndex(omitAddressLabel: Bool)
     }
+
+    /// Things that can go wrong when handling ZIP-321 URI Payment requests
+    public enum Errors {
+        /// A memo field in the ZIP 321 URI was not properly base-64 encoded according to [ZIP-321](https://zips.z.cash/zip-0321)
+        case invalidBase64
+        /// A memo value exceeded 512 bytes in length or could not be interpreted as a UTF-8 string
+        /// when using a valid UTF-8 lead byte
+        case memoBytesError(MemoBytes.MemoError)
+        /// The [ZIP-321](https://zips.z.cash/zip-0321) request included more payments than can be created within a single Zcash transaction. The associated value is the number of payments in the request.
+        case tooManyPayments(UInt64)
+        /// Parsing encountered a duplicate [ZIP-321](https://zips.z.cash/zip-0321) URI parameter for the returned payment index.
+        case duplicateParameter(String, UInt64)
+        /// The payment at the associated value attempted to include a memo when sending to a transparent recipient address, which is not supported by the [Zcash protocol](https://zips.z.cash/protocol/protocol.pdf).
+        case transparentMemoNotAllowed(UInt64)
+        /// The payment which index is included in the associated value did not include a recipient address.
+        case recipientMissing(UInt64)
+        /// The [ZIP-321](https://zips.z.cash/zip-0321) URI was malformed and failed to parse.
+        case parseError(String)
+
+    }
 }
 
 public extension ZIP321 {

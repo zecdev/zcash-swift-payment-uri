@@ -87,4 +87,21 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         XCTAssertEqual(ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false)), expected)
     }
+
+    func testThrowsWhenParsingInvalidBase64() {}
+
+    func testThrowsWhenMemoIsInvalid() {}
+
+    func testThrowsWhenURIHasTooManyPayments() {}
+
+    func testThrowsWhenThereAreDuplicateParameters() {}
+
+    func testThrowsWhenMemoIsAssignedToTransparentRecipient() {}
+
+    func testThrowsWhenRecipientIsMissingNoParamIndex() {}
+
+    func testThrowsWhenRecipientIsMissingWithParamIndex() {}
+
+    func testThrowsWhenParamIndexIsZero() {}
+    
 }
