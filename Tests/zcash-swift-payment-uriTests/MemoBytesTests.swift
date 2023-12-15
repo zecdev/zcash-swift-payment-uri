@@ -15,6 +15,15 @@ final class MemoBytesTests: XCTestCase {
         XCTAssertEqual(memoBytes.toBase64URL(), expectedBase64)
     }
 
+    func testInitWithBase64URL() throws {
+        let base64 = "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"
+
+        let memoBytes = try MemoBytes(base64URL: base64)
+        let expectedMemo = try MemoBytes(utf8String: "This is a simple memo.")
+
+        XCTAssertEqual(memoBytes, expectedMemo)
+    }
+
     func testInitWithBytes() throws {
         let bytes: [UInt8] = [
             0x54, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73, 0x20,
