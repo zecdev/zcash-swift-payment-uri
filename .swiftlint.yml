@@ -3,10 +3,9 @@
 
 included:
   - Sources/
-  - Tests/
 
 excluded:
-
+  - Tests/
 
 disabled_rules:
   - notification_center_detachment

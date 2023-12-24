@@ -21,27 +21,68 @@ public enum ZIP321 {
     public enum Errors: Error {
         /// There's a payment exceeding the max supply as [ZIP-321](https://zips.z.cash/zip-0321) forbids.
         case amountExceededSupply(UInt)
+
         /// There's a payment that is less than a decimal zatoshi as [ZIP-321](https://zips.z.cash/zip-0321) forbids.
         case amountTooSmall(UInt)
+
+        /// Parsing encountered a duplicate [ZIP-321](https://zips.z.cash/zip-0321) URI parameter for the returned payment index.
+        case duplicateParameter(String, UInt?)
+
+        /// An invalid address query parameter was found. paramIndex is provided in the associated value.
+        case invalidAddress(UInt?)
+
         /// A memo field in the ZIP 321 URI was not properly base-64 encoded according to [ZIP-321](https://zips.z.cash/zip-0321)
         case invalidBase64
+
+        /// not even a Zcash URI
+        case invalidURI
+
         /// A memo value exceeded 512 bytes in length or could not be interpreted as a UTF-8 string
         /// when using a valid UTF-8 lead byte
-        case memoBytesError(MemoBytes.MemoError)
+        case memoBytesError(Error, UInt?)
+
         /// The [ZIP-321](https://zips.z.cash/zip-0321) request included more payments than can be created within a single Zcash transaction. The associated value is the number of payments in the request.
         case tooManyPayments(UInt64)
-        /// Parsing encountered a duplicate [ZIP-321](https://zips.z.cash/zip-0321) URI parameter for the returned payment index.
-        case duplicateParameter(String, UInt64)
+
         /// The payment at the associated value attempted to include a memo when sending to a transparent recipient address, which is not supported by the [Zcash protocol](https://zips.z.cash/protocol/protocol.pdf).
-        case transparentMemoNotAllowed(UInt64)
+        case transparentMemoNotAllowed(UInt?)
+
         /// The payment which index is included in the associated value did not include a recipient address.
-        case recipientMissing(UInt64)
+        case recipientMissing(UInt?)
+
         /// The payment request includes a `paramIndex` that is invalid according to [ZIP-321](https://zips.z.cash/zip-0321) specs
         case invalidParamIndex(String)
+
+        /// Some invalid value was fount at a query parameter that a specific index
+        case invalidParamValue(param: String, index: UInt?)
+
         /// The [ZIP-321](https://zips.z.cash/zip-0321) URI was malformed and failed to parse.
         case parseError(String)
+        
+        /// A value was expected to be qchar-encoded but its decoding failed. Associated type has the value that failed.
+        case qcharDecodeFailed(String)
+
+        /// The parser found a required parameter it does not recognize. Associated string contains the unrecognized input.
+        /// See [Forward compatibilty](https://zips.z.cash/zip-0321#forward-compatibility)
+        /// Variables which are prefixed with a req- are considered required. If a parser does not recognize any
+        /// variables which are prefixed with req-, it MUST consider the entire URI invalid. Any other variables that
+        /// are not recognized, but that are not prefixed with a req-, SHOULD be ignored.)
+        case unknownRequiredParameter(String)
+
         /// TODO: Remove
         case unimplemented
+    }
+}
+
+extension ZIP321 {
+    static func legacyURI(from indexedParameter: IndexedParameter) throws -> ParserResult {
+        guard indexedParameter.index == 0,
+            case let Param.address(recipient) = indexedParameter.param
+        else {
+            throw ZIP321.Errors.recipientMissing(nil)
+        }
+
+        return ParserResult.legacy(recipient)
     }
 }
 
@@ -75,7 +116,26 @@ public extension ZIP321 {
         uriString(from: PaymentRequest(payments: [payment]), formattingOptions: formattingOptions)
     }
 
-    static func request(from uriString: String) throws -> PaymentRequest {
-        throw Errors.unimplemented
+    static func request(from uriString: String, validatingRecipients: RecipientAddress.ValidatingClosure? = nil) throws -> ParserResult {
+        let partialResult = try Parser.leadingAddress(uriString, validating: validatingRecipients ?? Parser.onlyCharsetValidation)
+
+        switch partialResult {
+        case (.none, .none):
+            throw ZIP321.Errors.invalidURI
+        case (.none, .some(let param)):
+            return try Self.legacyURI(from: param)
+        case let (.some(rest), optionalParam):
+            return ParserResult.request(
+                PaymentRequest(
+                    payments: try Parser.mapToPayments(
+                        try Parser.parseParameters(
+                            rest,
+                            leadingAddress: optionalParam,
+                            validating: validatingRecipients ?? Parser.onlyCharsetValidation
+                        )
+                    )
+                )
+            )
+        }
     }
 }

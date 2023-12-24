@@ -44,6 +44,12 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
         )
 
         XCTAssertEqual(ZIP321.request(payment, formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)), expected)
+
+        // Roundtrip test
+        XCTAssertEqual(
+            try ZIP321.request(from: expected, validatingRecipients: nil),
+            ParserResult.request(PaymentRequest(payments: [payment]))
+        )
     }
 
     func testMultiplePaymentsRequestStartingWithNoParamIndex() throws {
