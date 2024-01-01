@@ -238,7 +238,7 @@ enum Parser {
             }
         }
 
-        return try paramsByIndex.compactMap {
+        return try paramsByIndex.map {
             try Payment.uniqueIndexedParameters(index: $0, parameters: $1)
         }
     }
