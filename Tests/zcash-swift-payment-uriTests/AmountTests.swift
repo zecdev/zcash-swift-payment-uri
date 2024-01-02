@@ -6,12 +6,17 @@
 //
 
 import XCTest
+import BigDecimal
 @testable import zcash_swift_payment_uri
 final class AmountTests: XCTestCase {
     func testAmountStringDecimals() throws {
         XCTAssertEqual(try Amount(value: 123.456).toString(), "123.456")
 
         XCTAssertEqual("\(try Amount(value: 123.456))", "123.456")
+        
+        let stringDecimal = try Amount(string: "123.456")
+        let literalDecimal = try Amount(value: 123.456)
+        XCTAssertEqual(stringDecimal, literalDecimal)
     }
 
     func testAmountTrailing() throws {
@@ -27,7 +32,9 @@ final class AmountTests: XCTestCase {
     }
 
     func testAmountThrowsIfMaxSupply() throws {
+        XCTAssertThrowsError(try Amount(decimal: BigDecimal(21_000_000.00000001)).toString())
         XCTAssertThrowsError(try Amount(value: 21_000_000.00000001).toString())
+        XCTAssertThrowsError(try Amount(string: "21_000_000.00000001").toString())
     }
 
     func testAmountThrowsIfNegativeAmount() throws {

@@ -11,7 +11,7 @@ final class RendererTests: XCTestCase {
     func testAmountRendersNoParamIndex() throws {
         let expected = "amount=123.456"
         
-        let amount = try Amount(value: Decimal(123.456))
+        let amount = try Amount(string: "123.456")
 
         XCTAssertEqual(Render.parameter(amount, index: nil), expected)
 
@@ -21,7 +21,7 @@ final class RendererTests: XCTestCase {
     func testAmountRendersWithParamIndex() throws {
         let expected = "amount.1=123.456"
 
-        let amount = try Amount(value: Decimal(123.456))
+        let amount = try Amount(string: "123.456")
 
         XCTAssertEqual(Render.parameter(amount, index: 1), expected)
     }

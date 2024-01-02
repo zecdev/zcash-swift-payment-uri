@@ -44,7 +44,7 @@ final class ParsingTests: XCTestCase {
                     payments: [
                         Payment(
                             recipientAddress: recipient,
-                            amount: Amount(unchecked: 1.0001),
+                            amount: try Amount(string:"1.0001"),
                             memo: nil,
                             label: nil,
                             message: "lunch",
@@ -560,7 +560,7 @@ final class ParsingTests: XCTestCase {
         let value = "1.00020112"[...]
 
         XCTAssertEqual(
-            IndexedParameter(index: 0, param: .amount(try Amount(value: 1.00020112))),
+            IndexedParameter(index: 0, param: .amount(try Amount(string: String(value)))),
             try Parser.zcashParameter((query, nil, value), validating: Parser.onlyCharsetValidation)
         )
     }
@@ -944,4 +944,4 @@ final class ParsingTests: XCTestCase {
         }
     }
 }
-// swiftlint:enable line_length
+

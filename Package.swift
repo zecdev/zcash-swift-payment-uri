@@ -7,6 +7,7 @@ let dependencies: [Package.Dependency] = [
     .package(url: "https://github.com/realm/SwiftLint.git", from: "0.54.0"),
     .package(url: "https://github.com/pointfreeco/swift-parsing", from: "0.13.0"),
     .package(url: "https://github.com/pointfreeco/swift-case-paths", exact: Version(stringLiteral: "1.0.0")),
+    .package(url: "https://github.com/mgriebling/BigDecimal.git", from: "2.0.0")
 ]
 
 let targets: [Target] = [
@@ -14,7 +15,10 @@ let targets: [Target] = [
     // Targets can depend on other targets in this package and products from dependencies.
     .target(
         name: "zcash-swift-payment-uri",
-        dependencies: [.product(name: "Parsing", package: "swift-parsing")],
+        dependencies: [
+            .product(name: "Parsing", package: "swift-parsing"),
+            .product(name: "BigDecimal", package: "BigDecimal"),
+        ],
         plugins: [.plugin(name: "SwiftLintPlugin", package: "SwiftLint")]),
     .testTarget(
         name: "zcash-swift-payment-uriTests",
@@ -25,6 +29,7 @@ let targets: [Target] = [
 let dependencies: [Package.Dependency] = [
     .package(url: "https://github.com/pointfreeco/swift-parsing", from: "0.13.0"),
     .package(url: "https://github.com/pointfreeco/swift-case-paths", exact: Version(stringLiteral: "1.0.0")),
+    .package(url: "https://github.com/mgriebling/BigDecimal.git", from: "2.0.0")
 ]
 
 let targets: [Target] = [
@@ -34,6 +39,7 @@ let targets: [Target] = [
         name: "zcash-swift-payment-uri",
         dependencies: [
             .product(name: "Parsing", package: "swift-parsing"),
+            .product(name: "BigDecimal", package: "BigDecimal"),
         ]
     ),
     .testTarget(
