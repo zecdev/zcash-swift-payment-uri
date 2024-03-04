@@ -79,7 +79,7 @@ public struct Amount: Equatable {
 
         guard decimal <= Self.maxSupply.asDecimal() else { throw AmountError.greaterThanSupply }
         
-        self.value = BigDecimal(decimal).round(Self.zecRounding)
+        self.value = BigDecimal(decimal).round(Self.zecRounding).trim
     }
 
     public init(string: String) throws {

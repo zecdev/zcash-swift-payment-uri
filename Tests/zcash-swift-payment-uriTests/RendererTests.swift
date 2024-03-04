@@ -6,6 +6,7 @@
 //
 
 import XCTest
+import CustomDump
 @testable import zcash_swift_payment_uri
 final class RendererTests: XCTestCase {
     func testAmountRendersNoParamIndex() throws {
@@ -121,7 +122,7 @@ final class RendererTests: XCTestCase {
             otherParams: nil
         )
 
-        XCTAssertEqual(Render.payment(payment0, index: nil), expected)
+        XCTAssertNoDifference(Render.payment(payment0, index: nil), expected)
     }
 
     func testPaymentRendersWithParamIndex() throws {
@@ -144,7 +145,7 @@ final class RendererTests: XCTestCase {
             otherParams: nil
         )
 
-        XCTAssertEqual(Render.payment(payment1, index: 1), expected)
+        XCTAssertNoDifference(Render.payment(payment1, index: 1), expected)
     }
 
     func testPaymentRendersWithNoParamIndexAndNoAddressLabel() throws {
@@ -166,7 +167,7 @@ final class RendererTests: XCTestCase {
             otherParams: nil
         )
 
-        XCTAssertEqual(Render.payment(payment0, index: nil, omittingAddressLabel: true), expected)
+        XCTAssertNoDifference(Render.payment(payment0, index: nil, omittingAddressLabel: true), expected)
     }
 
     func testPaymentRendererIgnoresLabelOmissionWhenIndexIsProvided() throws {
@@ -189,6 +190,6 @@ final class RendererTests: XCTestCase {
             otherParams: nil
         )
 
-        XCTAssertEqual(Render.payment(payment1, index: 1, omittingAddressLabel: true), expected)
+        XCTAssertNoDifference(Render.payment(payment1, index: 1, omittingAddressLabel: true), expected)
     }
 }
