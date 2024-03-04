@@ -7,6 +7,7 @@
 
 import XCTest
 import Parsing
+import CustomDump
 @testable import zcash_swift_payment_uri
 
 final class ParsingTests: XCTestCase {
@@ -312,7 +313,7 @@ final class ParsingTests: XCTestCase {
 
         XCTAssertEqual(partial.0, "")
 
-        XCTAssertEqual(
+        XCTAssertNoDifference(
             partial.1,  "?address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=1.0001&message.1=lunch")
 
     }
@@ -379,7 +380,7 @@ final class ParsingTests: XCTestCase {
 
         let result = try Parser.leadingAddress(validAddressURI, validating: Parser.onlyCharsetValidation)
 
-        XCTAssertEqual(result.1, expected)
+        XCTAssertNoDifference(result.1, expected)
         XCTAssertEqual(result.0, nil)
     }
 
@@ -459,7 +460,7 @@ final class ParsingTests: XCTestCase {
             return
         }
 
-        XCTAssertEqual(
+        XCTAssertNoDifference(
             try Param.from(
                 queryKey: "address",
                 value: "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU",
@@ -474,7 +475,7 @@ final class ParsingTests: XCTestCase {
             return
         }
 
-        XCTAssertEqual(
+        XCTAssertNoDifference(
             try Param.from(
                 queryKey: "address",
                 value: "u1fl5mprj0t9p4jg92hjjy8q5myvwc60c9wv0xachauqpn3c3k4xwzlaueafq27dcg7tzzzaz5jl8tyj93wgs983y0jq0qfhzu6n4r8rakpv5f4gg2lrw4z6pyqqcrcqx04d38yunc6je",
@@ -491,7 +492,7 @@ final class ParsingTests: XCTestCase {
             return
         }
 
-        XCTAssertEqual(
+        XCTAssertNoDifference(
             try Param.from(
                 queryKey: "address",
                 value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
@@ -520,7 +521,7 @@ final class ParsingTests: XCTestCase {
     func testCharsetValidationPassesOnValidTransparentAddress() throws {
         let address = try Parser.transparentEncodingCharsetParser
             .parse("tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU")
-        XCTAssertEqual("tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU", address)
+        XCTAssertNoDifference("tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU", address)
     }
 
     func testCharsetValidationPassesOnValidSaplingAddress() throws {
@@ -528,7 +529,7 @@ final class ParsingTests: XCTestCase {
         let address = try Parser.saplingEncodingCharsetParser
             .parse(expected)
 
-        XCTAssertEqual("0yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", address)
+        XCTAssertNoDifference("0yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", address)
     }
 
     func testCharsetValidationPassesOnValidUnifiedAddress() throws {
@@ -536,7 +537,7 @@ final class ParsingTests: XCTestCase {
         let address = try Parser.unifiedEncodingCharsetParser
             .parse(expected)
 
-        XCTAssertEqual("fl5mprj0t9p4jg92hjjy8q5myvwc60c9wv0xachauqpn3c3k4xwzlaueafq27dcg7tzzzaz5jl8tyj93wgs983y0jq0qfhzu6n4r8rakpv5f4gg2lrw4z6pyqqcrcqx04d38yunc6je", address)
+        XCTAssertNoDifference("fl5mprj0t9p4jg92hjjy8q5myvwc60c9wv0xachauqpn3c3k4xwzlaueafq27dcg7tzzzaz5jl8tyj93wgs983y0jq0qfhzu6n4r8rakpv5f4gg2lrw4z6pyqqcrcqx04d38yunc6je", address)
     }
 
     func testZcashParameterCreatesValidAddress() throws {
@@ -548,7 +549,7 @@ final class ParsingTests: XCTestCase {
             return
         }
 
-        XCTAssertEqual(
+        XCTAssertNoDifference(
             IndexedParameter(index: 0, param: .address(recipient)),
             try Parser.zcashParameter((query, nil, value), validating: Parser.onlyCharsetValidation)
         )
@@ -559,7 +560,7 @@ final class ParsingTests: XCTestCase {
         let query = "amount"[...]
         let value = "1.00020112"[...]
 
-        XCTAssertEqual(
+        XCTAssertNoDifference(
             IndexedParameter(index: 0, param: .amount(try Amount(string: String(value)))),
             try Parser.zcashParameter((query, nil, value), validating: Parser.onlyCharsetValidation)
         )
@@ -575,7 +576,7 @@ final class ParsingTests: XCTestCase {
             return
         }
 
-        XCTAssertEqual(
+        XCTAssertNoDifference(
             IndexedParameter(index: UInt(index), param: .message(qcharDecodedValue)),
             try Parser.zcashParameter((query, index, value), validating: Parser.onlyCharsetValidation)
         )
@@ -591,7 +592,7 @@ final class ParsingTests: XCTestCase {
             return
         }
 
-        XCTAssertEqual(
+        XCTAssertNoDifference(
             IndexedParameter(index: UInt(index), param: .label(qcharDecodedValue)),
             try Parser.zcashParameter((query, index, value), validating: Parser.onlyCharsetValidation)
         )
@@ -602,7 +603,7 @@ final class ParsingTests: XCTestCase {
         let index = 99
         let value = "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"[...]
 
-        XCTAssertEqual(
+        XCTAssertNoDifference(
             IndexedParameter(index: UInt(index), param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
             try Parser.zcashParameter((query, index, value), validating: Parser.onlyCharsetValidation)
         )
@@ -613,7 +614,7 @@ final class ParsingTests: XCTestCase {
         let index = 99
         let value = "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"[...]
 
-        XCTAssertEqual(
+        XCTAssertNoDifference(
             IndexedParameter(index: UInt(index), param: .other(String(query), String(value))),
             try Parser.zcashParameter((query, index, value), validating: Parser.onlyCharsetValidation)
         )

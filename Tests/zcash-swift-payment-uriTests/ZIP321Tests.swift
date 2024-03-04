@@ -1,4 +1,5 @@
 import XCTest
+import CustomDump
 @testable import zcash_swift_payment_uri
 // swiftlint:disable line_length
 final class ZcashSwiftPaymentUriTests: XCTestCase {
@@ -10,7 +11,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             return
         }
 
-        XCTAssertEqual(
+        XCTAssertNoDifference(
             ZIP321.request(recipient),
             "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
         )
@@ -35,7 +36,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             otherParams: nil
         )
 
-        XCTAssertEqual(
+        XCTAssertNoDifference(
             ZIP321.uriString(
                 from: PaymentRequest(payments: [payment]),
                 formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)
@@ -43,10 +44,10 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             expected
         )
 
-        XCTAssertEqual(ZIP321.request(payment, formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)), expected)
+        XCTAssertNoDifference(ZIP321.request(payment, formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)), expected)
 
         // Roundtrip test
-        XCTAssertEqual(
+        XCTAssertNoDifference(
             try ZIP321.request(from: expected, validatingRecipients: nil),
             ParserResult.request(PaymentRequest(payments: [payment]))
         )
@@ -89,7 +90,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let paymentRequest = PaymentRequest(payments: [payment0, payment1])
 
-        XCTAssertEqual(ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false)), expected)
+        XCTAssertNoDifference(ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false)), expected)
     }
 
     func testParsingMultiplePaymentsRequestStartingWithNoParamIndex() throws {
@@ -131,10 +132,6 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let result = try ZIP321.request(from: uriString)
 
-
-        XCTAssertEqual(
-            result,
-            ParserResult.request(paymentRequest)
-        )
+        XCTAssertNoDifference(result, ParserResult.request(paymentRequest))
     }
 }
