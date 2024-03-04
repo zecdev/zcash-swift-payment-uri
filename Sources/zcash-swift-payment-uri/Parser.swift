@@ -99,9 +99,6 @@ enum Parser {
         "="
         CharacterSet.qchar.eraseToAnyParser()
     }
-
-    /// Parser that reads any character included in the Base58 charset.
-    static let transparentEncodingCharsetParser = CharacterSet.base58.eraseToAnyParser()
     
     /// Parser that splits a sapling address human readable and Bech32 parts and verifies that
     /// HRP is any of the accepted networks (main, test, regtest) and that the supposedly Bech32
@@ -125,6 +122,21 @@ enum Parser {
             "uregtest1"
         }
         CharacterSet.bech32.eraseToAnyParser()
+    }
+
+    static let texEncodingCharsetParser = Parse {
+        OneOf {
+            "tex1"
+            "textest1"
+        }
+        CharacterSet.bech32.eraseToAnyParser()
+    }
+
+    static let transparentEncodingCharsetParser = Parse {
+        OneOf {
+            texEncodingCharsetParser
+            CharacterSet.base58.eraseToAnyParser()
+        }
     }
 
     /// maps a parsed Query Parameter key and value into an `IndexedParameter`
@@ -408,7 +420,7 @@ extension Parser {
         case "u":
             return (try? Parser.unifiedEncodingCharsetParser.parse(address)) != nil
         case "t":
-            return (try? CharacterSet.base58.eraseToAnyParser().parse(address)) != nil
+            return (try? Parser.transparentEncodingCharsetParser.parse(address)) != nil
         default:
             return false
         }

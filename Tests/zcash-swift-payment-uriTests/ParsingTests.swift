@@ -944,5 +944,11 @@ final class ParsingTests: XCTestCase {
             }
         }
     }
+
+    func testThatTEXAddressCharsetIsValidated() throws {
+        let tex = "tex1s2rt77ggv6q989lr49rkgzmh5slsksa9khdgte"
+
+        XCTAssertNotNil(RecipientAddress(value: tex, validating: Parser.onlyCharsetValidation))
+    }
 }
 
