@@ -238,9 +238,19 @@ enum Parser {
             }
         }
 
-        return try paramsByIndex.map {
-            try Payment.uniqueIndexedParameters(index: $0, parameters: $1)
+        var payments: [Payment] = []
+
+        try paramsByIndex.keys.sorted().forEach { index in
+            guard let params = paramsByIndex[index] else {
+                throw ZIP321.Errors.invalidParamIndex(index.description)
+            }
+
+            payments.append(
+                try Payment.uniqueIndexedParameters(index: index, parameters: params)
+            )
         }
+
+            return payments
     }
 }
 
