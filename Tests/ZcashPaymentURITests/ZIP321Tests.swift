@@ -1,6 +1,6 @@
 import XCTest
 import CustomDump
-@testable import zcash_swift_payment_uri
+@testable import ZcashPaymentURI
 // swiftlint:disable line_length
 final class ZcashSwiftPaymentUriTests: XCTestCase {
     func testSingleRecipient() throws {

@@ -2,11 +2,11 @@
 //  RecipientTests.swift
 //  
 //
-//  Created by Francisco Gindre on 11/7/23.
+//  Created by Francisco Gindre on 2023-11-07.
 //
 
 import XCTest
-@testable import zcash_swift_payment_uri
+@testable import ZcashPaymentURI
 final class RecipientTests: XCTestCase {
     func testRecipientInitNilWhenValidationFails() {
         XCTAssertNil(RecipientAddress(value: "asdf", validating: { _ in false }))

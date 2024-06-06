@@ -2,12 +2,12 @@
 //  RendererTests.swift
 //  
 //
-//  Created by Francisco Gindre on 11/13/23.
+//  Created by Francisco Gindre on 2023-11-13.
 //
 
 import XCTest
 import CustomDump
-@testable import zcash_swift_payment_uri
+@testable import ZcashPaymentURI
 final class RendererTests: XCTestCase {
     func testAmountRendersNoParamIndex() throws {
         let expected = "amount=123.456"

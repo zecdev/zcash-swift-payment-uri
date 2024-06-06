@@ -8,7 +8,7 @@
 import XCTest
 import Parsing
 import CustomDump
-@testable import zcash_swift_payment_uri
+@testable import ZcashPaymentURI
 
 final class ParsingTests: XCTestCase {
     // MARK: Valid URIs

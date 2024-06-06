@@ -14,7 +14,7 @@ let targets: [Target] = [
     // Targets are the basic building blocks of a package, defining a module or a test suite.
     // Targets can depend on other targets in this package and products from dependencies.
     .target(
-        name: "zcash-swift-payment-uri",
+        name: "ZcashPaymentURI",
         dependencies: [
             .product(name: "Parsing", package: "swift-parsing"),
             .product(name: "BigDecimal", package: "BigDecimal"),
@@ -22,9 +22,9 @@ let targets: [Target] = [
         ]
     ),
     .testTarget(
-        name: "zcash-swift-payment-uriTests",
+        name: "ZcashPaymentURITests",
         dependencies: [
-            "zcash-swift-payment-uri"
+            "ZcashPaymentURI"
         ]
     ),
 ]
@@ -40,16 +40,16 @@ let targets: [Target] = [
     // Targets are the basic building blocks of a package, defining a module or a test suite.
     // Targets can depend on other targets in this package and products from dependencies.
     .target(
-        name: "zcash-swift-payment-uri",
+        name: "ZcashPaymentURI",
         dependencies: [
             .product(name: "Parsing", package: "swift-parsing"),
             .product(name: "BigDecimal", package: "BigDecimal"),
         ]
     ),
     .testTarget(
-        name: "zcash-swift-payment-uriTests",
+        name: "ZcashPaymentURITests",
         dependencies: [
-            "zcash-swift-payment-uri"
+            "ZcashPaymentURI"
         ]
     ),
 ]
@@ -64,8 +64,8 @@ let package = Package(
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
-            name: "zcash-swift-payment-uri",
-            targets: ["zcash-swift-payment-uri"]
+            name: "ZcashPaymentURI",
+            targets: ["ZcashPaymentURI"]
         ),
     ],
     dependencies: dependencies,

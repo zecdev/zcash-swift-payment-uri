@@ -2,12 +2,12 @@
 //  AmountTests.swift
 //  
 //
-//  Created by Francisco Gindre on 11/14/23.
+//  Created by Francisco Gindre on 2023-11-14
 //
 
 import XCTest
 import BigDecimal
-@testable import zcash_swift_payment_uri
+@testable import ZcashPaymentURI
 final class AmountTests: XCTestCase {
     func testAmountStringDecimals() throws {
         XCTAssertEqual(try Amount(value: 123.456).toString(), "123.456")
