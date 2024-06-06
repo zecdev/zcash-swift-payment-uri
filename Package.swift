@@ -4,7 +4,6 @@
 import PackageDescription
 #if os(macOS) || os(iOS)
 let dependencies: [Package.Dependency] = [
-    .package(url: "https://github.com/realm/SwiftLint.git", from: "0.54.0"),
     .package(url: "https://github.com/pointfreeco/swift-parsing", from: "0.13.0"),
     .package(url: "https://github.com/pointfreeco/swift-case-paths", exact: Version(stringLiteral: "1.0.0")),
     .package(url: "https://github.com/mgriebling/BigDecimal.git", from: "2.0.0"),
@@ -20,8 +19,7 @@ let targets: [Target] = [
             .product(name: "Parsing", package: "swift-parsing"),
             .product(name: "BigDecimal", package: "BigDecimal"),
             .product(name: "CustomDump", package: "swift-custom-dump")
-        ],
-        plugins: [.plugin(name: "SwiftLintPlugin", package: "SwiftLint")]
+        ]
     ),
     .testTarget(
         name: "zcash-swift-payment-uriTests",
