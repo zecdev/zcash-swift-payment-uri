@@ -1,0 +1,21 @@
+name: Publish release
+on:
+  push:
+    tags:
+      - "*.*.*"
+
+jobs:
+  publish:
+    name: Publish release
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build and Test Package
+        run: swift test
+      - name: Publish release
+        uses: ghalactic/github-release-from-tag@v5
+        with:
+            generateReleaseNotes: "true"
