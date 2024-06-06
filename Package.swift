@@ -59,7 +59,7 @@ let package = Package(
     name: "zcash-swift-payment-uri",
     platforms: [
         .macOS(.v12),
-        .iOS(.v16),
+        .iOS(.v15),
     ],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
