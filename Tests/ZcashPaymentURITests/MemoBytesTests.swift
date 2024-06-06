@@ -2,11 +2,11 @@
 //  MemoBytesTests.swift
 //  
 //
-//  Created by Francisco Gindre on 11/7/23.
+//  Created by Francisco Gindre on 2023-11-07
 //
 
 import XCTest
-@testable import zcash_swift_payment_uri
+@testable import ZcashPaymentURI
 final class MemoBytesTests: XCTestCase {
     func testInitWithString() throws {
         let expectedBase64 = "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"

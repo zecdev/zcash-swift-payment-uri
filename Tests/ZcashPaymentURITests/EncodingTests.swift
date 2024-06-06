@@ -6,7 +6,7 @@
 //
 
 import XCTest
-@testable import zcash_swift_payment_uri
+@testable import ZcashPaymentURI
 final class EncodingTests: XCTestCase {
     func test_qcharEncodedStringContainsAllowedCharactersOnly() {
         let message = "sk8:forever@!"
