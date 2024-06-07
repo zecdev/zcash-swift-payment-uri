@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+- [#55] make `Payment` public and give it a public initializer
+### Removed 
+`PaymentContext` and other unused internals
+
+### Added
+- `Payment` public initializer
+- a computed variable to access `MemoBytes` data
+## [0.1.0-beta.6] - 2024-06-06
+- [#51] remove dashes from product name
+## [0.1.0-beta.5] - 2024-06-06
+- [#49] Support iOS 15+
 ## [0.1.0-beta.4] - 2024-06-05
 - [#42] Fix SwiftLintPlugin compile error
 
