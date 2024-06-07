@@ -13,26 +13,45 @@ public struct PaymentRequest: Equatable {
 
 /// A Single payment that will be requested
 public struct Payment: Equatable {
-    struct PaymentContext {
-        var params: [Param]
-        var paramIndex: UInt?
-    }
-
-    typealias PaymentValidation = (PaymentContext) throws -> Void
-    
     /// Recipient of the payment.
-    let recipientAddress: RecipientAddress
+    public let recipientAddress: RecipientAddress
     /// The amount of the payment expressed in decimal ZEC
-    let amount: Amount
+    public let amount: Amount
     /// bytes of the ZIP-302 Memo if present. Payments to addresses that are not shielded should be reported as erroneous by wallets.
-    let memo: MemoBytes?
+    public let memo: MemoBytes?
     /// A human-readable label for this payment within the larger structure of the transaction request.
     /// this will be pct-encoded
-    let label: String?
+    public let label: String?
     /// A human-readable message to be displayed to the user describing the purpose of this payment.
-    let message: String?
+    public let message: String?
     /// A list of other arbitrary key/value pairs associated with this payment.
-    let otherParams: [OtherParam]?
+    public let otherParams: [OtherParam]?
+
+    /// Initializes a Payment struct. validation of the whole payment is deferred to the ZIP-321 serializer.
+    /// - parameter recipientAddress: a valid Zcash recipient address
+    /// - parameter amount: a valid `Amount`
+    /// - parameter memo: valid `MemoBytes`
+    /// - parameter label: a label that wallets might show to their users as a way to label this payment. 
+    /// Will not be included in the blockchain
+    /// - parameter message: a message that wallets might show to their users as part of this payment. 
+    /// Will not be included in the blockchain
+    /// - parameter otherParams: other parameters that you'd like to define. See ZIP-321 for more 
+    /// information about these parameters.
+    public init(
+        recipientAddress: RecipientAddress,
+        amount: Amount,
+        memo: MemoBytes?, 
+        label: String?,
+        message: String?,
+        otherParams: [OtherParam]?
+    ) {
+        self.recipientAddress = recipientAddress
+        self.amount = amount
+        self.memo = memo
+        self.label = label
+        self.message = message
+        self.otherParams = otherParams
+    }
 
     public static func == (lhs: Payment, rhs: Payment) -> Bool {
         lhs.amount == rhs.amount &&
@@ -110,6 +129,12 @@ public struct MemoBytes: Equatable {
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "+", with: "-")
             .replacingOccurrences(of: "=", with: "")
+    }
+}
+
+public extension MemoBytes {
+    var memoData: Data {
+        self.data
     }
 }
 
