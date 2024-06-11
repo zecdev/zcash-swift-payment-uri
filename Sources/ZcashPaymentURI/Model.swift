@@ -8,7 +8,7 @@
 import Foundation
 
 public struct PaymentRequest: Equatable {
-    let payments: [Payment]
+    public let payments: [Payment]
 }
 
 /// A Single payment that will be requested
