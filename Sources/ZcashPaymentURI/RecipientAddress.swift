@@ -11,7 +11,7 @@ import Foundation
 public struct RecipientAddress: Equatable {
     public typealias ValidatingClosure = ((String) -> Bool)
     
-    let value: String
+    public let value: String
 
     /// Initialize an opaque Recipient address that's conversible to a String with or without a validating function.
     /// - Parameter value: the string representing the recipient
