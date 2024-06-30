@@ -19,7 +19,7 @@ public struct Amount: Equatable {
 
     static let maxFractionalDecimalDigits: Int = 8
 
-    static let zecRounding = Rounding(.toNearestOrEven, maxFractionalDecimalDigits)
+    static let zecRounding = Rounding(.toNearestOrEven, 16)
 
     static let decimalHandler = NSDecimalNumberHandler(
         roundingMode: NSDecimalNumber.RoundingMode.bankers,
@@ -36,16 +36,20 @@ public struct Amount: Equatable {
 
     let value: BigDecimal
 
-    /// Initializes an Amount from a `Decimal` number
-    /// - parameter value: decimal representation of the desired amount. **Important:** `Decimal` values with more than 8 fractional digits ** will be rounded** using bankers rounding.
+    /// Initializes an Amount from a `Double` number
+    /// - parameter value: double representation of the desired amount. **Important:** `Double` values with more than 8 fractional digits ** will be rounded** using bankers rounding.
     /// - returns A valid ZEC amount
     /// - throws `Amount.AmountError` then the provided value can't represent or can't be rounded to a non-negative  ZEC decimal amount.
+    /// - important: Apparently sound `Double` values like `0.02` will result into invalid ZEC amounts if not rounded properly. Therefore all `Double` inputs are rounded to prevent further errors or undesired values.
+    /// - note: this is a convenience initializer. when possible favor the use of other initializer with safer input values
     public init(value: Double) throws {
         guard value >= 0 else { throw AmountError.negativeAmount }
 
         guard value <= Self.maxSupply.asDouble() else { throw AmountError.greaterThanSupply }
         
-        try self.init(decimal: BigDecimal(value).round(Self.zecRounding))
+        let rounded = Decimal(value).zecBankersRounding()
+
+        try self.init(decimal: rounded)
     }
 
     /// Initializes an Amount from a `BigDecimal` number
@@ -63,23 +67,28 @@ public struct Amount: Equatable {
 
         guard decimal <= Self.maxSupply else { throw AmountError.greaterThanSupply }
 
-        self.value = decimal
+        self.value = decimal.trim
     }
 
     /// Initializes an Amount from a `BigDecimal` number
     /// - parameter decimal: decimal representation of the desired amount. **Important:** `Decimal` values with more than 8 fractional digits ** will be rounded** using bankers rounding.
+    /// - parameter rounding: whether this initializer should eagerly perform a bankers rounding to
     /// - returns A valid ZEC amount
     /// - throws `Amount.AmountError` then the provided value can't represent or can't be rounded to a non-negative  ZEC decimal amount.
-    public init(decimal: Decimal) throws {
+    public init(decimal: Decimal, rounding: Bool = false) throws {
         guard decimal >= 0 else { throw AmountError.negativeAmount }
+
+        guard decimal <= Self.maxSupply.asDecimal() else { throw AmountError.greaterThanSupply }
 
         guard decimal.significantFractionalDecimalDigits <= Self.maxFractionalDecimalDigits else {
             throw AmountError.tooManyFractionalDigits
         }
 
-        guard decimal <= Self.maxSupply.asDecimal() else { throw AmountError.greaterThanSupply }
-        
-        self.value = BigDecimal(decimal).round(Self.zecRounding).trim
+        if rounding {
+            self.value = BigDecimal(decimal).round(Self.zecRounding).trim
+        } else {
+            self.value = BigDecimal(decimal).trim
+        }
     }
 
     public init(string: String) throws {
@@ -87,10 +96,6 @@ public struct Amount: Equatable {
 
         guard !decimalAmount.isNaN else {
             throw AmountError.invalidTextInput
-        }
-
-        guard decimalAmount.significantFractionalDecimalDigits <= Self.maxFractionalDecimalDigits else {
-            throw AmountError.tooManyFractionalDigits
         }
 
         try self.init(decimal: decimalAmount)
@@ -101,9 +106,7 @@ public struct Amount: Equatable {
     }
 
     public func toString() -> String {
-        let decimal = value.round(Rounding(.toNearestOrEven, Self.maxFractionalDecimalDigits)).trim
-
-        return decimal.asString(.plain) // this value is already validated.
+        return self.value.asString(.plain) // this value is already validated.
     }
 }
 
@@ -116,5 +119,13 @@ extension BigDecimal {
 extension Decimal {
     var significantFractionalDecimalDigits: Int {
         return max(-exponent, 0)
+    }
+
+    func zecBankersRounding() -> Decimal {
+        var result = Decimal()
+        var number = self
+
+        NSDecimalRound(&result, &number, Amount.maxFractionalDecimalDigits, .bankers)
+        return result
     }
 }
