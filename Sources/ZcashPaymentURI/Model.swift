@@ -40,7 +40,7 @@ public struct Payment: Equatable {
     public init(
         recipientAddress: RecipientAddress,
         amount: Amount,
-        memo: MemoBytes?, 
+        memo: MemoBytes?,
         label: String?,
         message: String?,
         otherParams: [OtherParam]?
