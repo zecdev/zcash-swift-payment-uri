@@ -6,7 +6,8 @@ import PackageDescription
 let dependencies: [Package.Dependency] = [
     .package(url: "https://github.com/pointfreeco/swift-parsing", from: "0.13.0"),
     .package(url: "https://github.com/pointfreeco/swift-case-paths", exact: Version(stringLiteral: "1.0.0")),
-    .package(url: "https://github.com/mgriebling/BigDecimal.git", from: "2.0.0"),
+    .package(url: "https://github.com/mgriebling/BigDecimal.git", exact: Version(stringLiteral: "2.2.3")),
+    .package(url: "https://github.com/mgriebling/BigInt.git", exact: Version(stringLiteral: "2.0.10")),
     .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "1.0.0")
 ]
 
@@ -18,6 +19,7 @@ let targets: [Target] = [
         dependencies: [
             .product(name: "Parsing", package: "swift-parsing"),
             .product(name: "BigDecimal", package: "BigDecimal"),
+            .product(name: "BigInt", package: "BigInt"),
             .product(name: "CustomDump", package: "swift-custom-dump")
         ]
     ),
@@ -33,6 +35,7 @@ let dependencies: [Package.Dependency] = [
     .package(url: "https://github.com/pointfreeco/swift-parsing", from: "0.13.0"),
     .package(url: "https://github.com/pointfreeco/swift-case-paths", exact: Version(stringLiteral: "1.0.0")),
     .package(url: "https://github.com/mgriebling/BigDecimal.git", from: "2.0.0"),
+    .package(url: "https://github.com/mgriebling/BigInt.git", exact: Version(stringLiteral: "2.0.11")),
     .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "1.0.0")
 ]
 
