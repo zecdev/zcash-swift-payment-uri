@@ -58,4 +58,10 @@ final class MemoBytesTests: XCTestCase {
         
         XCTAssertThrowsError(try MemoBytes(bytes: [UInt8](repeating: 0xf4, count: 513)))
     }
+
+    func testInitWithInvalidTextFails() throws {
+        let invalidCharactersMemo = "QTw+Qg"
+
+        XCTAssertThrowsError(try MemoBytes(base64URL: invalidCharactersMemo))
+    }
 }

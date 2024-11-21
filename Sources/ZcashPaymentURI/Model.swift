@@ -89,7 +89,8 @@ public struct MemoBytes: Equatable {
         
         self.data = Data(bytes)
     }
-    
+    /// Initializes a Memo from a UTF8 String.
+    /// - Important: use [`MemoBytes.init(base64URL:)`] to initialize a memo from base64URL
     public init(utf8String: String) throws {
         guard !utf8String.isEmpty else {
             throw MemoError.memoEmpty
@@ -106,7 +107,17 @@ public struct MemoBytes: Equatable {
         self.data = memoStringData
     }
 
+    /// Initializes a [`MemoBytes`] from a [RFC 4648   Base64URL](https://datatracker.ietf.org/doc/html/rfc4648#section-5)
+    /// string.
+    /// - parameter base64URL: a String confirming to the Base64URL specification
+    /// - throws [`MemoBytes.MemoError.invalidBase64URL`] if an invalid string is found.
     public init(base64URL: String) throws {
+        guard base64URL.unicodeScalars.allSatisfy({ character in
+            CharacterSet.base64URL.contains(character)
+        }) else {
+            throw MemoBytes.MemoError.invalidBase64URL
+        }
+
         var base64 = base64URL.replacingOccurrences(of: "_", with: "/")
             .replacingOccurrences(of: "-", with: "+")
         
@@ -251,4 +262,12 @@ extension CharacterSet {
                 "}"
             )
         )
+
+    /// [RFC 4648  Base64URL](https://www.rfc-editor.org/rfc/rfc4648.html#section-5) Character Set.
+    /// A-Z, a-z, 0-9, _, -
+    /// - Note: a Base64URL value can be defined using the following regular expression:
+    /// ^[A-Za-z0-9_-]+$
+    static let base64URL = ASCIINum
+        .union(.ASCIIAlpha)
+        .union(CharacterSet(arrayLiteral: "-", "_"))
 }
