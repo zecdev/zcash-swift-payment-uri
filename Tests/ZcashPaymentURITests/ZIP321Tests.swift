@@ -134,4 +134,10 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         XCTAssertNoDifference(result, ParserResult.request(paymentRequest))
     }
+
+    func testURIRequestWithInvalidCharsFails() throws {
+        let invalidBase64URI = "zcash:u19spl3y4zu73twemxrzm33tm3eefepecv4zdssn0hfd4tjaqpgmlcm9nhyjqlvaytwpknqjqctvdscjmg47ex20j03cu4gx3zmy26y2hunpenvw083dmtlq4y7re5rwsygpteq57wwllr3zhs4rw43j5puxgrcqdq4f9dd38qksl4f9p2hc7x3kj582zdjxsnj8urmnc3msfjw72kej0?amount=0.01&memo=QTw+Qg"
+
+        XCTAssertThrowsError(try ZIP321.request(from: invalidBase64URI))
+    }
 }
