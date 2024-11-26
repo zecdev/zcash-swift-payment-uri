@@ -107,7 +107,7 @@ public struct MemoBytes: Equatable {
         self.data = memoStringData
     }
 
-    /// Initializes a [`MemoBytes`] from a [RFC 4648   Base64URL](https://datatracker.ietf.org/doc/html/rfc4648#section-5)
+    /// Initializes a [`MemoBytes`] from an [RFC-4648 Base64URL](https://datatracker.ietf.org/doc/html/rfc4648#section-5)
     /// string.
     /// - parameter base64URL: a String confirming to the Base64URL specification
     /// - throws [`MemoBytes.MemoError.invalidBase64URL`] if an invalid string is found.
