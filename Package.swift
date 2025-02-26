@@ -8,7 +8,8 @@ let dependencies: [Package.Dependency] = [
     .package(url: "https://github.com/pointfreeco/swift-case-paths", exact: Version(stringLiteral: "1.0.0")),
     .package(url: "https://github.com/mgriebling/BigDecimal.git", exact: Version(stringLiteral: "2.2.3")),
     .package(url: "https://github.com/mgriebling/BigInt.git", exact: Version(stringLiteral: "2.0.10")),
-    .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "1.0.0")
+    .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "1.0.0"),
+    .package(url: "https://github.com/mgriebling/UInt128.git", exact: Version(stringLiteral: "3.1.5")),
 ]
 
 let targets: [Target] = [
@@ -36,7 +37,8 @@ let dependencies: [Package.Dependency] = [
     .package(url: "https://github.com/pointfreeco/swift-case-paths", exact: Version(stringLiteral: "1.0.0")),
     .package(url: "https://github.com/mgriebling/BigDecimal.git", from: "2.0.0"),
     .package(url: "https://github.com/mgriebling/BigInt.git", exact: Version(stringLiteral: "2.0.11")),
-    .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "1.0.0")
+    .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "1.0.0"),
+    .package(url: "https://github.com/mgriebling/UInt128.git", exact: Version(stringLiteral: "3.1.5")),
 ]
 
 let targets: [Target] = [
