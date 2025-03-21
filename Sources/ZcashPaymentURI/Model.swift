@@ -44,7 +44,10 @@ public struct Payment: Equatable {
         label: String?,
         message: String?,
         otherParams: [OtherParam]?
-    ) {
+    ) throws {
+        if memo != nil && !recipientAddress.canReceiveMemos {
+            throw ZIP321.Errors.transparentMemoNotAllowed(nil)
+        }
         self.recipientAddress = recipientAddress
         self.amount = amount
         self.memo = memo

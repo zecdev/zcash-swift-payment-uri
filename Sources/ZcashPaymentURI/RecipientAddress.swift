@@ -9,9 +9,13 @@ import Foundation
 
 /// Represents a Zcash recipient address.
 public struct RecipientAddress: Equatable {
+    public typealias Network = ParserContext
     public typealias ValidatingClosure = ((String) -> Bool)
     
+    /// string-encoded value of the address
     public let value: String
+    /// network that the recipient address is assumed to be for
+    public let network: Network
 
     /// Initialize an opaque Recipient address that's conversible to a String with or without a validating function.
     /// - Parameter value: the string representing the recipient
@@ -19,6 +23,7 @@ public struct RecipientAddress: Equatable {
     /// - Parameter validating: a closure that validates the given input. If none is provided, default validations will be performed.
     /// - Returns: `nil` if the validating function resolves the input as invalid, or a `RecipientAddress` if the input is valid or no validating closure is passed.
     public init?(value: String, context: ParserContext, validating: ValidatingClosure? = nil) {
+        self.network = context
         switch validating?(value) {
         case .none, .some(true):
             self.value = value
@@ -30,7 +35,11 @@ public struct RecipientAddress: Equatable {
 
 extension RecipientAddress {
     var isTransparent: Bool {
-        self.value.starts(with: "t")
+        self.network.isTransparent(address: self.value)
+    }
+    
+    var canReceiveMemos: Bool {
+        self.network.isShielded(address: self.value)
     }
 }
 

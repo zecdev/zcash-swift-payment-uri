@@ -113,7 +113,7 @@ final class RendererTests: XCTestCase {
             return
         }
 
-        let payment0 = Payment(
+        let payment0 = try Payment(
             recipientAddress: recipient0,
             amount: try Amount(value: 123.456),
             memo: nil,
@@ -136,7 +136,7 @@ final class RendererTests: XCTestCase {
             return
         }
 
-        let payment1 = Payment(
+        let payment1 = try Payment(
             recipientAddress: recipient1,
             amount: try Amount(value: 0.789),
             memo: try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"),
@@ -158,7 +158,7 @@ final class RendererTests: XCTestCase {
             return
         }
 
-        let payment0 = Payment(
+        let payment0 = try Payment(
             recipientAddress: recipient0,
             amount: try Amount(value: 123.456),
             memo: nil,
@@ -181,7 +181,7 @@ final class RendererTests: XCTestCase {
             return
         }
 
-        let payment1 = Payment(
+        let payment1 = try Payment(
             recipientAddress: recipient1,
             amount: try Amount(value: 0.789),
             memo: try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"),

@@ -29,7 +29,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             return
         }
 
-        let payment = Payment(
+        let payment = try Payment(
             recipientAddress: recipient,
             amount: try Amount(value: 1),
             memo: try MemoBytes(utf8String: "This is a simple memo."),
@@ -65,7 +65,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             return
         }
 
-        let payment0 = Payment(
+        let payment0 = try Payment(
             recipientAddress: recipient0,
             amount: try Amount(value: 123.456),
             memo: nil,
@@ -81,7 +81,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             return
         }
 
-        let payment1 = Payment(
+        let payment1 = try Payment(
             recipientAddress: recipient1,
             amount: try Amount(value: 0.789),
             memo: try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"),
@@ -105,7 +105,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             return
         }
 
-        let payment0 = Payment(
+        let payment0 = try Payment(
             recipientAddress: recipient0,
             amount: try Amount(value: 123.456),
             memo: nil,
@@ -121,7 +121,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             return
         }
 
-        let payment1 = Payment(
+        let payment1 = try Payment(
             recipientAddress: recipient1,
             amount: try Amount(value: 0.789),
             memo: try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"),
@@ -141,5 +141,9 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
         let invalidBase64URI = "zcash:u19spl3y4zu73twemxrzm33tm3eefepecv4zdssn0hfd4tjaqpgmlcm9nhyjqlvaytwpknqjqctvdscjmg47ex20j03cu4gx3zmy26y2hunpenvw083dmtlq4y7re5rwsygpteq57wwllr3zhs4rw43j5puxgrcqdq4f9dd38qksl4f9p2hc7x3kj582zdjxsnj8urmnc3msfjw72kej0?amount=0.01&memo=QTw+Qg"
 
         XCTAssertThrowsError(try ZIP321.request(from: invalidBase64URI, context: .mainnet))
+    }
+    
+    func testEnsureThatAllPaymentsBelongToTheSameNetwork() throws {
+        XCTFail()
     }
 }

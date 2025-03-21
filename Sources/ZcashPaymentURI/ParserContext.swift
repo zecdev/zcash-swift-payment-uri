@@ -62,7 +62,7 @@ extension ParserContext {
             "t3"
         case .testnet:
             // TODO: Check whether there is a testnet prefix
-            "t3"
+            "t2"
         case .regtest:
             // TODO: Check whether there is a regtest prefix
             "t3"
@@ -75,10 +75,21 @@ extension ParserContext {
             "t1"
         case .testnet:
             // TODO: Check whether there is a testnet prefix
-            "t1"
+            "tm"
         case .regtest:
             // TODO: Check whether there is a regtest prefix
-            "t1"
+            "tm"
+        }
+    }
+    
+    var texPrefix: String {
+        switch self {
+        case .mainnet:
+            "tex"
+        case .testnet:
+            "textest"
+        case .regtest:
+            "texregtest"
         }
     }
 }
@@ -94,7 +105,8 @@ extension ParserContext: AddressValidator {
     
     public func isTransparent(address: String) -> Bool {
         address.hasPrefix(self.p2pkhPrefix) ||
-        address.hasPrefix(self.p2shPrefix)
+        address.hasPrefix(self.p2shPrefix) ||
+        address.hasPrefix(self.texPrefix)
     }
     
     public func isSprout(address: String) -> Bool {

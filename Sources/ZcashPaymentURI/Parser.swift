@@ -329,15 +329,22 @@ extension Payment {
                 other.append(OtherParam(key: key, value: value))
             }
         }
-
-        return Payment(
-            recipientAddress: address,
-            amount: amount ?? .zero,
-            memo: memo,
-            label: label,
-            message: message,
-            otherParams: other.isEmpty ? nil : other
-        )
+        
+        do {
+            return try Payment(
+                recipientAddress: address,
+                amount: amount ?? .zero,
+                memo: memo,
+                label: label,
+                message: message,
+                otherParams: other.isEmpty ? nil : other
+            )
+        } catch ZIP321.Errors.transparentMemoNotAllowed {
+            throw ZIP321.Errors.transparentMemoNotAllowed(index)
+        } catch {
+            throw error
+        }
+       
     }
 }
 

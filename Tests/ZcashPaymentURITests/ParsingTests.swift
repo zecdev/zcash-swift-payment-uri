@@ -43,7 +43,7 @@ final class ParsingTests: XCTestCase {
             ParserResult.request(
                 PaymentRequest(
                     payments: [
-                        Payment(
+                        try Payment(
                             recipientAddress: recipient,
                             amount: try Amount(string:"1.0001"),
                             memo: nil,
@@ -869,7 +869,7 @@ final class ParsingTests: XCTestCase {
         let payment = try Payment.uniqueIndexedParameters(index: 1, parameters: params)
 
         XCTAssertEqual(
-            Payment(
+            try Payment(
                 recipientAddress: recipient,
                 amount: try Amount(value: 1),
                 memo: nil,
