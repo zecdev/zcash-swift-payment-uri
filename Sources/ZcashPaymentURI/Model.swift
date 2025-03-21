@@ -9,6 +9,20 @@ import Foundation
 
 public struct PaymentRequest: Equatable {
     public let payments: [Payment]
+    
+    /// Create a Payment Request from a sequence of payments
+    /// - parameter payments: a sequence of ``Payment`` structs
+    /// - throws: ``ZIP321.Errors.networkMismatchFound`` if more than one
+    /// kind of ``RecipientAddress.Network`` payment recipients are found.
+    public init(payments: [Payment]) throws {
+        try payments.enforceNetworkCoherence()
+        self.payments = payments
+    }
+    
+    /// Create Payment Request from a single ``Payment`` struct
+    public init(singlePayment: Payment) {
+        self.payments = [singlePayment]
+    }
 }
 
 /// A Single payment that will be requested
@@ -273,4 +287,19 @@ extension CharacterSet {
     static let base64URL = ASCIINum
         .union(.ASCIIAlpha)
         .union(CharacterSet(arrayLiteral: "-", "_"))
+}
+
+
+extension Array where Element == Payment {
+    func enforceNetworkCoherence() throws {
+        var networkSet = Set<RecipientAddress.Network>()
+        
+        for payment in self {
+            networkSet.insert(payment.recipientAddress.network)
+            
+            guard networkSet.count == 1 else {
+                throw ZIP321.Errors.networkMismatchFound
+            }
+        }
+    }
 }

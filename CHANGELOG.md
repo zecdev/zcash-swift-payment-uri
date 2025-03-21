@@ -6,10 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased 
+This release contains several **API breaking changes**, but let not be discouraged to
+update! These changes are made to add several checks to the library to ensure that your payment
+requests stick to the ZIP-320 specification.
+
 - Create `ParserContext` enum which enables definitions that are network-dependent 
 - Create `AddressValidator` Protocol to define address validators.
-- Adds `ParserContext` to RecipientAddress initializer and to parser methods that are
+- Add `ParserContext` to RecipientAddress initializer and to parser methods that are
 context-aware
+- `PaymentRequest` individual payments are checked to ensure they all belong to the same network.
+Network is determined by the HRP of the addresses.
+- HRPs of `RecipientAddress` are verified to determine whether they could belong to a certain network 
+and/or Zcash pool.
+- **Important:** Formal verification still must be provided by callers. The checks included by 
+``AddressValidator`` default implementation does not check Bech32 validity. 
 
 ## [0.1.0-beta.10] - 2024-11-26
 

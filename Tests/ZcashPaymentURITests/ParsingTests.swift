@@ -41,7 +41,7 @@ final class ParsingTests: XCTestCase {
         XCTAssertEqual(
             result,
             ParserResult.request(
-                PaymentRequest(
+                try PaymentRequest(
                     payments: [
                         try Payment(
                             recipientAddress: recipient,

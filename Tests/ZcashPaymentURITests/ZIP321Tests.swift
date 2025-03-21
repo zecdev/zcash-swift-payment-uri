@@ -40,7 +40,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         XCTAssertNoDifference(
             ZIP321.uriString(
-                from: PaymentRequest(payments: [payment]),
+                from: try PaymentRequest(payments: [payment]),
                 formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)
             ),
             expected
@@ -51,7 +51,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
         // Roundtrip test
         XCTAssertNoDifference(
             try ZIP321.request(from: expected, context: .testnet, validatingRecipients: nil),
-            ParserResult.request(PaymentRequest(payments: [payment]))
+            ParserResult.request(try PaymentRequest(payments: [payment]))
         )
     }
 
@@ -90,7 +90,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             otherParams: nil
         )
 
-        let paymentRequest = PaymentRequest(payments: [payment0, payment1])
+        let paymentRequest = try PaymentRequest(payments: [payment0, payment1])
 
         XCTAssertNoDifference(ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false)), expected)
     }
@@ -130,7 +130,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             otherParams: nil
         )
 
-        let paymentRequest = PaymentRequest(payments: [payment0, payment1])
+        let paymentRequest = try PaymentRequest(payments: [payment0, payment1])
 
         let result = try ZIP321.request(from: uriString, context: .testnet)
 
@@ -144,6 +144,54 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
     }
     
     func testEnsureThatAllPaymentsBelongToTheSameNetwork() throws {
-        XCTFail()
+
+        let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
+
+        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
+            XCTFail("failed to create recipient without validation for address: \(address0)")
+            return
+        }
+
+        let payment0 = try Payment(
+            recipientAddress: recipient0,
+            amount: try Amount(value: 123.456),
+            memo: nil,
+            label: nil,
+            message: nil,
+            otherParams: nil
+        )
+
+        let address1 = "zs10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
+
+        guard let recipient1 = RecipientAddress(value: address1, context: .mainnet) else {
+            XCTFail("failed to create recipient without validation for address: \(address1)")
+            return
+        }
+
+        let payment1 = try Payment(
+            recipientAddress: recipient1,
+            amount: try Amount(value: 0.789),
+            memo: try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"),
+            label: nil,
+            message: nil,
+            otherParams: nil
+        )
+
+        
+        XCTAssertThrowsError(try PaymentRequest(payments: [payment0, payment1])) { err in
+
+            switch err {
+            case ZIP321.Errors.networkMismatchFound:
+                XCTAssert(true)
+            default:
+                XCTFail(
+                        """
+                        Expected \(String(describing: ZIP321.Errors.networkMismatchFound))
+                        but \(err) was thrown instead
+                        """
+                )
+            }
+        }
+
     }
 }

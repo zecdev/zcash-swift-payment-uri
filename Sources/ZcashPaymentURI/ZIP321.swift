@@ -71,6 +71,9 @@ public enum ZIP321 {
 
         /// The parser found a Sprout recipient and these are explicitly not allowed by the ZIP-321 specification
         case sproutRecipientsNotAllowed(UInt?)
+        
+        /// Not all of the payments of this request belong to the same network
+        case networkMismatchFound
     }
 }
 
@@ -113,7 +116,7 @@ public extension ZIP321 {
     }
 
     static func request(_ payment: Payment, formattingOptions: FormattingOptions = .enumerateAllPayments) -> String {
-        uriString(from: PaymentRequest(payments: [payment]), formattingOptions: formattingOptions)
+        uriString(from: PaymentRequest(singlePayment: payment), formattingOptions: formattingOptions)
     }
 
     static func request(
@@ -133,7 +136,7 @@ public extension ZIP321 {
             return try Self.legacyURI(from: param)
         case let (.some(rest), optionalParam):
             return ParserResult.request(
-                PaymentRequest(
+               try PaymentRequest(
                     payments: try Parser
                         .mapToPayments(
                             try Parser
