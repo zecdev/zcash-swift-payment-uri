@@ -69,8 +69,8 @@ public enum ZIP321 {
         /// are not recognized, but that are not prefixed with a req-, SHOULD be ignored.)
         case unknownRequiredParameter(String)
 
-        /// TODO: Remove
-        case unimplemented
+        /// The parser found a Sprout recipient and these are explicitly not allowed by the ZIP-321 specification
+        case sproutRecipientsNotAllowed(UInt?)
     }
 }
 
@@ -116,8 +116,15 @@ public extension ZIP321 {
         uriString(from: PaymentRequest(payments: [payment]), formattingOptions: formattingOptions)
     }
 
-    static func request(from uriString: String, validatingRecipients: RecipientAddress.ValidatingClosure? = nil) throws -> ParserResult {
-        let partialResult = try Parser.leadingAddress(uriString, validating: validatingRecipients ?? Parser.onlyCharsetValidation)
+    static func request(
+        from uriString: String,
+        context: ParserContext,
+        validatingRecipients: RecipientAddress.ValidatingClosure? = nil) throws -> ParserResult {
+        let partialResult = try Parser.leadingAddress(
+            uriString,
+            context: context,
+            validating: validatingRecipients ?? Parser.onlyCharsetValidation
+        )
 
         switch partialResult {
         case (.none, .none):
@@ -127,10 +134,13 @@ public extension ZIP321 {
         case let (.some(rest), optionalParam):
             return ParserResult.request(
                 PaymentRequest(
-                    payments: try Parser.mapToPayments(
-                        try Parser.parseParameters(
-                            rest,
-                            leadingAddress: optionalParam,
+                    payments: try Parser
+                        .mapToPayments(
+                            try Parser
+                                .parseParameters(
+                                    rest,
+                                    leadingAddress: optionalParam,
+                                    context: context,
                             validating: validatingRecipients ?? Parser.onlyCharsetValidation
                         )
                     )

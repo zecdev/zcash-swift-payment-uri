@@ -32,7 +32,7 @@ final class RendererTests: XCTestCase {
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0) else {
+        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
             XCTFail("failed to create recipient without validation for address: \(address0)")
             return
         }
@@ -45,7 +45,7 @@ final class RendererTests: XCTestCase {
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0) else {
+        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
             XCTFail("failed to create recipient without validation for address: \(address0)")
             return
         }
@@ -108,7 +108,7 @@ final class RendererTests: XCTestCase {
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0) else {
+        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
             XCTFail("failed to create recipient without validation for address: \(address0)")
             return
         }
@@ -131,7 +131,7 @@ final class RendererTests: XCTestCase {
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        guard let recipient1 = RecipientAddress(value: address1) else {
+        guard let recipient1 = RecipientAddress(value: address1, context: .testnet) else {
             XCTFail("failed to create recipient without validation for address: \(address1)")
             return
         }
@@ -153,7 +153,7 @@ final class RendererTests: XCTestCase {
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0) else {
+        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
             XCTFail("failed to create recipient without validation for address: \(address0)")
             return
         }
@@ -176,7 +176,7 @@ final class RendererTests: XCTestCase {
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        guard let recipient1 = RecipientAddress(value: address1) else {
+        guard let recipient1 = RecipientAddress(value: address1, context: .testnet) else {
             XCTFail("failed to create recipient without validation for address: \(address1)")
             return
         }

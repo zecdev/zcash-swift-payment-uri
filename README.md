@@ -41,7 +41,7 @@ Payments requests that do not specify any other information than recipient addre
 `zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez`
 
 ````Swift
-let recipient = RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez")!
+let recipient = RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet)!
 
 ZIP321.request(recipient)
 ````
@@ -51,7 +51,7 @@ Desired Payment URI
 `zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=1&memo=VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg&message=Thank%20you%20for%20your%20purchase`
 
 ````Swift
- let recipient = RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez")!
+ let recipient = RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet)!
 
 let payment = Payment(
     recipientAddress: recipient,
@@ -76,7 +76,7 @@ This payment Request is using `paramlabel`s with empty `paramindex` and number i
 
 let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-let recipient0 = RecipientAddress(value: address0)!
+let recipient0 = RecipientAddress(value: address0, context: .testnet)!
 
 let payment0 = Payment(
     recipientAddress: recipient0,
@@ -89,7 +89,7 @@ let payment0 = Payment(
 
 let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-let recipient1 = RecipientAddress(value: address1)!
+let recipient1 = RecipientAddress(value: address1, context: .testnet)!
 
 let payment1 = Payment(
     recipientAddress: recipient1,
@@ -114,7 +114,7 @@ Given a possible Zcash Payment URI
 ````Swift
 let possibleURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=1&memo=VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg&message=Thank%20you%20for%20your%20purchase"
 
-let paymentRequest = try ZIP321.request(from: possibleURI)
+let paymentRequest = try ZIP321.request(from: possibleURI, context: .testnet)
 ````
 
 This will return either an error with information about the parsing failure, or in this case
@@ -140,7 +140,7 @@ The parser supports legacy URI of transparent ZEC wallets that resemble to
 Bitcoin URIs.
 
 ````Swift
-let uri = ZIP321.request("zcash:tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU")
+let uri = ZIP321.request("zcash:tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU", context: .testnet)
 ````
 
 returns a 

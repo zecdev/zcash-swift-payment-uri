@@ -144,6 +144,7 @@ enum Parser {
     static func zcashParameter(
         // swiftlint:disable:next large_tuple
         _ input: (Substring, Int?, Substring),
+        context: ParserContext,
         validating: @escaping RecipientAddress.ValidatingClosure = Parser.onlyCharsetValidation
     ) throws -> IndexedParameter {
         let queryKey = String(input.0)
@@ -163,6 +164,7 @@ enum Parser {
             queryKey: queryKey,
             value: value,
             index: index,
+            context: context,
             validating: validating
         )
 
@@ -176,6 +178,7 @@ enum Parser {
     /// subsequence.
     static func leadingAddress(
         _ input: String,
+        context: ParserContext,
         validating: @escaping RecipientAddress.ValidatingClosure = Parser.onlyCharsetValidation
     ) throws -> (Substring?, IndexedParameter?) {
         guard input.starts(with: "zcash:") else {
@@ -185,7 +188,11 @@ enum Parser {
         let partial = try maybeLeadingAddress.parse(input)
 
         if let maybeAddress = partial.0, !maybeAddress.isEmpty {
-            guard let address = RecipientAddress(value: String(maybeAddress), validating: validating) else {
+            guard let address = RecipientAddress(value: String(maybeAddress), context: context, validating: validating) else {
+                if context.isSprout(address: String(maybeAddress)) {
+                    throw ZIP321.Errors.sproutRecipientsNotAllowed(nil)
+                }
+                
                 throw ZIP321.Errors.invalidAddress(nil)
             }
 
@@ -203,6 +210,7 @@ enum Parser {
     static func parseParameters(
         _ substring: Substring.SubSequence,
         leadingAddress: IndexedParameter?,
+        context: ParserContext,
         validating: @escaping RecipientAddress.ValidatingClosure = onlyCharsetValidation
     ) throws -> [IndexedParameter] {
         var indexedParameters: [IndexedParameter] = []
@@ -221,7 +229,7 @@ enum Parser {
                 }
             }
             .parse(substring)
-            .map { try zcashParameter($0, validating: validating) }
+            .map { try zcashParameter($0, context: context, validating: validating) }
         )
 
         return indexedParameters
@@ -353,13 +361,21 @@ extension Param {
         queryKey: String,
         value: String,
         index: UInt,
+        context: ParserContext,
         validating: @escaping RecipientAddress.ValidatingClosure
     ) throws -> Param {
         let paramName = ParamName(rawValue: queryKey)
 
         switch paramName {
         case .address:
-            guard let addr = RecipientAddress(value: value, validating: validating) else {
+            guard let addr = RecipientAddress(
+                value: value,
+                context: context,
+                validating: validating
+            ) else {
+                if context.isSprout(address: value) {
+                    throw ZIP321.Errors.sproutRecipientsNotAllowed(index > 0 ? index : nil)
+                }
                 throw ZIP321.Errors.invalidAddress(index > 0 ? index : nil)
             }
 

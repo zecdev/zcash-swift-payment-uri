@@ -5,7 +5,8 @@ import CustomDump
 final class ZcashSwiftPaymentUriTests: XCTestCase {
     func testSingleRecipient() throws {
         guard let recipient = RecipientAddress(
-            value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
+            value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
+            context: .testnet
         ) else {
             XCTFail("failed to create Recipient from unchecked source")
             return
@@ -21,7 +22,8 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
         let expected = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=1&memo=VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg&message=Thank%20you%20for%20your%20purchase"
 
         guard let recipient = RecipientAddress(
-            value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
+            value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
+            context: .testnet
         ) else {
             XCTFail("failed to create Recipient from unchecked source")
             return
@@ -48,7 +50,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         // Roundtrip test
         XCTAssertNoDifference(
-            try ZIP321.request(from: expected, validatingRecipients: nil),
+            try ZIP321.request(from: expected, context: .testnet, validatingRecipients: nil),
             ParserResult.request(PaymentRequest(payments: [payment]))
         )
     }
@@ -58,7 +60,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0) else {
+        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
             XCTFail("failed to create recipient without validation for address: \(address0)")
             return
         }
@@ -74,7 +76,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        guard let recipient1 = RecipientAddress(value: address1) else {
+        guard let recipient1 = RecipientAddress(value: address1, context: .testnet) else {
             XCTFail("failed to create recipient without validation for address: \(address1)")
             return
         }
@@ -98,7 +100,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0) else {
+        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
             XCTFail("failed to create recipient without validation for address: \(address0)")
             return
         }
@@ -114,7 +116,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        guard let recipient1 = RecipientAddress(value: address1) else {
+        guard let recipient1 = RecipientAddress(value: address1, context: .testnet) else {
             XCTFail("failed to create recipient without validation for address: \(address1)")
             return
         }
@@ -130,7 +132,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let paymentRequest = PaymentRequest(payments: [payment0, payment1])
 
-        let result = try ZIP321.request(from: uriString)
+        let result = try ZIP321.request(from: uriString, context: .testnet)
 
         XCTAssertNoDifference(result, ParserResult.request(paymentRequest))
     }
@@ -138,6 +140,6 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
     func testURIRequestWithInvalidCharsFails() throws {
         let invalidBase64URI = "zcash:u19spl3y4zu73twemxrzm33tm3eefepecv4zdssn0hfd4tjaqpgmlcm9nhyjqlvaytwpknqjqctvdscjmg47ex20j03cu4gx3zmy26y2hunpenvw083dmtlq4y7re5rwsygpteq57wwllr3zhs4rw43j5puxgrcqdq4f9dd38qksl4f9p2hc7x3kj582zdjxsnj8urmnc3msfjw72kej0?amount=0.01&memo=QTw+Qg"
 
-        XCTAssertThrowsError(try ZIP321.request(from: invalidBase64URI))
+        XCTAssertThrowsError(try ZIP321.request(from: invalidBase64URI, context: .mainnet))
     }
 }
