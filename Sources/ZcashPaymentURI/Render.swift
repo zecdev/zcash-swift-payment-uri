@@ -79,22 +79,35 @@ enum Render {
         if index == nil && omittingAddressLabel {
             // mark the start of the query params. Otherwise this will marked by caller
             result.append("?")
-        } else {
-            result.append("&")
         }
-
-        result.append("\(parameter(payment.amount, index: index))")
+        
+        if let amount = payment.amount {
+            if !result.hasSuffix("?") {
+                result.append("&")
+            }
+            result.append("\(parameter(amount, index: index))")
+        }
+        
 
         if let memo = payment.memo {
-            result.append("&\(parameter(memo, index: index))")
+            if !result.hasSuffix("?") {
+                result.append("&")
+            }
+            result.append("\(parameter(memo, index: index))")
         }
 
         if let label = payment.label {
-            result.append("&\(parameter(label: label, index: index))")
+            if !result.hasSuffix("?") {
+                result.append("&")
+            }
+            result.append("\(parameter(label: label, index: index))")
         }
 
         if let message = payment.message {
-            result.append("&\(parameter(message: message, index: index))")
+            if !result.hasSuffix("?") {
+                result.append("&")
+            }
+            result.append("\(parameter(message: message, index: index))")
         }
 
         return result

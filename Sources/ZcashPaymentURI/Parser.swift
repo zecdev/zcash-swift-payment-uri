@@ -270,7 +270,7 @@ enum Parser {
             )
         }
 
-            return payments
+        return payments
     }
 }
 
@@ -333,7 +333,7 @@ extension Payment {
         do {
             return try Payment(
                 recipientAddress: address,
-                amount: amount ?? .zero,
+                amount: amount,
                 memo: memo,
                 label: label,
                 message: message,
