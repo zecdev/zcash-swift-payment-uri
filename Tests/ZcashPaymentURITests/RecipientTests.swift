@@ -14,20 +14,20 @@ final class RecipientTests: XCTestCase {
         XCTAssertNil(RecipientAddress(value: "asdf", context: .regtest, validating: { _ in false }))
     }
 
-    func testRecipientInitNotNilWhenValidationFails() {
+    func testRecipientInitNilWhenContextValidationFailsAndCustomValidationDoesNot() {
         let expected = "asdf"
         let recipient = RecipientAddress(value: expected, context: .mainnet, validating: { _ in true })
 
-        XCTAssertNotNil(recipient)
-        XCTAssertEqual(recipient?.value, "asdf")
+        XCTAssertNil(recipient)
+        
     }
 
-    func testRecipientInitNotNilWhenNoValidationProvided() {
+    func testRecipientInitNilWhenNoCustomValidationProvidedWithInvalidAddress() {
         let expected = "asdf"
         let recipient = RecipientAddress(value: expected, context: .mainnet)
 
-        XCTAssertNotNil(recipient)
-        XCTAssertEqual(recipient?.value, "asdf")
+        XCTAssertNil(recipient)
+        
     }
     
     func testPrefixValidationRejectsSproutAddresses() {
@@ -48,5 +48,9 @@ final class RecipientTests: XCTestCase {
         
         XCTAssertTrue(ParserContext.testnet.isTransparent(address: "textest1qyqszqgpqyqszqgpqyqszqgpqyqszqgpfcjgfy"))
         
+    }
+    
+    func testRecipientAddressDetectsInvalidCharacters() throws {
+        XCTAssertNil(RecipientAddress(value: "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpUʔamount 1ꓸ234", context: .testnet))
     }
 }

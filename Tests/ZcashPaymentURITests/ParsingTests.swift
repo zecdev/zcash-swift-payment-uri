@@ -517,7 +517,7 @@ final class ParsingTests: XCTestCase {
             Param.address(recipientT)
         )
 
-        guard let recipientU = RecipientAddress(value: "u1fl5mprj0t9p4jg92hjjy8q5myvwc60c9wv0xachauqpn3c3k4xwzlaueafq27dcg7tzzzaz5jl8tyj93wgs983y0jq0qfhzu6n4r8rakpv5f4gg2lrw4z6pyqqcrcqx04d38yunc6je", context: .testnet) else {
+        guard let recipientU = RecipientAddress(value: "u1fl5mprj0t9p4jg92hjjy8q5myvwc60c9wv0xachauqpn3c3k4xwzlaueafq27dcg7tzzzaz5jl8tyj93wgs983y0jq0qfhzu6n4r8rakpv5f4gg2lrw4z6pyqqcrcqx04d38yunc6je", context: .mainnet) else {
             XCTFail("Unified Recipient couldn't be created")
             return
         }
@@ -526,7 +526,7 @@ final class ParsingTests: XCTestCase {
             try Param.from(
                 queryKey: "address",
                 value: "u1fl5mprj0t9p4jg92hjjy8q5myvwc60c9wv0xachauqpn3c3k4xwzlaueafq27dcg7tzzzaz5jl8tyj93wgs983y0jq0qfhzu6n4r8rakpv5f4gg2lrw4z6pyqqcrcqx04d38yunc6je",
-                index: 0, context: .testnet,
+                index: 0, context: .mainnet,
                 validating: Parser.onlyCharsetValidation
             ),
             Param.address(recipientU)
@@ -591,7 +591,7 @@ final class ParsingTests: XCTestCase {
         let query = "address"[...]
         let value = "u1fl5mprj0t9p4jg92hjjy8q5myvwc60c9wv0xachauqpn3c3k4xwzlaueafq27dcg7tzzzaz5jl8tyj93wgs983y0jq0qfhzu6n4r8rakpv5f4gg2lrw4z6pyqqcrcqx04d38yunc6je"[...]
 
-        guard let recipient = RecipientAddress(value: String(value), context: .testnet, validating: nil) else {
+        guard let recipient = RecipientAddress(value: String(value), context: .mainnet, validating: nil) else {
             XCTFail("could not create recipient address")
             return
         }
@@ -600,7 +600,7 @@ final class ParsingTests: XCTestCase {
             IndexedParameter(index: 0, param: .address(recipient)),
             try Parser.zcashParameter(
                 (query, nil, value),
-                context: .testnet,
+                context: .mainnet,
                 validating: Parser.onlyCharsetValidation
             )
         )
@@ -1047,10 +1047,31 @@ final class ParsingTests: XCTestCase {
         XCTAssertNotNil(
             RecipientAddress(
                 value: tex,
-                context: .testnet,
+                context: .mainnet,
                 validating: Parser.onlyCharsetValidation
             )
         )
+    }
+    
+    func testThatCharactedAllowCharacterSetIsCheckedForAddresses() throws {
+        let invalidRequest = "zcash:tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpUʔamount 1ꓸ234?message=Thanks%20for%20your%20payment%20for%20the%20correct%20&amount=20&Have=%20a%20nice%20day"
+        
+        XCTAssertThrowsError(
+            try ZIP321.request(from: invalidRequest, context: .testnet),
+            "should have thrown \(String(describing: ZIP321.Errors.invalidAddress(nil))) but none was"
+        ) { err in
+            switch err {
+            case ZIP321.Errors.invalidAddress(nil):
+                XCTAssert(true)
+            default:
+                XCTFail(
+                        """
+                        Expected \(String(describing: ZIP321.Errors.invalidAddress(nil)))
+                        but \(err) was thrown instead
+                        """
+                )
+            }
+        }
     }
 }
 

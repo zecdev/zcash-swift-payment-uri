@@ -2,7 +2,7 @@
 //  RecipientAddress.swift
 //
 //
-//  Created by Francisco Gindre on 2023-12-08.
+//  Created by Pacu on 2023-12-08.
 //
 
 import Foundation
@@ -24,12 +24,18 @@ public struct RecipientAddress: Equatable {
     /// - Returns: `nil` if the validating function resolves the input as invalid, or a `RecipientAddress` if the input is valid or no validating closure is passed.
     public init?(value: String, context: ParserContext, validating: ValidatingClosure? = nil) {
         self.network = context
-        switch validating?(value) {
-        case .none, .some(true):
-            self.value = value
-        case .some(false):
+        
+        // always perform context validations
+        guard context.isValid(address: value) else {
             return nil
         }
+        
+        // then perform other validations if provided
+        if let validatingClosure = validating {
+            guard validatingClosure(value) else { return nil }
+        }
+        
+        self.value = value
     }
 }
 

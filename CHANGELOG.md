@@ -16,10 +16,12 @@ requests stick to the ZIP-320 specification.
 context-aware
 
 ### Changed
+- `RecipientAddress` enforces a minimum validation of the (supposedly) string-encoded Zcash addresses
+that can guarantee that the correct HRPs and character sets are present in the given strings.
 - `PaymentRequest` individual payments are checked to ensure they all belong to the same network.
 Network is determined by the HRP of the addresses.
 - HRPs of `RecipientAddress` are verified to determine whether they could belong to a certain network 
-and/or Zcash pool.
+and/or Zcash pool. 
 - **Important:** Formal verification still must be provided by callers. The checks included by 
 ``AddressValidator`` default implementation does not check Bech32 validity. 
 - `Payment` has `Amount?` to represent payment requests with undefined amount by the request author.

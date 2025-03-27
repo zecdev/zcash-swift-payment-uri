@@ -95,4 +95,11 @@ final class EncodingTests: XCTestCase {
                 )
             }
     }
+    
+    func testThatCharacterEnsuringFunctionWorks() {
+        XCTAssertTrue("asdfghjklqwrtyuiopzxcvbnm1234567890QWERTYUIOPLKJHGFDSAZXCVBNM".conformsToCharacterSet(.ASCIIAlphaNum))
+        XCTAssertFalse("asd fghjklqwrtyuiopzxcvbnm1234567890QWERTYUIOPLKJHGFDSAZXCVBNM".conformsToCharacterSet(.ASCIIAlphaNum))
+        XCTAssertTrue("1234567890".conformsToCharacterSet(.ASCIINum))
+        XCTAssertFalse("1234a567890".conformsToCharacterSet(.ASCIINum))
+    }
 }

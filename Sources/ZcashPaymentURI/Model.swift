@@ -287,6 +287,19 @@ extension CharacterSet {
     static let base64URL = ASCIINum
         .union(.ASCIIAlpha)
         .union(CharacterSet(arrayLiteral: "-", "_"))
+    
+}
+
+extension String {
+    func conformsToCharacterSet(_ characterSet: CharacterSet) -> Bool {
+        guard self.unicodeScalars.allSatisfy({ character in
+            characterSet.contains(character)
+        }) else {
+            return false
+        }
+        
+        return true
+    }
 }
 
 
