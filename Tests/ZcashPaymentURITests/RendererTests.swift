@@ -56,37 +56,37 @@ final class RendererTests: XCTestCase {
     func testMessageParamRendersNoParamIndex() throws {
         let expected = "message=Thank%20you%20for%20your%20purchase"
 
-        XCTAssertEqual(Render.parameter(message: "Thank you for your purchase", index: nil), expected)
+        XCTAssertEqual(Render.parameter(message: "Thank you for your purchase".asQcharString!, index: nil), expected)
     }
 
     func testMessageParamRendersWithParamIndex() throws {
         let expected = "message.10=Thank%20you%20for%20your%20purchase"
 
-        XCTAssertEqual(Render.parameter(message: "Thank you for your purchase", index: 10), expected)
+        XCTAssertEqual(Render.parameter(message: "Thank you for your purchase".asQcharString!, index: 10), expected)
     }
 
     func testLabelRendersNoParamIndex() throws {
         let expected = "label=Lunch%20Tab"
 
-        XCTAssertEqual(Render.parameter(label: "Lunch Tab", index: nil), expected)
+        XCTAssertEqual(Render.parameter(label: "Lunch Tab".asQcharString!, index: nil), expected)
     }
 
     func testLabelRendersWithParamIndex() throws {
         let expected = "label.1=Lunch%20Tab"
 
-        XCTAssertEqual(Render.parameter(label: "Lunch Tab", index: 1), expected)
+        XCTAssertEqual(Render.parameter(label: "Lunch Tab".asQcharString!, index: 1), expected)
     }
 
     func testReqParamRendersNoParamIndex() throws {
         let expected = "req-futureParam=Future%20is%20Z"
 
-        XCTAssertEqual(Render.parameter(label: "req-futureParam", value: "Future is Z", index: nil), expected)
+        XCTAssertEqual(Render.parameter(label: "req-futureParam", value: "Future is Z".asQcharString!, index: nil), expected)
     }
 
     func testReqParamRendersWithParamIndex() throws {
         let expected = "req-futureParam.1=Future%20is%20Z"
 
-        XCTAssertEqual(Render.parameter(label: "req-futureParam", value: "Future is Z", index: 1), expected)
+        XCTAssertEqual(Render.parameter(label: "req-futureParam", value: "Future is Z".asQcharString!, index: 1), expected)
     }
 
     func testMemoParamRendersNoParamIndex() throws {

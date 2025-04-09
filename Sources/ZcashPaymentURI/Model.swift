@@ -35,9 +35,9 @@ public struct Payment: Equatable {
     public let memo: MemoBytes?
     /// A human-readable label for this payment within the larger structure of the transaction request.
     /// this will be pct-encoded
-    public let label: String?
+    public let label: QcharString?
     /// A human-readable message to be displayed to the user describing the purpose of this payment.
-    public let message: String?
+    public let message: QcharString?
     /// A list of other arbitrary key/value pairs associated with this payment.
     public let otherParams: [OtherParam]?
 
@@ -55,8 +55,8 @@ public struct Payment: Equatable {
         recipientAddress: RecipientAddress,
         amount: Amount?,
         memo: MemoBytes?,
-        label: String?,
-        message: String?,
+        qcharLabel: QcharString?,
+        qcharMessage: QcharString?,
         otherParams: [OtherParam]?
     ) throws {
         if memo != nil && !recipientAddress.canReceiveMemos {
@@ -65,8 +65,56 @@ public struct Payment: Equatable {
         self.recipientAddress = recipientAddress
         self.amount = amount
         self.memo = memo
-        self.label = label
-        self.message = message
+        self.label = qcharLabel
+        self.message = qcharMessage
+        self.otherParams = otherParams
+    }
+
+    /// Initializes a Payment struct. validation of the whole payment is deferred to the ZIP-321 serializer.
+    /// - parameter recipientAddress: a valid Zcash recipient address
+    /// - parameter amount: a valid `Amount` or `nil`i
+    /// - parameter memo: valid `MemoBytes` or `nil`
+    /// - parameter label: a label that wallets might show to their users as a way to label this payment.
+    /// Will not be included in the blockchain
+    /// - parameter message: a message that wallets might show to their users as part of this payment.
+    /// Will not be included in the blockchain
+    /// - parameter otherParams: other parameters that you'd like to define. See ZIP-321 for more
+    /// information about these parameters.
+    public init(
+        recipientAddress: RecipientAddress,
+        amount: Amount?,
+        memo: MemoBytes?,
+        label: String?,
+        message: String?,
+        otherParams: [OtherParam]?
+    ) throws {
+        if memo != nil && !recipientAddress.canReceiveMemos {
+            throw ZIP321.Errors.transparentMemoNotAllowed(nil)
+        }
+
+        // compiler has a limitation and this can't be a result builder
+        if let label = label {
+            guard let qcharLabel = QcharString(value: label) else {
+                throw ZIP321.Errors.qcharEncodeFailed(label)
+            }
+            self.label = qcharLabel
+        } else {
+            self.label = Optional<QcharString>.none
+        }
+
+        // compiler has a limitation and this can't be a result builder
+        if let message = message {
+            guard let qcharMessage = QcharString(value: message) else {
+                throw ZIP321.Errors.qcharEncodeFailed(message)
+            }
+            self.message = qcharMessage
+        } else {
+            self.message = Optional<QcharString>.none
+        }
+
+        self.recipientAddress = recipientAddress
+        self.amount = amount
+        self.memo = memo
         self.otherParams = otherParams
     }
 
@@ -80,9 +128,53 @@ public struct Payment: Equatable {
     }
 }
 
+/// Represents the `otherparam` definition for query-keys of ZIP-321 requests
+/// ```
+///   otherparam      = paramname [ paramindex ] [ "=" *qchar ]
+/// ```
 public struct OtherParam: Equatable {
-    public let key: String
-    public let value: String
+    public let key: ParamNameString
+    public let value: QcharString?
+
+    /// initialized `OtherParam` with a key an Optional value
+    /// - returns `nil` when the key collides with reserved queryparam keys,
+    /// key is empty or if either key or value do not conform to the `CharacterSet.qchar` set
+    public init(key: String, value: String?) throws {
+        guard !key.isEmpty else { throw ZIP321.Errors.otherParamKeyEmpty }
+        guard !Self.isReservedKey(key) else { throw ZIP321.Errors.otherParamUsesReservedKey("\(key)") }
+        
+        guard let qcharKey = ParamNameString(value: key) else {
+            throw ZIP321.Errors.otherParamEncodingError("\(key)")
+        }
+
+        var qcharValue: QcharString?
+
+        if let value = value {
+            guard let unwrappedValue = QcharString(value: value) else {
+                throw ZIP321.Errors.otherParamEncodingError(value)
+            }
+
+            qcharValue = unwrappedValue
+        }
+
+        try self.init(key: qcharKey, value: qcharValue)
+    }
+
+    public init(key: ParamNameString, value: QcharString?) throws {
+        guard !Self.isReservedKey(key.value) else { throw ZIP321.Errors.otherParamUsesReservedKey("\(key.value)") }
+
+        self.key = key
+        self.value = value
+    }
+
+    static func isReservedKey(_ key: String) -> Bool {
+        key == "address" ||
+        key == "amount" ||
+        key == "label" ||
+        key == "memo" ||
+        key == "message" ||
+        key == "req-"
+    }
 }
 
 public struct MemoBytes: Equatable {
@@ -204,9 +296,28 @@ extension String {
     func qcharDecode() -> String? {
         self.removingPercentEncoding
     }
+
+    var asQcharString: QcharString? {
+        QcharString(value: self)
+    }
+
+    var asParamNameString: ParamNameString? {
+        ParamNameString(value: self)
+    }
 }
 
+// MARK: character sets
+
 extension CharacterSet {
+    /// non-zero digits
+    static let nonZeroDigits = CharacterSet(charactersIn: "123456789")
+
+    /// characters in Bech32 encoding
+    static let bech32 = CharacterSet(charactersIn: "qpzry9x8gf2tvdw0s3jn54khce6mua7l")
+
+    /// characters in Base58 encoding
+    static let base58 = CharacterSet(charactersIn: "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
+    
     /// All ASCII characters from 0 to 127
     static let ASCIICharacters = CharacterSet(
         charactersIn: UnicodeScalar(0) ... UnicodeScalar(127)
@@ -217,6 +328,11 @@ extension CharacterSet {
         charactersIn: UnicodeScalar(65) ... UnicodeScalar(90)
     ).union(
         CharacterSet(charactersIn: UnicodeScalar(97) ... UnicodeScalar(122))
+    )
+
+    /// ASCII non-zero numbers
+    static let ASCIINonZeroNum = CharacterSet(
+        charactersIn: UnicodeScalar(49) ... UnicodeScalar(57)
     )
 
     /// ASCII numbers
@@ -234,7 +350,16 @@ extension CharacterSet {
                 CharacterSet(charactersIn: UnicodeScalar(97) ... UnicodeScalar(102))
             )
     )
-    
+
+    ///  `paramname` character set according to [ZIP-321](https://zips.z.cash/zip-0321)
+    static let paramname = ASCIIAlpha.union(ASCIINum).union(CharacterSet(arrayLiteral: "+","-"))
+
+    /// `paramindex` character set according to [ZIP-321](https://zips.z.cash/zip-0321)
+    static let paramindex = ASCIINum.union(CharacterSet(arrayLiteral: "."))
+
+    /// the query key part of `otherparam` character set according to [ZIP-321](https://zips.z.cash/zip-0321)
+    static let otherParamsKey = paramname.union(paramindex)
+
     /// `unreserved`character set defined on [rfc3986](https://www.rfc-editor.org/rfc/rfc3986.html#appendix-A)
     static let unreserved = CharacterSet
         .ASCIIAlphaNum

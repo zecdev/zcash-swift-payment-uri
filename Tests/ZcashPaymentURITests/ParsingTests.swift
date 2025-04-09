@@ -625,8 +625,7 @@ final class ParsingTests: XCTestCase {
         let query = "message"[...]
         let index = 1
         let value = "Thank%20You%20For%20Your%20Purchase"[...]
-
-        guard let qcharDecodedValue = String(value).qcharDecode() else {
+        guard let qcharDecodedValue = QcharString(value: String(value).qcharDecode()!) else {
             XCTFail("failed to qcharDecode value `\(value)")
             return
         }
@@ -646,7 +645,7 @@ final class ParsingTests: XCTestCase {
         let index = 99
         let value = "Thank%20You%20For%20Your%20Purchase"[...]
 
-        guard let qcharDecodedValue = String(value).qcharDecode() else {
+        guard let qcharDecodedValue = QcharString(value: String(value).qcharDecode()!) else {
             XCTFail("failed to qcharDecode value `\(value)")
             return
         }
@@ -681,8 +680,19 @@ final class ParsingTests: XCTestCase {
         let index = 99
         let value = "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"[...]
 
+
+        guard let queryKey = ParamNameString(value: String(query)) else {
+            XCTFail("failed to ParamName decode value `\(query)")
+            return
+        }
+
+        guard let qcharDecodedValue = QcharString(value: String(value)) else {
+            XCTFail("failed to qcharDecode value `\(value)")
+            return
+        }
+
         XCTAssertNoDifference(
-            IndexedParameter(index: UInt(index), param: .other(String(query), String(value))),
+            IndexedParameter(index: UInt(index), param: .other(try OtherParam(key: queryKey, value: qcharDecodedValue))),
             try Parser.zcashParameter(
                 (query, index, value),
                 context: .testnet,
@@ -696,13 +706,13 @@ final class ParsingTests: XCTestCase {
         let index = 99
         let value = "Thank%20You%20For%20Your%20Purchase"[...]
 
-        guard let qcharDecodedValue = String(value).qcharDecode() else {
+        guard let qcharEncodedValue = QcharString(value: String(value).qcharDecode()!) else {
             XCTFail("failed to qcharDecode value `\(value)")
             return
         }
 
         XCTAssertEqual(
-            IndexedParameter(index: UInt(index), param: .label(qcharDecodedValue)),
+            IndexedParameter(index: UInt(index), param: .label(qcharEncodedValue)),
             try Parser.zcashParameter(
                 (query, index, value),
                 context: .testnet,
@@ -725,7 +735,7 @@ final class ParsingTests: XCTestCase {
             IndexedParameter(index: 0, param: .address(recipient)),
             IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
-            IndexedParameter(index: 0, param: .message("Thank you for your purchase"))
+            IndexedParameter(index: 0, param: .message(QcharString(value: "Thank you for your purchase")!))
         ]
 
         let result = try Parser.parseParameters(
@@ -735,7 +745,7 @@ final class ParsingTests: XCTestCase {
             validating: Parser.onlyCharsetValidation
         )
 
-        XCTAssertEqual(result, expected)
+        XCTAssertNoDifference(result, expected)
     }
 
     func testThatIndexParametersAreParsedWithLeadingAddress() throws {
@@ -750,7 +760,7 @@ final class ParsingTests: XCTestCase {
             IndexedParameter(index: 0, param: .address(recipient)),
             IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
-            IndexedParameter(index: 0, param: .message("Thank you for your purchase"))
+            IndexedParameter(index: 0, param: .message(QcharString(value: "Thank you for your purchase")!))
         ]
 
         let result = try Parser.parseParameters(
@@ -776,12 +786,34 @@ final class ParsingTests: XCTestCase {
                 )!
             ),
             .amount(try Amount(value: 1)),
-            .message("Thanks"),
-            .label("payment"),
-            .other("future", "is awesome")
+            .message(QcharString(value: "Thanks")!),
+            .label(QcharString(value: "payment")!),
+            .other(
+                try OtherParam(
+                    key: ParamNameString(
+                        value: "future"
+                    )!,
+                    value: QcharString(
+                        value: "is awesome"
+                    )!
+                )
+            )
         ]
 
-        XCTAssertTrue(params.hasDuplicateParam(.other("future", "is dystopic")))
+        XCTAssertTrue(
+            params.hasDuplicateParam(
+                .other(
+                    try OtherParam(
+                        key: ParamNameString(
+                            value: "future"
+                        )!,
+                        value:  QcharString(
+                            value: "is dystopic"
+                        )!
+                    )
+                )
+            )
+        )
     }
 
     func testDuplicateAddressParamsAreDetected() throws {
@@ -793,9 +825,18 @@ final class ParsingTests: XCTestCase {
                 )!
             ),
             .amount(try Amount(value: 1)),
-            .message("Thanks"),
-            .label("payment"),
-            .other("future", "is awesome")
+            .message(QcharString(value: "Thanks")!),
+            .label(QcharString(value: "payment")!),
+            .other(
+                try OtherParam(
+                    key: ParamNameString(
+                        value: "future"
+                    )!,
+                    value: QcharString(
+                        value: "is awesome"
+                    )!
+                )
+            )
         ]
 
         XCTAssertTrue(params.hasDuplicateParam(.address(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet)!)))
@@ -804,9 +845,18 @@ final class ParsingTests: XCTestCase {
     func testDuplicateParameterIsFalseWhenNoDuplication() throws {
         let params: [Param] = [
             .amount(try Amount(value: 1)),
-            .message("Thanks"),
-            .label("payment"),
-            .other("future", "is awesome")
+            .message(QcharString(value: "Thanks")!),
+            .label(QcharString(value: "payment")!),
+            .other(
+                try OtherParam(
+                    key: ParamNameString(
+                        value: "future"
+                    )!,
+                    value: QcharString(
+                        value: "is awesome"
+                    )!
+                )
+            )
         ]
 
         XCTAssertFalse(params.hasDuplicateParam(.address(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet)!)))
@@ -826,10 +876,19 @@ final class ParsingTests: XCTestCase {
         let params: [Param] = [
             .address(recipient),
             .amount(try Amount(value: 1)),
-            .message("Thanks"),
+            .message(QcharString(value: "Thanks")!),
             .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg")),
-            .label("payment"),
-            .other("future", "is awesome")
+            .label(QcharString(value: "payment")!),
+            .other(
+                try OtherParam(
+                    key: ParamNameString(
+                        value: "future"
+                    )!,
+                    value: QcharString(
+                        value: "is awesome"
+                    )!
+                )
+            )
         ]
 
         XCTAssertThrowsError(try Payment.uniqueIndexedParameters(index: 1, parameters: params)) { err in
@@ -861,24 +920,42 @@ final class ParsingTests: XCTestCase {
         let params: [Param] = [
             .address(recipient),
             .amount(try Amount(value: 1)),
-            .message("Thanks"),
-            .label("payment"),
-            .other("future", "is awesome")
+            .message(QcharString(value: "Thanks")!),
+            .label(QcharString(value: "payment")!),
+            .other(
+                try OtherParam(
+                    key: ParamNameString(
+                        value: "future"
+                    )!,
+                    value: QcharString(
+                        value: "is awesome"
+                    )!
+                )
+            )
         ]
 
         let payment = try Payment.uniqueIndexedParameters(index: 1, parameters: params)
 
-        XCTAssertEqual(
-            try Payment(
-                recipientAddress: recipient,
-                amount: try Amount(value: 1),
-                memo: nil,
-                label: "payment",
-                message: "Thanks",
-                otherParams: [OtherParam(key: "future", value: "is awesome")]
-            ),
-            payment
-        )
+//        XCTAssertEqual(
+//            try Payment(
+//                recipientAddress: recipient,
+//                amount: try Amount(value: 1),
+//                memo: nil,
+//                label: "payment",
+//                message: "Thanks",
+//                otherParams: [OtherParam(key: "future", value: "is awesome")]
+//            ),
+//            payment
+//        )
+
+        XCTAssertNoDifference(try Payment(
+            recipientAddress: recipient,
+            amount: try Amount(value: 1),
+            memo: nil,
+            label: "payment",
+            message: "Thanks",
+            otherParams: [OtherParam(key: "future", value: "is awesome")]
+        ), payment)
     }
 
     func testThatDuplicateParametersAreDetected() throws {
@@ -893,61 +970,145 @@ final class ParsingTests: XCTestCase {
         let duplicateAddressParams: [IndexedParameter] = [
             IndexedParameter(index:0, param: .address(shieldedRecipient)),
             IndexedParameter(index:0, param: .amount(try Amount(value: 1))),
-            IndexedParameter(index:0, param: .message("Thanks")),
+            IndexedParameter(index:0, param: .message(QcharString(value: "Thanks")!)),
             IndexedParameter(index:0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
-            IndexedParameter(index:0, param: .label("payment")),
+            IndexedParameter(index:0, param: .label(QcharString(value: "payment")!)),
             IndexedParameter(index:0, param: .address(shieldedRecipient)),
-            IndexedParameter(index:0, param: .other("future", "is awesome"))
+            IndexedParameter(
+                index:0,
+                param: .other(
+                    try OtherParam(
+                        key: ParamNameString(
+                            value: "future"
+                        )!,
+                        value: QcharString(
+                            value: "is awesome"
+                        )!
+                    )
+                )
+            )
         ]
 
         let duplicateAmountParams: [IndexedParameter] = [
             IndexedParameter(index: 0, param: .address(shieldedRecipient)),
             IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
-            IndexedParameter(index: 0, param: .message("Thanks")),
+            IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
-            IndexedParameter(index: 0, param: .label("payment")),
+            IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
             IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
-            IndexedParameter(index: 0, param: .other("future", "is awesome"))
+            IndexedParameter(
+                index:0,
+                param: .other(
+                    try OtherParam(
+                        key: ParamNameString(
+                            value: "future"
+                        )!,
+                        value: QcharString(
+                            value: "is awesome"
+                        )!
+                    )
+                )
+            )
         ]
 
         let duplicateMessageParams: [IndexedParameter] = [
             IndexedParameter(index: 0, param: .address(shieldedRecipient)),
             IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
-            IndexedParameter(index: 0, param: .message("Thanks")),
+            IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
-            IndexedParameter(index: 0, param: .label("payment")),
-            IndexedParameter(index: 0, param: .message("Thanks")),
-            IndexedParameter(index: 0, param: .other("future", "is awesome"))
+            IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
+            IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
+            IndexedParameter(
+                index:0,
+                param: .other(
+                    try OtherParam(
+                        key: ParamNameString(
+                            value: "future"
+                        )!,
+                        value: QcharString(
+                            value: "is awesome"
+                        )!
+                    )
+                )
+            )
         ]
 
         let duplicateMemoParams: [IndexedParameter] = [
             IndexedParameter(index: 0, param: .address(shieldedRecipient)),
             IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
-            IndexedParameter(index: 0, param: .message("Thanks")),
+            IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
-            IndexedParameter(index: 0, param: .label("payment")),
+            IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
-            IndexedParameter(index: 0, param: .other("future", "is awesome"))
+            IndexedParameter(
+                index:0,
+                param: .other(
+                    try OtherParam(
+                        key: ParamNameString(
+                            value: "future"
+                        )!,
+                        value: QcharString(
+                            value: "is awesome"
+                        )!
+                    )
+                )
+            )
         ]
 
         let duplicateLabelParams: [IndexedParameter] = [
             IndexedParameter(index: 0, param: .address(shieldedRecipient)),
-            IndexedParameter(index: 0, param: .label("payment")),
+            IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
             IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
-            IndexedParameter(index: 0, param: .message("Thanks")),
+            IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
-            IndexedParameter(index: 0, param: .label("payment")),
-            IndexedParameter(index: 0, param: .other("future", "is awesome"))
+            IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
+            IndexedParameter(
+                index:0,
+                param: .other(
+                    try OtherParam(
+                        key: ParamNameString(
+                            value: "future"
+                        )!,
+                        value: QcharString(
+                            value: "is awesome"
+                        )!
+                    )
+                )
+            )
         ]
 
         let duplicateOtherParams: [IndexedParameter] = [
             IndexedParameter(index: 0, param: .address(shieldedRecipient)),
-            IndexedParameter(index: 0, param: .label("payment")),
-            IndexedParameter(index: 0, param: .other("future", "is awesome")),
+            IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
+            IndexedParameter(
+                index:0,
+                param: .other(
+                    try OtherParam(
+                        key: ParamNameString(
+                            value: "future"
+                        )!,
+                        value: QcharString(
+                            value: "is awesome"
+                        )!
+                    )
+                )
+            ),
             IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
-            IndexedParameter(index: 0, param: .message("Thanks")),
+            IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
-            IndexedParameter(index: 0, param: .other("future", "is awesome"))
+            IndexedParameter(
+                index:0,
+                param: .other(
+                    try OtherParam(
+                        key: ParamNameString(
+                            value: "future"
+                        )!,
+                        value: QcharString(
+                            value: "is awesome"
+                        )!
+                    )
+                )
+            )
         ]
 
         XCTAssertThrowsError(try Parser.mapToPayments(duplicateAddressParams)) { err in

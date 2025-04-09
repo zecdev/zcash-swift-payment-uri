@@ -280,4 +280,41 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
         XCTAssertNoDifference(result, ParserResult.request(paymentRequest))
         XCTAssertNoDifference(uriString, ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false)))
     }
+    
+    func testSinglePaymentRequestAcceptsNoValueOtherParams() throws {
+        let expected = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=1&memo=VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg&message=Thank%20you%20for%20your%20purchase&other"
+
+        guard let recipient = RecipientAddress(
+            value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
+            context: .testnet
+        ) else {
+            XCTFail("failed to create Recipient from unchecked source")
+            return
+        }
+
+        let payment = try Payment(
+            recipientAddress: recipient,
+            amount: try Amount(value: 1),
+            memo: try MemoBytes(utf8String: "This is a simple memo."),
+            label: nil,
+            message: "Thank you for your purchase",
+            otherParams: [OtherParam(key: "other", value: nil)]
+        )
+
+        XCTAssertNoDifference(
+            ZIP321.uriString(
+                from: try PaymentRequest(payments: [payment]),
+                formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)
+            ),
+            expected
+        )
+
+        XCTAssertNoDifference(ZIP321.request(payment, formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)), expected)
+
+        // Roundtrip test
+        XCTAssertNoDifference(
+            try ZIP321.request(from: expected, context: .testnet, validatingRecipients: nil),
+            ParserResult.request(try PaymentRequest(payments: [payment]))
+        )
+    }
 }

@@ -53,7 +53,7 @@ public enum ZIP321 {
         /// The payment request includes a `paramIndex` that is invalid according to [ZIP-321](https://zips.z.cash/zip-0321) specs
         case invalidParamIndex(String)
 
-        /// Some invalid value was fount at a query parameter that a specific index
+        /// Some invalid value was found at a query parameter that a specific index
         case invalidParamValue(param: String, index: UInt?)
 
         /// The [ZIP-321](https://zips.z.cash/zip-0321) URI was malformed and failed to parse.
@@ -61,6 +61,9 @@ public enum ZIP321 {
         
         /// A value was expected to be qchar-encoded but its decoding failed. Associated type has the value that failed.
         case qcharDecodeFailed(String)
+
+        /// An attempt to qchar-encode a value failed.  The associated type has the value that failed.
+        case qcharEncodeFailed(String)
 
         /// The parser found a required parameter it does not recognize. Associated string contains the unrecognized input.
         /// See [Forward compatibilty](https://zips.z.cash/zip-0321#forward-compatibility)
@@ -74,6 +77,15 @@ public enum ZIP321 {
         
         /// Not all of the payments of this request belong to the same network
         case networkMismatchFound
+
+        /// Attempt to use a reserved keyword on `otherparams` key
+        case otherParamUsesReservedKey(String)
+
+        /// found invalid enconding on Key or value
+        case otherParamEncodingError(String)
+
+        /// attempt to create ``OtherParam`` with an empty key
+        case otherParamKeyEmpty
     }
 }
 

@@ -19,32 +19,95 @@ public enum ParserResult: Equatable {
     case request(PaymentRequest)
 }
 
+
+/// Represent an checked-param
 public enum Param: Equatable {
     case address(RecipientAddress)
     case amount(Amount)
     case memo(MemoBytes)
-    case label(String)
-    case message(String)
-    case other(String, String)
+    case label(QcharString)
+    case message(QcharString)
+    case other(OtherParam)
 
     var name: String {
         switch self {
         case .address:
-            return ParamName.address.rawValue
+            return ReservedParamName.address.rawValue
         case .amount:
-            return ParamName.amount.rawValue
+            return ReservedParamName.amount.rawValue
         case .memo:
-            return ParamName.memo.rawValue
+            return ReservedParamName.memo.rawValue
         case .label:
-            return ParamName.label.rawValue
+            return ReservedParamName.label.rawValue
         case .message:
-            return ParamName.message.rawValue
-        case .other(let name, _):
-            return name
+            return ReservedParamName.message.rawValue
+        case .other(let param):
+            return param.key.value
         }
     }
 }
 
+/// A  `paramname` encoded string according to [ZIP-321](https://zips.z.cash/zip-0321)
+///
+/// ZIP-321 defines:
+/// ```
+///  paramname       = ALPHA *( ALPHA / DIGIT / "+" / "-" )
+/// ```
+public struct ParamNameString: Equatable {
+    public let value: String
+
+    /// Initializes a `paramname` encoded string according to [ZIP-321](https://zips.z.cash/zip-0321)
+    /// - Returns: a ``ParamNameString`` or ``nil`` if the provided string does not belong to the
+    /// `paramname` charset
+    public init?(value: String) {
+        // String can't be empty
+        guard !value.isEmpty else { return nil }
+        // String can't start with a digit, "+" or "-"
+        guard let first = value.first, first.isLetter else { return nil }
+        // The whole String conforms to the character set defined in ZIP-321
+        guard value.conformsToCharacterSet(.paramname) else { return nil }
+
+        self.value = value
+    }
+}
+
+/// A type-safe qchar-encoded String
+public struct QcharString: Equatable {
+    private let storage: String
+
+    /// initalizes a ``QcharString`` from an assumed non-empty non-qchar encoded value.
+    /// This initilalizers will check whether decoding a this string produces any changes to avoid nested encodings
+    /// - Parameter value: the string value that will be qchar-encoded
+    /// - Parameter strictMode: this checks whether decoding the provided value changes it and fails if it
+    /// can be assumed that the value provided is already qchar-encoded to avoid re-encoding an already
+    /// qchar-encoded value
+    /// - Returns: a ``QcharString`` or ``nil`` if encoding fails
+    public init?(value: String, strictMode: Bool = false) {
+        // value is not empty
+        guard !value.isEmpty else { return nil }
+
+        /// check whether value is already qchar-encoded
+        if strictMode {
+            guard let qcharDecode = value.qcharDecode(), value == qcharDecode else { return nil }
+        }
+
+        guard let qchar = value.qcharEncoded() else { return nil }
+        self.storage = qchar
+    }
+
+    /// the qchar-decoded value of this qchar String
+    public var value: String {
+        storage.qcharDecode()! // this is fine because this value is already validated
+    }
+
+    public var qcharValue: String {
+        storage
+    }
+}
+
+
+/// Represents a parameter that has an index.
+/// - important: The index value zero means that the parameter will have no index when represented in text form
 struct IndexedParameter: Equatable {
     let index: UInt
     let param: Param
@@ -96,8 +159,10 @@ enum Parser {
     /// supports `otherParam` and `req-` params without validation logic
     static let queryKeyAndValue = Parse {
         optionallyIndexedParameterName
-        "="
-        CharacterSet.qchar.eraseToAnyParser()
+        Optionally {
+            "="
+            CharacterSet.qchar.eraseToAnyParser()
+        }
     }
     
     /// Parser that splits a sapling address human readable and Bech32 parts and verifies that
@@ -143,7 +208,7 @@ enum Parser {
     /// providing validation of Query keys and values. An address validation can be provided.
     static func zcashParameter(
         // swiftlint:disable:next large_tuple
-        _ input: (Substring, Int?, Substring),
+        _ input: (Substring, Int?, Substring?),
         context: ParserContext,
         validating: @escaping RecipientAddress.ValidatingClosure = Parser.onlyCharsetValidation
     ) throws -> IndexedParameter {
@@ -158,7 +223,11 @@ enum Parser {
         }
 
         let index = UInt(input.1 ?? 0) // zero is not allowed in the spec but we imply no index
-        let value = String(input.2)
+        let value = if let value = input.2 {
+            String(value)
+        } else {
+            Optional<String>.none
+        }
 
         let param = try Param.from(
             queryKey: queryKey,
@@ -300,8 +369,8 @@ extension Payment {
 
         var amount: Amount?
         var memo: MemoBytes?
-        var label: String?
-        var message: String?
+        var label: QcharString?
+        var message: QcharString?
         var other: [OtherParam] = []
 
         for param in parameters {
@@ -325,8 +394,8 @@ extension Payment {
             case let .message(msg):
                 message = msg
 
-            case let .other(key, value):
-                other.append(OtherParam(key: key, value: value))
+            case let .other(param):
+                other.append(param)
             }
         }
         
@@ -335,8 +404,8 @@ extension Payment {
                 recipientAddress: address,
                 amount: amount,
                 memo: memo,
-                label: label,
-                message: message,
+                qcharLabel: label,
+                qcharMessage: message,
                 otherParams: other.isEmpty ? nil : other
             )
         } catch ZIP321.Errors.transparentMemoNotAllowed {
@@ -366,69 +435,75 @@ extension Param {
     /// - parameter value: the value fo the query key
     static func from(
         queryKey: String,
-        value: String,
+        value: String?,
         index: UInt,
         context: ParserContext,
         validating: @escaping RecipientAddress.ValidatingClosure
     ) throws -> Param {
-        let paramName = ParamName(rawValue: queryKey)
+        if let paramName = ReservedParamName(rawValue: queryKey), let value = value {
 
-        switch paramName {
-        case .address:
-            guard let addr = RecipientAddress(
-                value: value,
-                context: context,
-                validating: validating
-            ) else {
-                if context.isSprout(address: value) {
-                    throw ZIP321.Errors.sproutRecipientsNotAllowed(index > 0 ? index : nil)
+            switch paramName {
+            case .address:
+                guard let addr = RecipientAddress(
+                    value: value,
+                    context: context,
+                    validating: validating
+                ) else {
+                    if context.isSprout(address: value) {
+                        throw ZIP321.Errors.sproutRecipientsNotAllowed(index > 0 ? index : nil)
+                    }
+                    throw ZIP321.Errors.invalidAddress(index > 0 ? index : nil)
                 }
-                throw ZIP321.Errors.invalidAddress(index > 0 ? index : nil)
+
+                return .address(addr)
+            case .amount:
+                do {
+                    return .amount(try Amount(string: value))
+                } catch {
+                    let amountError = try error.mapToErrorOrRethrow(Amount.AmountError.self)
+
+                    throw ZIP321.Errors.mapFrom(amountError, index: index)
+                }
+            case .label:
+                let qcharDecoded = try tryDecodeQcharValue(value)
+
+                return .label(qcharDecoded)
+            case .memo:
+                do {
+                    return .memo(try MemoBytes(base64URL: value))
+                } catch {
+                    let memoError = try error.mapToErrorOrRethrow(MemoBytes.MemoError.self)
+
+                    throw ZIP321.Errors.mapFrom(memoError, index: index)
+                }
+            case .message:
+                let qcharDecoded = try tryDecodeQcharValue(value)
+
+                return .message(qcharDecoded)
             }
+        } else {
 
-            return .address(addr)
-        case .amount:
-            do {
-                return .amount(try Amount(string: value))
-            } catch {
-                let amountError = try error.mapToErrorOrRethrow(Amount.AmountError.self)
-
-                throw ZIP321.Errors.mapFrom(amountError, index: index)
-            }
-        case .label:
-            let qcharDecoded = try Self.decodeQchar(value)
-
-            return .label(qcharDecoded)
-        case .memo:
-            do {
-                return .memo(try MemoBytes(base64URL: value))
-            } catch {
-                let memoError = try error.mapToErrorOrRethrow(MemoBytes.MemoError.self)
-
-                throw ZIP321.Errors.mapFrom(memoError, index: index)
-            }
-        case .message:
-            let qcharDecoded = try Self.decodeQchar(value)
-
-            return .message(qcharDecoded)
-        case .none:
+            // this parser rejects any required parameters
             guard !queryKey.hasPrefix("req-") else {
                 throw ZIP321.Errors.unknownRequiredParameter(queryKey)
             }
 
-            let qcharDecoded = try Self.decodeQchar(value)
-
-            return .other(queryKey, qcharDecoded)
+            return .other(try OtherParam(key: queryKey, value: value))
         }
     }
-}
 
-// MARK: character sets
+    static func tryDecodeQcharValue(_ value: String) throws -> QcharString {
+        guard let qcharDecodedValue = value.qcharDecode(), let qcharString = QcharString(
+            value: qcharDecodedValue
+        ) else {
+            throw ZIP321.Errors
+                .qcharDecodeFailed(
+                    value
+                )
+        }
 
-extension CharacterSet {
-    static let nonZeroDigits = CharacterSet(charactersIn: "123456789")
-    static let bech32 = CharacterSet(charactersIn: "qpzry9x8gf2tvdw0s3jn54khce6mua7l")
-    static let base58 = CharacterSet(charactersIn: "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
+        return qcharString
+    }
 }
 
 // MARK: recipient validation
@@ -459,8 +534,8 @@ extension Array where Element == Param {
             case (.memo, .memo): return true
             case (.label, .label): return true
             case (.message, .message): return true
-            case let (.other(lhs, _), .other(rhs, _)):
-                if lhs == rhs {
+            case let (.other(lhs), .other(rhs)):
+                if lhs.key == rhs.key {
                     return true
                 }
             default: continue

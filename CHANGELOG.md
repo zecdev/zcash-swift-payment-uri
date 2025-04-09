@@ -12,10 +12,24 @@ requests stick to the ZIP-320 specification.
 ### Added
 - Create `ParserContext` enum which enables definitions that are network-dependent 
 - Create `AddressValidator` Protocol to define address validators.
-- Add `ParserContext` to RecipientAddress initializer and to parser methods that are
+0- Add `ParserContext` to RecipientAddress initializer and to parser methods that are
 context-aware
+- `QcharString` struct represents a String value that is validated to be a
+qchar-encoded string
+- `ParamNameString` struct represents a String value that is validated to be a
+`paramname` string in terms of ZIP-321
 
 ### Changed
+- ``ZIP321``:
+  - now supports optional values on `otherparam`.
+  - accepts optional ``Amount`` on payments
+- ``Param`` is now an enum whose associated values are "checked" types.
+- ``OtherParam`` now has key type of ``ParamNameString`` and value of ``QcharString``
+- ``ZIP312.Errors`` no has error cases:
+  - `case qcharEncodeFailed(String)`: when qchar encoding fails
+  - `case otherParamUsesReservedKey(String)`: for catching reserved keys on `OtherParam`
+  - `case otherParamEncodingError`:for encoding errors
+  - `case otherParamKeyEmpty`: when an empty key is detected
 - `RecipientAddress` enforces a minimum validation of the (supposedly) string-encoded Zcash addresses
 that can guarantee that the correct HRPs and character sets are present in the given strings.
 - `PaymentRequest` individual payments are checked to ensure they all belong to the same network.
@@ -25,6 +39,7 @@ and/or Zcash pool.
 - **Important:** Formal verification still must be provided by callers. The checks included by 
 ``AddressValidator`` default implementation does not check Bech32 validity. 
 - `Payment` has `Amount?` to represent payment requests with undefined amount by the request author.
+
 
 ## [0.1.0-beta.10] - 2024-11-26
 
