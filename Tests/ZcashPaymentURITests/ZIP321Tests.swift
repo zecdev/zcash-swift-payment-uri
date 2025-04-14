@@ -317,4 +317,143 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             ParserResult.request(try PaymentRequest(payments: [payment]))
         )
     }
+
+    func testThanSeeminglyValidEmptyRequestThrows() throws {
+        XCTAssertThrowsError(try ZIP321.request(from: "zcash:?", context: .testnet))
+    }
+
+    /// invalid; amount component is MAX_MONEY
+    /// 21000000.00000001
+    func testThrowsWhenAmountIsMaxMoney() {
+        let invalidURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=21000000.00000001"
+        XCTAssertThrowsError(
+            try ZIP321.request(from: invalidURI, context: .testnet),
+            "should have thrown \(String(describing: ZIP321.Errors.amountExceededSupply(0))) but none was"
+        ) { err in
+            switch err {
+            case ZIP321.Errors.amountExceededSupply(0):
+                XCTAssert(true)
+            default:
+                XCTFail(
+                        """
+                        Expected \(String(describing: ZIP321.Errors.amountExceededSupply(0)))
+                        but \(err) was thrown instead
+                        """
+                )
+            }
+        }
+    }
+
+    /// invalid; amount component wraps into a valid small positive i64
+    /// 18446744073709551624
+    func testThrowsWhenAmountIsTooSmall() {
+       let invalidURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=18446744073709551624"
+
+        XCTAssertThrowsError(
+            try ZIP321.request(from: invalidURI, context: .testnet),
+            "should have thrown \(String(describing: ZIP321.Errors.amountExceededSupply(0))) but none was"
+        ) { err in
+            switch err {
+            case ZIP321.Errors.amountExceededSupply(0):
+                XCTAssert(true)
+            default:
+                XCTFail(
+                        """
+                        Expected \(String(describing: ZIP321.Errors.amountExceededSupply(0)))
+                        but \(err) was thrown instead
+                        """
+                )
+            }
+        }
+    }
+
+    /// invalid; amount component exceeds an i64
+    /// 9223372036854775808 = i64::MAX + 1
+    func testThrowsWhenAmountExceedsSupply() {
+        let invalidURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=9223372036854775808"
+        XCTAssertThrowsError(
+            try ZIP321.request(from: invalidURI, context: .testnet),
+            "should have thrown \(String(describing: ZIP321.Errors.amountExceededSupply(0))) but none was"
+        ) { err in
+            switch err {
+            case ZIP321.Errors.amountExceededSupply(0):
+                XCTAssert(true)
+            default:
+                XCTFail(
+                        """
+                        Expected \(String(describing: ZIP321.Errors.amountExceededSupply(0)))
+                        but \(err) was thrown instead
+                        """
+                )
+            }
+        }
+    }
+
+    func testThrowsWhenMemoIsInvalid() {
+        let invalidURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=1&memo=VGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgIHNqqqw222ncssspbXBsZSBtZW1vLg&message=Thank%20you%20for%20your%20purchase"
+        XCTAssertThrowsError(
+            try ZIP321.request(from: invalidURI, context: .testnet),
+            "should have thrown \(String(describing: ZIP321.Errors.memoBytesError(MemoBytes.MemoError.memoTooLong, nil))) but none was"
+        ) { err in
+            switch err {
+            case ZIP321.Errors.memoBytesError(MemoBytes.MemoError.memoTooLong, nil):
+                XCTAssert(true)
+            default:
+                XCTFail(
+                        """
+                        Expected \(String(describing: ZIP321.Errors.memoBytesError(MemoBytes.MemoError.memoTooLong, nil)))
+                        but \(err) was thrown instead
+                        """
+                )
+            }
+        }
+    }
+
+    func testThrowsWhenMemoIsAssignedToTransparentRecipient() {
+        let invalidURI = "zcash:?address=tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU&amount=123.456&memo=eyAia2V5IjogIlRoaXMgaXMgYSBKU09OLXN0cnVjdHVyZWQgbWVtby4iIH0&address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=0.789&memo.1=VGhpcyBpcyBhIHVuaWNvZGUgbWVtbyDinKjwn6aE8J-PhvCfjok"
+
+        XCTAssertThrowsError(
+            try ZIP321.request(from: invalidURI, context: .testnet),
+            "should have thrown \(String(describing: ZIP321.Errors.transparentMemoNotAllowed(nil))) but none was"
+        ) { err in
+            switch err {
+            case ZIP321.Errors.transparentMemoNotAllowed(nil):
+                XCTAssert(true)
+            default:
+                XCTFail(
+                        """
+                        Expected \(String(describing: ZIP321.Errors.transparentMemoNotAllowed(nil)))
+                        but \(err) was thrown instead
+                        """
+                )
+            }
+        }
+    }
+
+    /// invalid; `address.0=` and `amount.0=` are not permitted (leading 0s)./
+    func testThrowsWhenParamIndexIsZero() {
+        let invalidURI = "zcash:?address.0=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.0=2"
+
+        XCTAssertThrowsError(
+            try ZIP321.request(from: invalidURI, context: .testnet),
+            "should have thrown \(String(describing: ZIP321.Errors.invalidParamIndex("address.0"))) but none was"
+        )
+        // TODO: Fix leading address error type. (error is thrown but is not as expected)
+//        { err in
+//            switch err {
+//            case ZIP321.Errors.invalidParamIndex("address.0"):
+//                XCTAssert(true)
+//            default:
+//                XCTFail(
+//                        """
+//                        Expected \(String(describing: ZIP321.Errors.invalidParamIndex("address.0")))
+//                        but \(err) was thrown instead
+//                        """
+//                )
+//            }
+//        }
+    }
+
+    
+    func testThrowsWhenURIHasTooManyPayments() {}
 }

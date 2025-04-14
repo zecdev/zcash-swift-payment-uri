@@ -45,7 +45,6 @@ final class RecipientTests: XCTestCase {
         XCTAssertTrue(ParserContext.testnet.isTransparent(address: "t26YoyZ1iPgiMEWL4zGUm74eVWfhyDMXzY2"))
         XCTAssertTrue(ParserContext.mainnet.isTransparent(address: "t3JZcvsuaXE6ygokL4XUiZSTrQBUoPYFnXJ"))
         XCTAssertTrue(ParserContext.mainnet.isTransparent(address: "tex1s2rt77ggv6q989lr49rkgzmh5slsksa9khdgte"))
-        
         XCTAssertTrue(ParserContext.testnet.isTransparent(address: "textest1qyqszqgpqyqszqgpqyqszqgpqyqszqgpfcjgfy"))
         
     }
