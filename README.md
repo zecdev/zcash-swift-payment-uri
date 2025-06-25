@@ -149,5 +149,17 @@ ParserResult.legacy(recipient)
 ````
 
 where the recipient address contains the address.
+
+## Troubleshooting / Known Issues
+### SPM fails to build the dependency `BigDecimal`
+If you face this problem when integrating the library:
+```
+error: the library 'BigDecimal' requires macos 10.13, but depends on the product 'UInt128' which requires macos 13.3; consider changing the library 'BigDecimal' to require macos 13.3 or later, or the product 'UInt128' to require macos 10.13 or earlier
+```
+There's a workaround to make SPM enforce the exact version of a transient dependency, which is specifying it in your project as a dependency as well. 
+
+In your Package.swift specify:
+` .package(url: "https://github.com/mgriebling/UInt128.git", exact: Version(stringLiteral: "3.1.5")),`
+
 # License 
 This project is under MIT License. See [LICENSE.md](LICENSE.md) for more details.
