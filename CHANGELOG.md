@@ -5,10 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased 
+## 1.0.0
 This release contains several **API breaking changes**, but let not be discouraged to
 update! These changes are made to add several checks to the library to ensure that your payment
 requests stick to the ZIP-320 specification.
+
+This version has been audited by Least Authority. You can find the audit results
+[here](Docs/Least Authority -ZCG Kotlin and Swift Payment URI Prototypes Final Audit Report.pdf)
 ### Added
 - Create `ParserContext` enum which enables definitions that are network-dependent 
 - Create `AddressValidator` Protocol to define address validators.

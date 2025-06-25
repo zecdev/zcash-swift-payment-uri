@@ -284,7 +284,7 @@ extension String {
     /// qchar           = unreserved / pct-encoded / allowed-delims / ":" / "@"
     /// allowed-delims  = "!" / "$" / "'" / "(" / ")" / "*" / "+" / "," / ";"
     ///
-    /// from  RPC-3968: https://www.rfc-editor.org/rfc/rfc3986.html#appendix-A
+    /// from  RPC-3986: https://www.rfc-editor.org/rfc/rfc3986.html#appendix-A
     /// unreserved    = ALPHA / DIGIT / "-" / "." / "_" / "~"
     /// pct-encoded   = "%" HEXDIG HEXDIG
     func qcharEncoded() -> String? {

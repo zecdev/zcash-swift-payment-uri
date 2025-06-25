@@ -2,7 +2,7 @@
 //  Parser.swift
 //
 //
-//  Created by Francisco Gindre on 2023-13-08.
+//  Created by Pacu on 2023-13-08.
 //
 
 import Foundation
@@ -18,7 +18,6 @@ public enum ParserResult: Equatable {
     case legacy(RecipientAddress)
     case request(PaymentRequest)
 }
-
 
 /// Represent an checked-param
 public enum Param: Equatable {
@@ -509,15 +508,16 @@ extension Param {
 // MARK: recipient validation
 extension Parser {
     static let onlyCharsetValidation: RecipientAddress.ValidatingClosure = { address in
-        guard !address.isEmpty else { return false }
+        guard !address.isEmpty, address.count > 2 else { return false }
 
-        guard let firstCharacter = address.first else { return false }
-        switch firstCharacter {
-        case "z":
+        switch String(address.prefix(2)) {
+        case "zc":
+           return false // sprout not allowed
+        case "zt", "z1":
             return (try? Parser.saplingEncodingCharsetParser.parse(address)) != nil
-        case "u":
+        case "u1", "ut":
             return (try? Parser.unifiedEncodingCharsetParser.parse(address)) != nil
-        case "t":
+        case "t1","t2", "t3", "tm", "te":
             return (try? Parser.transparentEncodingCharsetParser.parse(address)) != nil
         default:
             return false
