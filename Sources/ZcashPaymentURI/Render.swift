@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum ParamName: String {
+enum ReservedParamName: String {
     case address
     case amount
     case label
@@ -26,40 +26,46 @@ enum Render {
         }
     }
 
-    static func parameter(label: String, value: String, index: UInt?) -> String? {
-        guard let qcharValue = value.qcharEncoded() else {
-            return nil
-        }
-
-        return "\(label)\(parameterIndex(index))=\(qcharValue)"
+    static func parameter(label: String, value: QcharString, index: UInt?) -> String? {
+        return "\(label)\(parameterIndex(index))=\(value.qcharValue)"
     }
 
     static func parameter(_ amount: Amount, index: UInt?) -> String {
-        "\(ParamName.amount.rawValue)\(parameterIndex(index))=\(amount)"
+        "\(ReservedParamName.amount.rawValue)\(parameterIndex(index))=\(amount)"
     }
 
     static func parameter(_ memo: MemoBytes, index: UInt?) -> String {
-        "\(ParamName.memo.rawValue)\(parameterIndex(index))=\(memo.toBase64URL())"
+        "\(ReservedParamName.memo.rawValue)\(parameterIndex(index))=\(memo.toBase64URL())"
     }
 
     static func parameter(_ address: RecipientAddress, index: UInt?, omittingAddressLabel: Bool = false) -> String {
         if index == nil && omittingAddressLabel {
             address.value
         } else {
-            "\(ParamName.address.rawValue)\(parameterIndex(index))=\(address.value)"
+            "\(ReservedParamName.address.rawValue)\(parameterIndex(index))=\(address.value)"
         }
     }
 
-    static func parameter(label: String, index: UInt?) -> String {
+    static func parameter(label: QcharString, index: UInt?) -> String {
         // TODO: [#6] Handle format issues of qchar encoding
         // https://github.com/pacu/zcash-swift-payment-uri/issues/6
-        parameter(label: ParamName.label.rawValue, value: label, index: index) ?? ""
+        parameter(label: ReservedParamName.label.rawValue, value: label, index: index) ?? ""
     }
 
-    static func parameter(message: String, index: UInt?) -> String {
+    static func parameter(message: QcharString, index: UInt?) -> String {
         // TODO: [#6] Handle format issues of qchar encoding
         // https://github.com/pacu/zcash-swift-payment-uri/issues/6
-        parameter(label: ParamName.message.rawValue, value: message, index: index) ?? ""
+        parameter(label: ReservedParamName.message.rawValue, value: message, index: index) ?? ""
+    }
+
+    static func parameter(other: OtherParam, index: UInt?) -> String {
+        var parameter = "\(other.key.value)\(parameterIndex(index))"
+
+        if let value = other.value {
+            parameter.append(value.qcharValue)
+        }
+
+        return parameter
     }
 
     /// Creates a query parameter string for this `Payment`. This is not
@@ -79,22 +85,44 @@ enum Render {
         if index == nil && omittingAddressLabel {
             // mark the start of the query params. Otherwise this will marked by caller
             result.append("?")
-        } else {
-            result.append("&")
         }
-
-        result.append("\(parameter(payment.amount, index: index))")
+        
+        if let amount = payment.amount {
+            if !result.hasSuffix("?") {
+                result.append("&")
+            }
+            result.append(parameter(amount, index: index))
+        }
+        
 
         if let memo = payment.memo {
-            result.append("&\(parameter(memo, index: index))")
+            if !result.hasSuffix("?") {
+                result.append("&")
+            }
+            result.append(parameter(memo, index: index))
         }
 
         if let label = payment.label {
-            result.append("&\(parameter(label: label, index: index))")
+            if !result.hasSuffix("?") {
+                result.append("&")
+            }
+            result.append(parameter(label: label, index: index))
         }
 
         if let message = payment.message {
-            result.append("&\(parameter(message: message, index: index))")
+            if !result.hasSuffix("?") {
+                result.append("&")
+            }
+            result.append((parameter(message: message, index: index)))
+        }
+
+        if let otherParams = payment.otherParams {
+            for otherParam in otherParams {
+                if !result.hasSuffix("?") {
+                    result.append("&")
+                }
+                result.append(parameter(other: otherParam, index: index))
+            }
         }
 
         return result

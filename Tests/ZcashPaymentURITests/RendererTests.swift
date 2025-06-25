@@ -32,7 +32,7 @@ final class RendererTests: XCTestCase {
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0) else {
+        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
             XCTFail("failed to create recipient without validation for address: \(address0)")
             return
         }
@@ -45,7 +45,7 @@ final class RendererTests: XCTestCase {
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0) else {
+        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
             XCTFail("failed to create recipient without validation for address: \(address0)")
             return
         }
@@ -56,37 +56,37 @@ final class RendererTests: XCTestCase {
     func testMessageParamRendersNoParamIndex() throws {
         let expected = "message=Thank%20you%20for%20your%20purchase"
 
-        XCTAssertEqual(Render.parameter(message: "Thank you for your purchase", index: nil), expected)
+        XCTAssertEqual(Render.parameter(message: "Thank you for your purchase".asQcharString!, index: nil), expected)
     }
 
     func testMessageParamRendersWithParamIndex() throws {
         let expected = "message.10=Thank%20you%20for%20your%20purchase"
 
-        XCTAssertEqual(Render.parameter(message: "Thank you for your purchase", index: 10), expected)
+        XCTAssertEqual(Render.parameter(message: "Thank you for your purchase".asQcharString!, index: 10), expected)
     }
 
     func testLabelRendersNoParamIndex() throws {
         let expected = "label=Lunch%20Tab"
 
-        XCTAssertEqual(Render.parameter(label: "Lunch Tab", index: nil), expected)
+        XCTAssertEqual(Render.parameter(label: "Lunch Tab".asQcharString!, index: nil), expected)
     }
 
     func testLabelRendersWithParamIndex() throws {
         let expected = "label.1=Lunch%20Tab"
 
-        XCTAssertEqual(Render.parameter(label: "Lunch Tab", index: 1), expected)
+        XCTAssertEqual(Render.parameter(label: "Lunch Tab".asQcharString!, index: 1), expected)
     }
 
     func testReqParamRendersNoParamIndex() throws {
         let expected = "req-futureParam=Future%20is%20Z"
 
-        XCTAssertEqual(Render.parameter(label: "req-futureParam", value: "Future is Z", index: nil), expected)
+        XCTAssertEqual(Render.parameter(label: "req-futureParam", value: "Future is Z".asQcharString!, index: nil), expected)
     }
 
     func testReqParamRendersWithParamIndex() throws {
         let expected = "req-futureParam.1=Future%20is%20Z"
 
-        XCTAssertEqual(Render.parameter(label: "req-futureParam", value: "Future is Z", index: 1), expected)
+        XCTAssertEqual(Render.parameter(label: "req-futureParam", value: "Future is Z".asQcharString!, index: 1), expected)
     }
 
     func testMemoParamRendersNoParamIndex() throws {
@@ -108,12 +108,12 @@ final class RendererTests: XCTestCase {
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0) else {
+        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
             XCTFail("failed to create recipient without validation for address: \(address0)")
             return
         }
 
-        let payment0 = Payment(
+        let payment0 = try Payment(
             recipientAddress: recipient0,
             amount: try Amount(value: 123.456),
             memo: nil,
@@ -131,12 +131,12 @@ final class RendererTests: XCTestCase {
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        guard let recipient1 = RecipientAddress(value: address1) else {
+        guard let recipient1 = RecipientAddress(value: address1, context: .testnet) else {
             XCTFail("failed to create recipient without validation for address: \(address1)")
             return
         }
 
-        let payment1 = Payment(
+        let payment1 = try Payment(
             recipientAddress: recipient1,
             amount: try Amount(value: 0.789),
             memo: try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"),
@@ -153,12 +153,12 @@ final class RendererTests: XCTestCase {
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0) else {
+        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
             XCTFail("failed to create recipient without validation for address: \(address0)")
             return
         }
 
-        let payment0 = Payment(
+        let payment0 = try Payment(
             recipientAddress: recipient0,
             amount: try Amount(value: 123.456),
             memo: nil,
@@ -176,12 +176,12 @@ final class RendererTests: XCTestCase {
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        guard let recipient1 = RecipientAddress(value: address1) else {
+        guard let recipient1 = RecipientAddress(value: address1, context: .testnet) else {
             XCTFail("failed to create recipient without validation for address: \(address1)")
             return
         }
 
-        let payment1 = Payment(
+        let payment1 = try Payment(
             recipientAddress: recipient1,
             amount: try Amount(value: 0.789),
             memo: try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"),

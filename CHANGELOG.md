@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.0.0
+This release contains several **API breaking changes**, but let not be discouraged to
+update! These changes are made to add several checks to the library to ensure that your payment
+requests stick to the ZIP-320 specification.
+
+This version has been audited by Least Authority. You can find the audit results
+[here](Docs/Least Authority -ZCG Kotlin and Swift Payment URI Prototypes Final Audit Report.pdf)
+### Added
+- Create `ParserContext` enum which enables definitions that are network-dependent 
+- Create `AddressValidator` Protocol to define address validators.
+0- Add `ParserContext` to RecipientAddress initializer and to parser methods that are
+context-aware
+- `QcharString` struct represents a String value that is validated to be a
+qchar-encoded string
+- `ParamNameString` struct represents a String value that is validated to be a
+`paramname` string in terms of ZIP-321
+
+### Changed
+- ``ZIP321``:
+  - now supports optional values on `otherparam`.
+  - accepts optional ``Amount`` on payments
+- ``Param`` is now an enum whose associated values are "checked" types.
+- ``OtherParam`` now has key type of ``ParamNameString`` and value of ``QcharString``
+- ``ZIP312.Errors`` no has error cases:
+  - `case qcharEncodeFailed(String)`: when qchar encoding fails
+  - `case otherParamUsesReservedKey(String)`: for catching reserved keys on `OtherParam`
+  - `case otherParamEncodingError`:for encoding errors
+  - `case otherParamKeyEmpty`: when an empty key is detected
+- `RecipientAddress` enforces a minimum validation of the (supposedly) string-encoded Zcash addresses
+that can guarantee that the correct HRPs and character sets are present in the given strings.
+- `PaymentRequest` individual payments are checked to ensure they all belong to the same network.
+Network is determined by the HRP of the addresses.
+- HRPs of `RecipientAddress` are verified to determine whether they could belong to a certain network 
+and/or Zcash pool. 
+- **Important:** Formal verification still must be provided by callers. The checks included by 
+``AddressValidator`` default implementation does not check Bech32 validity. 
+- `Payment` has `Amount?` to represent payment requests with undefined amount by the request author.
+
+
 ## [0.1.0-beta.10] - 2024-11-26
 
 - [#69] Fix: Base64URL valid characters are not properly validated

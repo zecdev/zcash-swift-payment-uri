@@ -53,7 +53,7 @@ public enum ZIP321 {
         /// The payment request includes a `paramIndex` that is invalid according to [ZIP-321](https://zips.z.cash/zip-0321) specs
         case invalidParamIndex(String)
 
-        /// Some invalid value was fount at a query parameter that a specific index
+        /// Some invalid value was found at a query parameter that a specific index
         case invalidParamValue(param: String, index: UInt?)
 
         /// The [ZIP-321](https://zips.z.cash/zip-0321) URI was malformed and failed to parse.
@@ -62,6 +62,9 @@ public enum ZIP321 {
         /// A value was expected to be qchar-encoded but its decoding failed. Associated type has the value that failed.
         case qcharDecodeFailed(String)
 
+        /// An attempt to qchar-encode a value failed.  The associated type has the value that failed.
+        case qcharEncodeFailed(String)
+
         /// The parser found a required parameter it does not recognize. Associated string contains the unrecognized input.
         /// See [Forward compatibilty](https://zips.z.cash/zip-0321#forward-compatibility)
         /// Variables which are prefixed with a req- are considered required. If a parser does not recognize any
@@ -69,8 +72,20 @@ public enum ZIP321 {
         /// are not recognized, but that are not prefixed with a req-, SHOULD be ignored.)
         case unknownRequiredParameter(String)
 
-        /// TODO: Remove
-        case unimplemented
+        /// The parser found a Sprout recipient and these are explicitly not allowed by the ZIP-321 specification
+        case sproutRecipientsNotAllowed(UInt?)
+        
+        /// Not all of the payments of this request belong to the same network
+        case networkMismatchFound
+
+        /// Attempt to use a reserved keyword on `otherparams` key
+        case otherParamUsesReservedKey(String)
+
+        /// found invalid enconding on Key or value
+        case otherParamEncodingError(String)
+
+        /// attempt to create ``OtherParam`` with an empty key
+        case otherParamKeyEmpty
     }
 }
 
@@ -113,11 +128,18 @@ public extension ZIP321 {
     }
 
     static func request(_ payment: Payment, formattingOptions: FormattingOptions = .enumerateAllPayments) -> String {
-        uriString(from: PaymentRequest(payments: [payment]), formattingOptions: formattingOptions)
+        uriString(from: PaymentRequest(singlePayment: payment), formattingOptions: formattingOptions)
     }
 
-    static func request(from uriString: String, validatingRecipients: RecipientAddress.ValidatingClosure? = nil) throws -> ParserResult {
-        let partialResult = try Parser.leadingAddress(uriString, validating: validatingRecipients ?? Parser.onlyCharsetValidation)
+    static func request(
+        from uriString: String,
+        context: ParserContext,
+        validatingRecipients: RecipientAddress.ValidatingClosure? = nil) throws -> ParserResult {
+        let partialResult = try Parser.leadingAddress(
+            uriString,
+            context: context,
+            validating: validatingRecipients ?? Parser.onlyCharsetValidation
+        )
 
         switch partialResult {
         case (.none, .none):
@@ -126,11 +148,14 @@ public extension ZIP321 {
             return try Self.legacyURI(from: param)
         case let (.some(rest), optionalParam):
             return ParserResult.request(
-                PaymentRequest(
-                    payments: try Parser.mapToPayments(
-                        try Parser.parseParameters(
-                            rest,
-                            leadingAddress: optionalParam,
+               try PaymentRequest(
+                    payments: try Parser
+                        .mapToPayments(
+                            try Parser
+                                .parseParameters(
+                                    rest,
+                                    leadingAddress: optionalParam,
+                                    context: context,
                             validating: validatingRecipients ?? Parser.onlyCharsetValidation
                         )
                     )
