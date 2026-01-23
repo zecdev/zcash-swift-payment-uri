@@ -454,6 +454,19 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 //        }
     }
 
-    
-    func testThrowsWhenURIHasTooManyPayments() {}
+    func testParserSuccessfullyParsesAllTestVectorAddresses() throws {
+        for ua in TestVectors.unifiedAddresses {
+            let request = try ZIP321.request(from: "zcash:\(ua)", context: .mainnet)
+
+            if case let .legacy(address) = request {
+                XCTAssertEqual(address.value, ua)
+            } else {
+                XCTFail("Failed: Parser should have detected a 'legacy' variant of Payment request")
+            }
+        }
+    }
+
+    func testParserSuccessfullyParsesLegacySaplingPaymentRequest() throws {
+        XCTAssertNoThrow(try ZIP321.request(from: "zcash:zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya", context: .mainnet))
+    }
 }
