@@ -469,4 +469,8 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
     func testParserSuccessfullyParsesLegacySaplingPaymentRequest() throws {
         XCTAssertNoThrow(try ZIP321.request(from: "zcash:zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya", context: .mainnet))
     }
+
+    func testParserSuccessfullyParsesLegacyOrchardOnlyUAPaymentRequest() throws {
+        XCTAssertNoThrow(try ZIP321.request(from: "zcash:u16cynw2u6nshm44gjv9vy9dvav6zvvksphexzjs3tjke8mr3p942er0pu8held7zy7wpjxzqgkpdrjzd72h7pwf34df8a0xcv0su3acx7", context: .mainnet))
+    }
 }
