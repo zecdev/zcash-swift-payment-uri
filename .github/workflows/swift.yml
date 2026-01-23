@@ -17,7 +17,7 @@ jobs:
         swift: ["5.9"]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: swift-actions/setup-swift@f51889efb55dccf13be0ee727e3d6c89a096fb4c
+      - uses: swift-actions/setup-swift@7ca6abe6b3b0e8b5421b88be48feee39cbf52c6a
         with:
           swift-version: ${{ matrix.swift }}
       - name: Get swift version
