@@ -513,7 +513,7 @@ extension Parser {
         switch String(address.prefix(2)) {
         case "zc":
            return false // sprout not allowed
-        case "zt", "z1":
+        case "zt", "zs":
             return (try? Parser.saplingEncodingCharsetParser.parse(address)) != nil
         case "u1", "ut":
             return (try? Parser.unifiedEncodingCharsetParser.parse(address)) != nil

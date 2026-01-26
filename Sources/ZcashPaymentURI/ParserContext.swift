@@ -35,7 +35,7 @@ extension ParserContext {
     var saplingPrefix: String {
         switch self {
         case .mainnet:
-            "zs"
+            "zs1"
         case .testnet:
             "ztestsapling"
         case .regtest:

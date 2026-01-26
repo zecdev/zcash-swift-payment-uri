@@ -52,4 +52,18 @@ final class RecipientTests: XCTestCase {
     func testRecipientAddressDetectsInvalidCharacters() throws {
         XCTAssertNil(RecipientAddress(value: "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpUʔamount 1ꓸ234", context: .testnet))
     }
+
+    func testRecipientAddressDetectsOrchardOnlyAddresses() throws {
+        XCTAssertNotNil(RecipientAddress(value: "u1ddnjsdcpm36r6aq79n3s68shjweksnmwtdltrh046s8m6xcws9ygyawalxx8n6hg6vegk0wh8zjnafxgh6msppjsljvyt0ynece3lvm0", context: .mainnet))
+    }
+
+    func testRecipientAddressWithUnifiedTestVector() throws {
+        for ua in TestVectors.unifiedAddresses {
+            XCTAssertNotNil(RecipientAddress(value: ua, context: .mainnet), "Failed to create RecipientAddress for \(ua)")
+        }
+    }
+
+    func testRecipientAddressWithSaplingMainnet() throws {
+        XCTAssertNotNil(RecipientAddress(value: "zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya", context: .mainnet))
+    }
 }
