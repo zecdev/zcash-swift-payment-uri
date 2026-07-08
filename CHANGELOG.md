@@ -43,7 +43,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   representable; zero-amount policy (e.g. zero-valued transparent outputs)
   belongs to `Payment`-level validation.
 
+### Fixed
+- **Zero-length memos are now valid** (conformance fix): `MemoBytes` accepts
+  0 to 512 bytes, matching the reference implementation (consensus zero-pads
+  memos to 512 bytes, so an empty memo is well-defined). A URI containing
+  `memo=` now parses to a payment with an empty (not absent) memo instead of
+  being rejected, and the conformance vector `structure_empty_memo_on_sapling`
+  now passes — its entry has been removed from the expected-failure map.
+  The `MemoBytes.MemoError.memoEmpty` case has been removed accordingly.
+
 ### Changed
+- **`MemoBytes` rewritten on the strict base64url codec** (and moved to
+  `Sources/ZcashPaymentURI/model/MemoBytes.swift`): `init(base64URL:)` and
+  `toBase64URL()` now use the internal RFC 4648 §5 `Base64URL` codec instead
+  of Foundation's padded base64 with character translation. Decoding is
+  stricter than before: `=` padding, impossible lengths (`length % 4 == 1`),
+  and non-canonical encodings with nonzero trailing bits are now rejected
+  (previously Foundation silently accepted some of these). No other parser
+  behavior changes; the remaining expected-failure entries are unchanged.
 - **`Amount` is deprecated in favor of `NonNegativeAmount`.** The v1 type keeps working
   unchanged: the struct is now declared as `LegacyAmount` and `Amount` is a
   deprecated public typealias for it, so external code that spells `Amount`
