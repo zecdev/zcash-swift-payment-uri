@@ -82,6 +82,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `AmountError.negativeAmount` remains only for the decimal-string path's
   error taxonomy.
 
+### Added — deterministic property-style round-trip tests (S16)
+
+- `Tests/ZcashPaymentURITests/PropertyGenerators.swift`: a tiny inline
+  `SplitMix64` seeded PRNG plus generator functions mirroring the reference
+  librustzcash `zip321::testing` proptest strategies — arbitrary valid memo
+  bytes (0..512), arbitrary `NonNegativeAmount` (biased to also hit `0`/`1`/`maxMoney`
+  boundaries), arbitrary unicode label/message/otherParam-value strings
+  (including emoji and characters that require percent-encoding), arbitrary
+  non-reserved `otherParam` names, arbitrary payments drawn from a fixed pool
+  of known-checksum-valid addresses per network/kind (transparent P2PKH/P2SH,
+  Sapling, Unified, TEX), and arbitrary indexed payment requests (0..20
+  payments at sparse `paramindex` values 0..9999).
+- `Tests/ZcashPaymentURITests/PropertyTests.swift`: five deterministic laws,
+  each run over a fixed range of seeds via `@Test(arguments:)` (1,400 total
+  cases, full suite runtime ~0.24s): (1) full round trip
+  `parse(uriString(from: r)) == .success(.request(r))` (300 cases); (2)
+  `NonNegativeAmount.zec(z.decimalString()) == z` (300 cases); (3)
+  `MemoBytes(base64URL: m.toBase64URL()) == m` (300 cases); (4)
+  `QcharCodec.decode(QcharCodec.encode(s)) == s` (300 cases); (5) paramindex
+  preservation — a request with sparse indices round-trips preserving
+  `indexedPayments` exactly (200 cases). All seeds are fixed integers; no
+  `Date`/system-random seeding.
+
 ### Changed — conformance corpus sync (S15)
 
 - Bumped the `Tests/Vectors` corpus submodule to the adjudicated revision:
