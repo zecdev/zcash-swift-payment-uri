@@ -83,6 +83,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   error taxonomy.
 
 ### Added
+- **Internal single-pass `Scanner`** (`Sources/ZcashPaymentURI/parser/Scanner.swift`): a
+  byte-level scanner over a `Substring`'s UTF-8 view (`peek`/`advance`/`expect(ascii:)`/
+  `takeWhile`/`matchLiteral`/`isAtEnd`/`currentOffset`) with single-byte lookahead and no
+  backtracking, mirroring the streaming style of the reference `nom` grammar. It is the
+  substrate for the ZIP-321 URI grammar rewrite.
+- **Internal strict `AmountParser`** (`Sources/ZcashPaymentURI/parser/AmountParser.swift`):
+  parses an `amount` value through the strict ZIP-321 `amountparam` grammar (via
+  `NonNegativeAmount.zec`) and maps `NonNegativeAmount.AmountError` onto the closest v1 `ZIP321.Errors` case
+  (`.exceededSupply` → `.amountExceededSupply`, `.invalidDecimalString` →
+  `.invalidParamValue`, `.tooManyFractionalDigits`/`.negativeAmount` → `.amountTooSmall`).
 - **Internal ZIP-321 `qchar` codec** (`Sources/ZcashPaymentURI/parser/QcharCodec.swift`):
   a self-contained `encode`/`decode` pair that percent-encodes exactly the complement of the
   ZIP-321 `qchar` set, mirroring the reference `QCHAR_ENCODE` `AsciiSet` in librustzcash
@@ -93,6 +103,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   continuation bytes and unpaired surrogates are rejected). The `String.qcharEncoded()` /
   `qcharDecode()` extensions now delegate to this codec (previously Foundation's
   `addingPercentEncoding` / `removingPercentEncoding`), so decoding is stricter than before.
+
+### Changed
+- **The parser now enforces the strict `amountparam` grammar.** `amount` values are parsed
+  through the new `AmountParser`/`NonNegativeAmount.zec` path instead of the lenient
+  `LegacyAmount(string:)`, so a leading or trailing decimal point (`amount=.5`, `amount=123.`),
+  a sign, whitespace, scientific notation, or a percent-escape are rejected. `Payment.amount`
+  remains `LegacyAmount`-typed (bridged from `NonNegativeAmount` via a new internal `LegacyAmount(zatoshi:)`
+  initializer); the public switch to `NonNegativeAmount` is a later step. Conformance vectors
+  `invalid_amount_trailing_decimal_point` and `invalid_amount_leading_decimal_point` now pass
+  and were removed from the expected-failure map.
 
 ### Fixed
 - **Empty `qchar` values are now valid**: `QcharString` accepts the empty string (a valid
