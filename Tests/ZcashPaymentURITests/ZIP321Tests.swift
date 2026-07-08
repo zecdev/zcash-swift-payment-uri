@@ -1,32 +1,27 @@
-import XCTest
+import Testing
 @testable import ZcashPaymentURI
 // swiftlint:disable line_length
-final class ZcashSwiftPaymentUriTests: XCTestCase {
-    func testSingleRecipient() throws {
-        guard let recipient = RecipientAddress(
+@Suite("ZIP321")
+struct ZcashSwiftPaymentUriTests {
+    @Test func singleRecipient() throws {
+        let recipient = try #require(RecipientAddress(
             value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
             context: .testnet
-        ) else {
-            XCTFail("failed to create Recipient from unchecked source")
-            return
-        }
+        ))
 
-        XCTAssertEqual(
-            ZIP321.request(recipient),
-            "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
+        #expect(
+            ZIP321.request(recipient)
+            == "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
         )
     }
 
-    func testSinglePaymentRequest() throws {
+    @Test func singlePaymentRequest() throws {
         let expected = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=1&memo=VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg&message=Thank%20you%20for%20your%20purchase"
 
-        guard let recipient = RecipientAddress(
+        let recipient = try #require(RecipientAddress(
             value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
             context: .testnet
-        ) else {
-            XCTFail("failed to create Recipient from unchecked source")
-            return
-        }
+        ))
 
         let payment = try Payment(
             recipientAddress: recipient,
@@ -37,32 +32,29 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             otherParams: nil
         )
 
-        XCTAssertEqual(
+        #expect(
             ZIP321.uriString(
                 from: try PaymentRequest(payments: [payment]),
                 formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)
-            ),
-            expected
+            )
+            == expected
         )
 
-        XCTAssertEqual(ZIP321.request(payment, formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)), expected)
+        #expect(ZIP321.request(payment, formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)) == expected)
 
         // Roundtrip test
-        XCTAssertEqual(
-            try ZIP321.request(from: expected, context: .testnet, validatingRecipients: nil),
-            ParserResult.request(try PaymentRequest(payments: [payment]))
+        #expect(
+            try ZIP321.request(from: expected, context: .testnet, validatingRecipients: nil)
+            == ParserResult.request(try PaymentRequest(payments: [payment]))
         )
     }
 
-    func testMultiplePaymentsRequestStartingWithNoParamIndex() throws {
+    @Test func multiplePaymentsRequestStartingWithNoParamIndex() throws {
         let expected = "zcash:?address=tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU&amount=123.456&address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=0.789&memo.1=VGhpcyBpcyBhIHVuaWNvZGUgbWVtbyDinKjwn6aE8J-PhvCfjok"
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
-            XCTFail("failed to create recipient without validation for address: \(address0)")
-            return
-        }
+        let recipient0 = try #require(RecipientAddress(value: address0, context: .testnet))
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
@@ -75,10 +67,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        guard let recipient1 = RecipientAddress(value: address1, context: .testnet) else {
-            XCTFail("failed to create recipient without validation for address: \(address1)")
-            return
-        }
+        let recipient1 = try #require(RecipientAddress(value: address1, context: .testnet))
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
@@ -91,18 +80,15 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let paymentRequest = try PaymentRequest(payments: [payment0, payment1])
 
-        XCTAssertEqual(ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false)), expected)
+        #expect(ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false)) == expected)
     }
 
-    func testParsingMultiplePaymentsRequestStartingWithNoParamIndex() throws {
+    @Test func parsingMultiplePaymentsRequestStartingWithNoParamIndex() throws {
         let uriString = "zcash:?address=tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU&amount=123.456&address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=0.789&memo.1=VGhpcyBpcyBhIHVuaWNvZGUgbWVtbyDinKjwn6aE8J-PhvCfjok"
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
-            XCTFail("failed to create recipient without validation for address: \(address0)")
-            return
-        }
+        let recipient0 = try #require(RecipientAddress(value: address0, context: .testnet))
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
@@ -115,10 +101,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        guard let recipient1 = RecipientAddress(value: address1, context: .testnet) else {
-            XCTFail("failed to create recipient without validation for address: \(address1)")
-            return
-        }
+        let recipient1 = try #require(RecipientAddress(value: address1, context: .testnet))
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
@@ -133,23 +116,21 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let result = try ZIP321.request(from: uriString, context: .testnet)
 
-        XCTAssertEqual(result, ParserResult.request(paymentRequest))
+        #expect(result == ParserResult.request(paymentRequest))
     }
 
-    func testURIRequestWithInvalidCharsFails() throws {
+    @Test func urirequestWithInvalidCharsFails() throws {
         let invalidBase64URI = "zcash:u19spl3y4zu73twemxrzm33tm3eefepecv4zdssn0hfd4tjaqpgmlcm9nhyjqlvaytwpknqjqctvdscjmg47ex20j03cu4gx3zmy26y2hunpenvw083dmtlq4y7re5rwsygpteq57wwllr3zhs4rw43j5puxgrcqdq4f9dd38qksl4f9p2hc7x3kj582zdjxsnj8urmnc3msfjw72kej0?amount=0.01&memo=QTw+Qg"
 
-        XCTAssertThrowsError(try ZIP321.request(from: invalidBase64URI, context: .mainnet))
+        #expect(throws: (any Error).self) {
+            try ZIP321.request(from: invalidBase64URI, context: .mainnet)
+        }
     }
-    
-    func testEnsureThatAllPaymentsBelongToTheSameNetwork() throws {
 
+    @Test func ensureThatAllPaymentsBelongToTheSameNetwork() throws {
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
-            XCTFail("failed to create recipient without validation for address: \(address0)")
-            return
-        }
+        let recipient0 = try #require(RecipientAddress(value: address0, context: .testnet))
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
@@ -162,10 +143,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let address1 = "zs10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        guard let recipient1 = RecipientAddress(value: address1, context: .mainnet) else {
-            XCTFail("failed to create recipient without validation for address: \(address1)")
-            return
-        }
+        let recipient1 = try #require(RecipientAddress(value: address1, context: .mainnet))
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
@@ -176,32 +154,20 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             otherParams: nil
         )
 
-        
-        XCTAssertThrowsError(try PaymentRequest(payments: [payment0, payment1])) { err in
-
-            switch err {
-            case ZIP321.Errors.networkMismatchFound:
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.networkMismatchFound))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try PaymentRequest(payments: [payment0, payment1])
+        } throws: { error in
+            guard case ZIP321.Errors.networkMismatchFound = error else { return false }
+            return true
         }
     }
-    
-    func testParsingMultiplePaymentsRequestStartingWithNoParamIndexAndNoAmount() throws {
+
+    @Test func parsingMultiplePaymentsRequestStartingWithNoParamIndexAndNoAmount() throws {
         let uriString = "zcash:?address=tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU&address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=0.789&memo.1=VGhpcyBpcyBhIHVuaWNvZGUgbWVtbyDinKjwn6aE8J-PhvCfjok"
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
-            XCTFail("failed to create recipient without validation for address: \(address0)")
-            return
-        }
+        let recipient0 = try #require(RecipientAddress(value: address0, context: .testnet))
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
@@ -214,10 +180,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        guard let recipient1 = RecipientAddress(value: address1, context: .testnet) else {
-            XCTFail("failed to create recipient without validation for address: \(address1)")
-            return
-        }
+        let recipient1 = try #require(RecipientAddress(value: address1, context: .testnet))
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
@@ -232,20 +195,17 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let result = try ZIP321.request(from: uriString, context: .testnet)
 
-        XCTAssertEqual(result, ParserResult.request(paymentRequest))
-        
-        XCTAssertEqual(uriString, ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false)))
+        #expect(result == ParserResult.request(paymentRequest))
+
+        #expect(uriString == ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false)))
     }
-    
-    func testParsingMultiplePaymentsRequestStartingWithNoParamIndexIndexedParamHasNoAmount() throws {
+
+    @Test func parsingMultiplePaymentsRequestStartingWithNoParamIndexIndexedParamHasNoAmount() throws {
         let uriString = "zcash:?address=tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU&amount=123.456&address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&memo.1=VGhpcyBpcyBhIHVuaWNvZGUgbWVtbyDinKjwn6aE8J-PhvCfjok"
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
-            XCTFail("failed to create recipient without validation for address: \(address0)")
-            return
-        }
+        let recipient0 = try #require(RecipientAddress(value: address0, context: .testnet))
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
@@ -258,10 +218,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        guard let recipient1 = RecipientAddress(value: address1, context: .testnet) else {
-            XCTFail("failed to create recipient without validation for address: \(address1)")
-            return
-        }
+        let recipient1 = try #require(RecipientAddress(value: address1, context: .testnet))
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
@@ -276,20 +233,17 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let result = try ZIP321.request(from: uriString, context: .testnet)
 
-        XCTAssertEqual(result, ParserResult.request(paymentRequest))
-        XCTAssertEqual(uriString, ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false)))
+        #expect(result == ParserResult.request(paymentRequest))
+        #expect(uriString == ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false)))
     }
-    
-    func testSinglePaymentRequestAcceptsNoValueOtherParams() throws {
+
+    @Test func singlePaymentRequestAcceptsNoValueOtherParams() throws {
         let expected = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=1&memo=VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg&message=Thank%20you%20for%20your%20purchase&other"
 
-        guard let recipient = RecipientAddress(
+        let recipient = try #require(RecipientAddress(
             value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
             context: .testnet
-        ) else {
-            XCTFail("failed to create Recipient from unchecked source")
-            return
-        }
+        ))
 
         let payment = try Payment(
             recipientAddress: recipient,
@@ -300,176 +254,117 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             otherParams: [OtherParam(key: "other", value: nil)]
         )
 
-        XCTAssertEqual(
+        #expect(
             ZIP321.uriString(
                 from: try PaymentRequest(payments: [payment]),
                 formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)
-            ),
-            expected
+            )
+            == expected
         )
 
-        XCTAssertEqual(ZIP321.request(payment, formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)), expected)
+        #expect(ZIP321.request(payment, formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)) == expected)
 
         // Roundtrip test
-        XCTAssertEqual(
-            try ZIP321.request(from: expected, context: .testnet, validatingRecipients: nil),
-            ParserResult.request(try PaymentRequest(payments: [payment]))
+        #expect(
+            try ZIP321.request(from: expected, context: .testnet, validatingRecipients: nil)
+            == ParserResult.request(try PaymentRequest(payments: [payment]))
         )
     }
 
-    func testThanSeeminglyValidEmptyRequestThrows() throws {
-        XCTAssertThrowsError(try ZIP321.request(from: "zcash:?", context: .testnet))
+    @Test func thanSeeminglyValidEmptyRequestThrows() throws {
+        #expect(throws: (any Error).self) {
+            try ZIP321.request(from: "zcash:?", context: .testnet)
+        }
     }
 
     /// invalid; amount component is MAX_MONEY
     /// 21000000.00000001
-    func testThrowsWhenAmountIsMaxMoney() {
+    @Test func throwsWhenAmountIsMaxMoney() {
         let invalidURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=21000000.00000001"
-        XCTAssertThrowsError(
-            try ZIP321.request(from: invalidURI, context: .testnet),
-            "should have thrown \(String(describing: ZIP321.Errors.amountExceededSupply(0))) but none was"
-        ) { err in
-            switch err {
-            case ZIP321.Errors.amountExceededSupply(0):
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.amountExceededSupply(0)))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try ZIP321.request(from: invalidURI, context: .testnet)
+        } throws: { error in
+            guard case ZIP321.Errors.amountExceededSupply(0) = error else { return false }
+            return true
         }
     }
 
     /// invalid; amount component wraps into a valid small positive i64
     /// 18446744073709551624
-    func testThrowsWhenAmountIsTooSmall() {
-       let invalidURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=18446744073709551624"
+    @Test func throwsWhenAmountIsTooSmall() {
+        let invalidURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=18446744073709551624"
 
-        XCTAssertThrowsError(
-            try ZIP321.request(from: invalidURI, context: .testnet),
-            "should have thrown \(String(describing: ZIP321.Errors.amountExceededSupply(0))) but none was"
-        ) { err in
-            switch err {
-            case ZIP321.Errors.amountExceededSupply(0):
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.amountExceededSupply(0)))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try ZIP321.request(from: invalidURI, context: .testnet)
+        } throws: { error in
+            guard case ZIP321.Errors.amountExceededSupply(0) = error else { return false }
+            return true
         }
     }
 
     /// invalid; amount component exceeds an i64
     /// 9223372036854775808 = i64::MAX + 1
-    func testThrowsWhenAmountExceedsSupply() {
+    @Test func throwsWhenAmountExceedsSupply() {
         let invalidURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=9223372036854775808"
-        XCTAssertThrowsError(
-            try ZIP321.request(from: invalidURI, context: .testnet),
-            "should have thrown \(String(describing: ZIP321.Errors.amountExceededSupply(0))) but none was"
-        ) { err in
-            switch err {
-            case ZIP321.Errors.amountExceededSupply(0):
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.amountExceededSupply(0)))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try ZIP321.request(from: invalidURI, context: .testnet)
+        } throws: { error in
+            guard case ZIP321.Errors.amountExceededSupply(0) = error else { return false }
+            return true
         }
     }
 
-    func testThrowsWhenMemoIsInvalid() {
-        let invalidURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=1&memo=VGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgIHNqqqw222ncssspbXBsZSBtZW1vLg&message=Thank%20you%20for%20your%20purchase"
-        XCTAssertThrowsError(
-            try ZIP321.request(from: invalidURI, context: .testnet),
-            "should have thrown \(String(describing: ZIP321.Errors.memoBytesError(MemoBytes.MemoError.memoTooLong, nil))) but none was"
-        ) { err in
-            switch err {
-            case ZIP321.Errors.memoBytesError(MemoBytes.MemoError.memoTooLong, nil):
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.memoBytesError(MemoBytes.MemoError.memoTooLong, nil)))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+    @Test func throwsWhenMemoIsInvalid() {
+        let invalidURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=1&memo=VGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgIHNqqqw222ncssspbXBsZSBtZW1vLg&message=Thank%20you%20for%20your%20purchase"
+        #expect {
+            try ZIP321.request(from: invalidURI, context: .testnet)
+        } throws: { error in
+            guard case ZIP321.Errors.memoBytesError(MemoBytes.MemoError.memoTooLong, nil) = error else { return false }
+            return true
         }
     }
 
-    func testThrowsWhenMemoIsAssignedToTransparentRecipient() {
+    @Test func throwsWhenMemoIsAssignedToTransparentRecipient() {
         let invalidURI = "zcash:?address=tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU&amount=123.456&memo=eyAia2V5IjogIlRoaXMgaXMgYSBKU09OLXN0cnVjdHVyZWQgbWVtby4iIH0&address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=0.789&memo.1=VGhpcyBpcyBhIHVuaWNvZGUgbWVtbyDinKjwn6aE8J-PhvCfjok"
 
-        XCTAssertThrowsError(
-            try ZIP321.request(from: invalidURI, context: .testnet),
-            "should have thrown \(String(describing: ZIP321.Errors.transparentMemoNotAllowed(nil))) but none was"
-        ) { err in
-            switch err {
-            case ZIP321.Errors.transparentMemoNotAllowed(nil):
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.transparentMemoNotAllowed(nil)))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try ZIP321.request(from: invalidURI, context: .testnet)
+        } throws: { error in
+            guard case ZIP321.Errors.transparentMemoNotAllowed(nil) = error else { return false }
+            return true
         }
     }
 
     /// invalid; `address.0=` and `amount.0=` are not permitted (leading 0s)./
-    func testThrowsWhenParamIndexIsZero() {
+    @Test func throwsWhenParamIndexIsZero() {
         let invalidURI = "zcash:?address.0=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.0=2"
 
-        XCTAssertThrowsError(
-            try ZIP321.request(from: invalidURI, context: .testnet),
-            "should have thrown \(String(describing: ZIP321.Errors.invalidParamIndex("address.0"))) but none was"
-        )
         // TODO: Fix leading address error type. (error is thrown but is not as expected)
-//        { err in
-//            switch err {
-//            case ZIP321.Errors.invalidParamIndex("address.0"):
-//                XCTAssert(true)
-//            default:
-//                XCTFail(
-//                        """
-//                        Expected \(String(describing: ZIP321.Errors.invalidParamIndex("address.0")))
-//                        but \(err) was thrown instead
-//                        """
-//                )
-//            }
-//        }
-    }
-
-    func testParserSuccessfullyParsesAllTestVectorAddresses() throws {
-        for ua in TestVectors.unifiedAddresses {
-            let request = try ZIP321.request(from: "zcash:\(ua)", context: .mainnet)
-
-            if case let .legacy(address) = request {
-                XCTAssertEqual(address.value, ua)
-            } else {
-                XCTFail("Failed: Parser should have detected a 'legacy' variant of Payment request")
-            }
+        #expect(throws: (any Error).self) {
+            try ZIP321.request(from: invalidURI, context: .testnet)
         }
     }
 
-    func testParserSuccessfullyParsesLegacySaplingPaymentRequest() throws {
-        XCTAssertNoThrow(try ZIP321.request(from: "zcash:zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya", context: .mainnet))
+    @Test(arguments: TestVectors.unifiedAddresses)
+    func parserSuccessfullyParsesAllTestVectorAddresses(_ ua: String) throws {
+        let request = try ZIP321.request(from: "zcash:\(ua)", context: .mainnet)
+
+        if case let .legacy(address) = request {
+            #expect(address.value == ua)
+        } else {
+            Issue.record("Failed: Parser should have detected a 'legacy' variant of Payment request")
+        }
     }
 
-    func testParserSuccessfullyParsesLegacyOrchardOnlyUAPaymentRequest() throws {
-        XCTAssertNoThrow(try ZIP321.request(from: "zcash:u16cynw2u6nshm44gjv9vy9dvav6zvvksphexzjs3tjke8mr3p942er0pu8held7zy7wpjxzqgkpdrjzd72h7pwf34df8a0xcv0su3acx7", context: .mainnet))
+    @Test func parserSuccessfullyParsesLegacySaplingPaymentRequest() throws {
+        #expect(throws: Never.self) {
+            try ZIP321.request(from: "zcash:zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya", context: .mainnet)
+        }
+    }
+
+    @Test func parserSuccessfullyParsesLegacyOrchardOnlyUAPaymentRequest() throws {
+        #expect(throws: Never.self) {
+            try ZIP321.request(from: "zcash:u16cynw2u6nshm44gjv9vy9dvav6zvvksphexzjs3tjke8mr3p942er0pu8held7zy7wpjxzqgkpdrjzd72h7pwf34df8a0xcv0su3acx7", context: .mainnet)
+        }
     }
 }

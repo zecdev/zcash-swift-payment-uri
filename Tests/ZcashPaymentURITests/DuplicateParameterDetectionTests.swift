@@ -3,74 +3,51 @@
 //  zcash-swift-payment-uri
 //
 //  Created by Pacu in 2025-04-14.
-//    
-   
+//
 
-import XCTest
+import Testing
 @testable import ZcashPaymentURI
 
-final class DuplicateParameterDetectionTests: XCTestCase {
+@Suite("DuplicateParameterDetection")
+struct DuplicateParameterDetectionTests {
     /// invalid; duplicate `amount=` field/
-    func testThrowsWhenThereAreDuplicateParameters() {
+    @Test func throwsWhenThereAreDuplicateParameters() {
         let invalidURI = "zcash:?amount=1.234&amount=2.345&address=tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
-        XCTAssertThrowsError(
-            try ZIP321.request(from: invalidURI, context: .testnet),
-            "should have thrown \(String(describing: ZIP321.Errors.duplicateParameter("amount", 0))) but none was"
-        ) { err in
-            switch err {
-            case ZIP321.Errors.duplicateParameter("amount", nil):
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.duplicateParameter("amount", nil)))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try ZIP321.request(from: invalidURI, context: .testnet)
+        } throws: { error in
+            guard case ZIP321.Errors.duplicateParameter("amount", nil) = error else { return false }
+            return true
         }
     }
 
     /// invalid; duplicate `amount.1=` field
-    func testThrowsWhenThereAreDuplicateParametersWithParamIndex() {
+    @Test func throwsWhenThereAreDuplicateParametersWithParamIndex() {
         let invalidURI = "zcash:?amount.1=1.234&amount.1=2.345&address.1=tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        XCTAssertThrowsError(
-            try ZIP321.request(from: invalidURI, context: .testnet),
-            "should have thrown \(String(describing: ZIP321.Errors.duplicateParameter("amount", 1))) but none was"
-        ) { err in
-            switch err {
-            case ZIP321.Errors.duplicateParameter("amount", 1):
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.duplicateParameter("amount", 1)))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try ZIP321.request(from: invalidURI, context: .testnet)
+        } throws: { error in
+            guard case ZIP321.Errors.duplicateParameter("amount", 1) = error else { return false }
+            return true
         }
     }
 
-    func testThatDuplicateParametersAreDetected() throws {
-        guard let shieldedRecipient = RecipientAddress(
+    @Test func thatDuplicateParametersAreDetected() throws {
+        let shieldedRecipient = try #require(RecipientAddress(
             value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
             context: .testnet
-        ) else {
-            XCTFail("failed to create shielded recipient")
-            return
-        }
+        ))
 
         let duplicateAddressParams: [IndexedParameter] = [
-            IndexedParameter(index:0, param: .address(shieldedRecipient)),
-            IndexedParameter(index:0, param: .amount(try Amount(value: 1))),
-            IndexedParameter(index:0, param: .message(QcharString(value: "Thanks")!)),
-            IndexedParameter(index:0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
-            IndexedParameter(index:0, param: .label(QcharString(value: "payment")!)),
-            IndexedParameter(index:0, param: .address(shieldedRecipient)),
+            IndexedParameter(index: 0, param: .address(shieldedRecipient)),
+            IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
+            IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
+            IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
+            IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
+            IndexedParameter(index: 0, param: .address(shieldedRecipient)),
             IndexedParameter(
-                index:0,
+                index: 0,
                 param: .other(
                     try OtherParam(
                         key: ParamNameString(
@@ -92,7 +69,7 @@ final class DuplicateParameterDetectionTests: XCTestCase {
             IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
             IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
             IndexedParameter(
-                index:0,
+                index: 0,
                 param: .other(
                     try OtherParam(
                         key: ParamNameString(
@@ -114,7 +91,7 @@ final class DuplicateParameterDetectionTests: XCTestCase {
             IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
             IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
             IndexedParameter(
-                index:0,
+                index: 0,
                 param: .other(
                     try OtherParam(
                         key: ParamNameString(
@@ -136,7 +113,7 @@ final class DuplicateParameterDetectionTests: XCTestCase {
             IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
             IndexedParameter(
-                index:0,
+                index: 0,
                 param: .other(
                     try OtherParam(
                         key: ParamNameString(
@@ -158,7 +135,7 @@ final class DuplicateParameterDetectionTests: XCTestCase {
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
             IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
             IndexedParameter(
-                index:0,
+                index: 0,
                 param: .other(
                     try OtherParam(
                         key: ParamNameString(
@@ -176,7 +153,7 @@ final class DuplicateParameterDetectionTests: XCTestCase {
             IndexedParameter(index: 0, param: .address(shieldedRecipient)),
             IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
             IndexedParameter(
-                index:0,
+                index: 0,
                 param: .other(
                     try OtherParam(
                         key: ParamNameString(
@@ -192,7 +169,7 @@ final class DuplicateParameterDetectionTests: XCTestCase {
             IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
             IndexedParameter(
-                index:0,
+                index: 0,
                 param: .other(
                     try OtherParam(
                         key: ParamNameString(
@@ -206,98 +183,50 @@ final class DuplicateParameterDetectionTests: XCTestCase {
             )
         ]
 
-        XCTAssertThrowsError(try Parser.mapToPayments(duplicateAddressParams)) { err in
-
-            switch err {
-            case ZIP321.Errors.duplicateParameter("address", nil):
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.duplicateParameter("address", nil)))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try Parser.mapToPayments(duplicateAddressParams)
+        } throws: { error in
+            guard case ZIP321.Errors.duplicateParameter("address", nil) = error else { return false }
+            return true
         }
 
-        XCTAssertThrowsError(try Parser.mapToPayments(duplicateAmountParams)) { err in
-
-            switch err {
-            case ZIP321.Errors.duplicateParameter("amount", nil):
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.duplicateParameter("amount", nil)))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try Parser.mapToPayments(duplicateAmountParams)
+        } throws: { error in
+            guard case ZIP321.Errors.duplicateParameter("amount", nil) = error else { return false }
+            return true
         }
 
-        XCTAssertThrowsError(try Parser.mapToPayments(duplicateMessageParams)) { err in
-
-            switch err {
-            case ZIP321.Errors.duplicateParameter("message", nil):
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.duplicateParameter("message", nil)))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try Parser.mapToPayments(duplicateMessageParams)
+        } throws: { error in
+            guard case ZIP321.Errors.duplicateParameter("message", nil) = error else { return false }
+            return true
         }
 
-        XCTAssertThrowsError(try Parser.mapToPayments(duplicateMemoParams)) { err in
-
-            switch err {
-            case ZIP321.Errors.duplicateParameter("memo", nil):
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.duplicateParameter("memo", nil)))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try Parser.mapToPayments(duplicateMemoParams)
+        } throws: { error in
+            guard case ZIP321.Errors.duplicateParameter("memo", nil) = error else { return false }
+            return true
         }
 
-        XCTAssertThrowsError(try Parser.mapToPayments(duplicateLabelParams)) { err in
-
-            switch err {
-            case ZIP321.Errors.duplicateParameter("label", nil):
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.duplicateParameter("label", nil)))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try Parser.mapToPayments(duplicateLabelParams)
+        } throws: { error in
+            guard case ZIP321.Errors.duplicateParameter("label", nil) = error else { return false }
+            return true
         }
 
-        XCTAssertThrowsError(try Parser.mapToPayments(duplicateOtherParams)) { err in
-
-            switch err {
-            case ZIP321.Errors.duplicateParameter("future", nil):
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.duplicateParameter("future", nil)))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try Parser.mapToPayments(duplicateOtherParams)
+        } throws: { error in
+            guard case ZIP321.Errors.duplicateParameter("future", nil) = error else { return false }
+            return true
         }
     }
 
-    func testDuplicateAddressParamsAreDetected() throws {
+    @Test func duplicateAddressParamsAreDetected() throws {
         let params: [Param] = [
             .address(
                 RecipientAddress(
@@ -320,10 +249,10 @@ final class DuplicateParameterDetectionTests: XCTestCase {
             )
         ]
 
-        XCTAssertTrue(params.hasDuplicateParam(.address(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet)!)))
+        #expect(params.hasDuplicateParam(.address(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet)!)))
     }
 
-    func testDuplicateParameterIsFalseWhenNoDuplication() throws {
+    @Test func duplicateParameterIsFalseWhenNoDuplication() throws {
         let params: [Param] = [
             .amount(try Amount(value: 1)),
             .message(QcharString(value: "Thanks")!),
@@ -340,10 +269,10 @@ final class DuplicateParameterDetectionTests: XCTestCase {
             )
         ]
 
-        XCTAssertFalse(params.hasDuplicateParam(.address(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet)!)))
+        #expect(!params.hasDuplicateParam(.address(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet)!)))
     }
 
-    func testDuplicateOtherParamsAreDetected() throws {
+    @Test func duplicateOtherParamsAreDetected() throws {
         let params: [Param] = [
             .address(
                 RecipientAddress(
@@ -366,14 +295,14 @@ final class DuplicateParameterDetectionTests: XCTestCase {
             )
         ]
 
-        XCTAssertTrue(
+        #expect(
             params.hasDuplicateParam(
                 .other(
                     try OtherParam(
                         key: ParamNameString(
                             value: "future"
                         )!,
-                        value:  QcharString(
+                        value: QcharString(
                             value: "is dystopic"
                         )!
                     )

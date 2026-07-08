@@ -1,198 +1,190 @@
 //
 //  ParsingTests.swift
-//  
+//
 //
 //  Created by Francisco Gindre on 2023-12-07.
 //
 
-import XCTest
+import Testing
 @testable import ZcashPaymentURI
 
-final class ParsingTests: XCTestCase {
+@Suite("ParseParameters")
+struct ParsingTests {
     // MARK: Partial parsers - QueryKey parsing
-    func testParamIndexParserRejectsLeadingZeros () throws {
-        XCTAssertThrowsError(try Parser.parameterIndex.parse("01"))
-        XCTAssertThrowsError(try Parser.parameterIndex.parse("0"))
+    @Test func paramIndexParserRejectsLeadingZeros() throws {
+        #expect(throws: (any Error).self) {
+            try Parser.parameterIndex.parse("01")
+        }
+        #expect(throws: (any Error).self) {
+            try Parser.parameterIndex.parse("0")
+        }
     }
 
-    func testParamIndexParserAcceptsValidIndices() throws {
-        XCTAssertNoThrow(try Parser.parameterIndex.parse("1"))
-        XCTAssertNoThrow(try Parser.parameterIndex.parse("10"))
-        XCTAssertNoThrow(try Parser.parameterIndex.parse("100"))
-        XCTAssertNoThrow(try Parser.parameterIndex.parse("100"))
-        XCTAssertNoThrow(try Parser.parameterIndex.parse("1000"))
-        XCTAssertNoThrow(try Parser.parameterIndex.parse("9990"))
+    @Test func paramIndexParserAcceptsValidIndices() throws {
+        _ = try Parser.parameterIndex.parse("1")
+        _ = try Parser.parameterIndex.parse("10")
+        _ = try Parser.parameterIndex.parse("100")
+        _ = try Parser.parameterIndex.parse("100")
+        _ = try Parser.parameterIndex.parse("1000")
+        _ = try Parser.parameterIndex.parse("9990")
     }
 
-    func testParamIndexParserRejectsIndexAboveMaximum () throws {
-        XCTAssertThrowsError(try Parser.parameterIndex.parse("10000"))
+    @Test func paramIndexParserRejectsIndexAboveMaximum() throws {
+        #expect(throws: (any Error).self) {
+            try Parser.parameterIndex.parse("10000")
+        }
     }
 
-    func testAnyIndexedParamNameIsParsed() throws {
+    @Test func anyIndexedParamNameIsParsed() throws {
         let paramName = "asdf.1"
 
         let result = try Parser.optionallyIndexedParameterName.parse(paramName)
 
-        XCTAssertEqual(result.0, "asdf")
-        XCTAssertEqual(result.1, 1)
+        #expect(result.0 == "asdf")
+        #expect(result.1 == 1)
     }
 
-    func testInvalidIndexedParamNameIsNotParsed() throws {
+    @Test func invalidIndexedParamNameIsNotParsed() throws {
         let paramName = "%asdf.1"
 
-        XCTAssertThrowsError(try Parser.optionallyIndexedParameterName.parse(paramName))
+        #expect(throws: (any Error).self) {
+            try Parser.optionallyIndexedParameterName.parse(paramName)
+        }
     }
 
-    func testAnySeeminglySoundParameterIsParsed() throws {
+    @Test func anySeeminglySoundParameterIsParsed() throws {
         let otherNoIndex = try Parser.queryKeyAndValue.parse("asset-id=zPOAP")
-        XCTAssertEqual(otherNoIndex.0, "asset-id"[...])
-        XCTAssertEqual(otherNoIndex.1, nil)
-        XCTAssertEqual(otherNoIndex.2, "zPOAP"[...])
+        #expect(otherNoIndex.0 == "asset-id"[...])
+        #expect(otherNoIndex.1 == nil)
+        #expect(otherNoIndex.2 == "zPOAP"[...])
 
         let otherIndexed = try Parser.queryKeyAndValue.parse("asset-id.1=zPOAP")
-        XCTAssertEqual(otherIndexed.0, "asset-id"[...])
-        XCTAssertEqual(otherIndexed.1, 1)
-        XCTAssertEqual(otherIndexed.2, "zPOAP"[...])
+        #expect(otherIndexed.0 == "asset-id"[...])
+        #expect(otherIndexed.1 == 1)
+        #expect(otherIndexed.2 == "zPOAP"[...])
 
         let amountIndexed = try Parser.queryKeyAndValue.parse("amount.1=0.0001")
-        XCTAssertEqual(amountIndexed.0, "amount"[...])
-        XCTAssertEqual(amountIndexed.1, 1)
-        XCTAssertEqual(amountIndexed.2, "0.0001"[...])
+        #expect(amountIndexed.0 == "amount"[...])
+        #expect(amountIndexed.1 == 1)
+        #expect(amountIndexed.2 == "0.0001"[...])
     }
 
-    func testKeyValueParserNotThrowsOnUnknownRequiredParam() {
-        XCTAssertNoThrow(try Parser.queryKeyAndValue.parse("req-unknown-future-option=true"))
+    @Test func keyValueParserNotThrowsOnUnknownRequiredParam() {
+        #expect(throws: Never.self) {
+            try Parser.queryKeyAndValue.parse("req-unknown-future-option=true")
+        }
     }
 
-    func testZcashParamParserFailsOnUnknownRequiredParam() throws {
-        XCTAssertThrowsError(try Parser.zcashParameter(("req-unknown-future-option"[...], nil, "true"[...]), context: .testnet))
+    @Test func zcashParamParserFailsOnUnknownRequiredParam() throws {
+        #expect(throws: (any Error).self) {
+            try Parser.zcashParameter(("req-unknown-future-option"[...], nil, "true"[...]), context: .testnet)
+        }
     }
-
 
     // MARK: Partial parser - Query Key value tests
-    func testZcashParameterCreatesValidAmount() throws {
+    @Test func zcashParameterCreatesValidAmount() throws {
         let query = "amount"[...]
         let value = "1.00020112"[...]
 
-        XCTAssertEqual(
-            IndexedParameter(index: 0, param: .amount(try Amount(string: String(value)))),
-            try Parser.zcashParameter(
+        #expect(
+            IndexedParameter(index: 0, param: .amount(try Amount(string: String(value))))
+            == (try Parser.zcashParameter(
                 (query, nil, value),
                 context: .testnet,
                 validating: Parser.onlyCharsetValidation
-            )
+            ))
         )
     }
 
-    func testZcashParameterCreatesValidMessage() throws {
+    @Test func zcashParameterCreatesValidMessage() throws {
         let query = "message"[...]
         let index = 1
         let value = "Thank%20You%20For%20Your%20Purchase"[...]
-        guard let qcharDecodedValue = QcharString(value: String(value).qcharDecode()!) else {
-            XCTFail("failed to qcharDecode value `\(value)")
-            return
-        }
+        let qcharDecodedValue = try #require(QcharString(value: String(value).qcharDecode()!))
 
-        XCTAssertEqual(
-            IndexedParameter(index: UInt(index), param: .message(qcharDecodedValue)),
-            try Parser.zcashParameter(
+        #expect(
+            IndexedParameter(index: UInt(index), param: .message(qcharDecodedValue))
+            == (try Parser.zcashParameter(
                 (query, index, value),
                 context: .testnet,
                 validating: Parser.onlyCharsetValidation
-            )
+            ))
         )
     }
 
-    func testZcashParameterCreatesValidLabel() throws {
+    @Test func zcashParameterCreatesValidLabel() throws {
         let query = "label"[...]
         let index = 99
         let value = "Thank%20You%20For%20Your%20Purchase"[...]
 
-        guard let qcharDecodedValue = QcharString(value: String(value).qcharDecode()!) else {
-            XCTFail("failed to qcharDecode value `\(value)")
-            return
-        }
+        let qcharDecodedValue = try #require(QcharString(value: String(value).qcharDecode()!))
 
-        XCTAssertEqual(
-            IndexedParameter(index: UInt(index), param: .label(qcharDecodedValue)),
-            try Parser.zcashParameter(
+        #expect(
+            IndexedParameter(index: UInt(index), param: .label(qcharDecodedValue))
+            == (try Parser.zcashParameter(
                 (query, index, value),
                 context: .testnet,
                 validating: Parser.onlyCharsetValidation
-            )
+            ))
         )
     }
 
-    func testZcashParameterCreatesValidMemo() throws {
+    @Test func zcashParameterCreatesValidMemo() throws {
         let query = "memo"[...]
         let index = 99
         let value = "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"[...]
 
-        XCTAssertEqual(
-            IndexedParameter(index: UInt(index), param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
-            try Parser.zcashParameter(
+        #expect(
+            IndexedParameter(index: UInt(index), param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg")))
+            == (try Parser.zcashParameter(
                 (query, index, value),
                 context: .testnet,
                 validating: Parser.onlyCharsetValidation
-            )
+            ))
         )
     }
 
-    func testZcashParameterCreatesSafelyIgnoredOtherParameter() throws {
+    @Test func zcashParameterCreatesSafelyIgnoredOtherParameter() throws {
         let query = "future-binary-format"[...]
         let index = 99
         let value = "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"[...]
 
+        let queryKey = try #require(ParamNameString(value: String(query)))
+        let qcharDecodedValue = try #require(QcharString(value: String(value)))
 
-        guard let queryKey = ParamNameString(value: String(query)) else {
-            XCTFail("failed to ParamName decode value `\(query)")
-            return
-        }
-
-        guard let qcharDecodedValue = QcharString(value: String(value)) else {
-            XCTFail("failed to qcharDecode value `\(value)")
-            return
-        }
-
-        XCTAssertEqual(
-            IndexedParameter(index: UInt(index), param: .other(try OtherParam(key: queryKey, value: qcharDecodedValue))),
-            try Parser.zcashParameter(
+        #expect(
+            IndexedParameter(index: UInt(index), param: .other(try OtherParam(key: queryKey, value: qcharDecodedValue)))
+            == (try Parser.zcashParameter(
                 (query, index, value),
                 context: .testnet,
                 validating: Parser.onlyCharsetValidation
-            )
+            ))
         )
     }
 
-    func testZcashParameterThrowsOnInvalidLabelValue() throws {
+    @Test func zcashParameterThrowsOnInvalidLabelValue() throws {
         let query = "label"[...]
         let index = 99
         let value = "Thank%20You%20For%20Your%20Purchase"[...]
 
-        guard let qcharEncodedValue = QcharString(value: String(value).qcharDecode()!) else {
-            XCTFail("failed to qcharDecode value `\(value)")
-            return
-        }
+        let qcharEncodedValue = try #require(QcharString(value: String(value).qcharDecode()!))
 
-        XCTAssertEqual(
-            IndexedParameter(index: UInt(index), param: .label(qcharEncodedValue)),
-            try Parser.zcashParameter(
+        #expect(
+            IndexedParameter(index: UInt(index), param: .label(qcharEncodedValue))
+            == (try Parser.zcashParameter(
                 (query, index, value),
                 context: .testnet,
                 validating: Parser.onlyCharsetValidation
-            )
+            ))
         )
     }
 
     // MARK: Partial parser - indexed parameters
 
-    func testThatIndexParametersAreParsedWithNoLeadingAddress() throws {
+    @Test func thatIndexParametersAreParsedWithNoLeadingAddress() throws {
         let validAddressURI = "?address=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount=1&memo=VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg&message=Thank%20you%20for%20your%20purchase"[...]
 
-        guard let recipient = RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet) else {
-            XCTFail("Failed to create valid recipient")
-            return
-        }
+        let recipient = try #require(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet))
 
         let expected = [
             IndexedParameter(index: 0, param: .address(recipient)),
@@ -208,24 +200,21 @@ final class ParsingTests: XCTestCase {
             validating: Parser.onlyCharsetValidation
         )
 
-        XCTAssertEqual(result, expected)
+        #expect(result == expected)
     }
 
-    func testThatIndexParametersAreParsedWithLeadingAddress() throws {
+    @Test func thatIndexParametersAreParsedWithLeadingAddress() throws {
         let validAddressURI = "?amount=1&memo=VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg&message=Thank%20you%20for%20your%20purchase"[...]
-        
-        guard let recipient = RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet) else {
-            XCTFail("Failed to create valid recipient")
-            return
-        }
-        
+
+        let recipient = try #require(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet))
+
         let expected = [
             IndexedParameter(index: 0, param: .address(recipient)),
             IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
             IndexedParameter(index: 0, param: .message(QcharString(value: "Thank you for your purchase")!))
         ]
-        
+
         let result = try Parser.parseParameters(
             validAddressURI,
             leadingAddress: IndexedParameter(
@@ -235,7 +224,7 @@ final class ParsingTests: XCTestCase {
             context: .testnet,
             validating: Parser.onlyCharsetValidation
         )
-        
-        XCTAssertEqual(result, expected)
+
+        #expect(result == expected)
     }
 }

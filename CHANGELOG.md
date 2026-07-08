@@ -41,6 +41,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     unchanged).
   - Test assertions using `swift-custom-dump`'s `expectNoDifference`/
     `XCTAssertNoDifference` have been replaced with `XCTAssertEqual`.
+- **Test suite migrated from XCTest to [swift-testing](https://github.com/swiftlang/swift-testing).**
+  All test files now use `@Suite`/`@Test`/`#expect`/`#require` instead of
+  `XCTestCase`/`XCTAssert*`. Files that already looped over a fixed set of
+  cases are parameterized with `@Test(arguments:)` (e.g. the conformance
+  runner's valid/invalid vectors, the unified-address test vectors). The
+  conformance suite's `XCTExpectFailure`-based expected-failure mechanism is
+  replaced with `withKnownIssue`, swift-testing's equivalent strict
+  expected-failure primitive; the 14-entry `conformanceExpectedFailures` map
+  is unchanged and every entry still corresponds to an observed known issue.
+  Test coverage is unchanged: 137 tests executed before and after.
 
 ### Added
 - The shared ZIP-321 conformance vector corpus

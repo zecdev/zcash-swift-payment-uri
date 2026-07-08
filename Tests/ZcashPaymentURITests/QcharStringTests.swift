@@ -4,33 +4,34 @@
 //
 //  Created by Pacu in 2025-04-09.
 //
-   
 
-import XCTest
+import Testing
 @testable import ZcashPaymentURI
-final class QcharStringTests: XCTestCase {
-    func testValidQcharStringIsInitialized() throws {
+
+@Suite("QcharString")
+struct QcharStringTests {
+    @Test func validQcharStringIsInitialized() throws {
         let string = "valid QcharString"
 
-        XCTAssertNotNil(QcharString(value: string))
+        #expect(QcharString(value: string) != nil)
     }
 
-    func testThatQcharStringFromValidQcharEncodedStringIsNotInitialized() throws {
+    @Test func thatQcharStringFromValidQcharEncodedStringIsNotInitialized() throws {
         let string = "Thank%20You!"
 
         let result = QcharString(value: string, strictMode: true)
-        XCTAssertNil(result)
+        #expect(result == nil)
     }
 
-    func testQcharStringFromEmptyStringFails() throws {
-        XCTAssertNil(QcharString(value: ""))
+    @Test func qcharStringFromEmptyStringFails() throws {
+        #expect(QcharString(value: "") == nil)
     }
 
-    func testQcharDecode() {
-        XCTAssertEqual("nospecialcharacters".qcharDecode(), "nospecialcharacters")
+    @Test func qcharDecode() {
+        #expect("nospecialcharacters".qcharDecode() == "nospecialcharacters")
     }
 
-    func testQcharEncode() {
-        XCTAssertEqual("nospecialcharacters".qcharEncoded(), "nospecialcharacters")
+    @Test func qcharEncode() {
+        #expect("nospecialcharacters".qcharEncoded() == "nospecialcharacters")
     }
 }

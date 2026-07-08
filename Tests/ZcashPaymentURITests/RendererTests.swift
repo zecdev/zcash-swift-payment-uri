@@ -1,116 +1,108 @@
 //
 //  RendererTests.swift
-//  
+//
 //
 //  Created by Francisco Gindre on 2023-11-13.
 //
 
-import XCTest
+import Testing
 @testable import ZcashPaymentURI
-final class RendererTests: XCTestCase {
-    func testAmountRendersNoParamIndex() throws {
+
+@Suite("Render")
+struct RendererTests {
+    @Test func amountRendersNoParamIndex() throws {
         let expected = "amount=123.456"
-        
+
         let amount = try Amount(string: "123.456")
 
-        XCTAssertEqual(Render.parameter(amount, index: nil), expected)
-
-        XCTAssertEqual(Render.parameter(amount, index: nil), expected)
+        #expect(Render.parameter(amount, index: nil) == expected)
+        #expect(Render.parameter(amount, index: nil) == expected)
     }
 
-    func testAmountRendersWithParamIndex() throws {
+    @Test func amountRendersWithParamIndex() throws {
         let expected = "amount.1=123.456"
 
         let amount = try Amount(string: "123.456")
 
-        XCTAssertEqual(Render.parameter(amount, index: 1), expected)
+        #expect(Render.parameter(amount, index: 1) == expected)
     }
 
-    func testAddressRendersNoParamIndex() throws {
+    @Test func addressRendersNoParamIndex() throws {
         let expected = "address=tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
-            XCTFail("failed to create recipient without validation for address: \(address0)")
-            return
-        }
+        let recipient0 = try #require(RecipientAddress(value: address0, context: .testnet))
 
-        XCTAssertEqual(Render.parameter(recipient0, index: nil), expected)
+        #expect(Render.parameter(recipient0, index: nil) == expected)
     }
 
-    func testAddressRendersWithParamIndex() throws {
+    @Test func addressRendersWithParamIndex() throws {
         let expected = "address.1=tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
-            XCTFail("failed to create recipient without validation for address: \(address0)")
-            return
-        }
+        let recipient0 = try #require(RecipientAddress(value: address0, context: .testnet))
 
-        XCTAssertEqual(Render.parameter(recipient0, index: 1), expected)
+        #expect(Render.parameter(recipient0, index: 1) == expected)
     }
 
-    func testMessageParamRendersNoParamIndex() throws {
+    @Test func messageParamRendersNoParamIndex() throws {
         let expected = "message=Thank%20you%20for%20your%20purchase"
 
-        XCTAssertEqual(Render.parameter(message: "Thank you for your purchase".asQcharString!, index: nil), expected)
+        #expect(Render.parameter(message: "Thank you for your purchase".asQcharString!, index: nil) == expected)
     }
 
-    func testMessageParamRendersWithParamIndex() throws {
+    @Test func messageParamRendersWithParamIndex() throws {
         let expected = "message.10=Thank%20you%20for%20your%20purchase"
 
-        XCTAssertEqual(Render.parameter(message: "Thank you for your purchase".asQcharString!, index: 10), expected)
+        #expect(Render.parameter(message: "Thank you for your purchase".asQcharString!, index: 10) == expected)
     }
 
-    func testLabelRendersNoParamIndex() throws {
+    @Test func labelRendersNoParamIndex() throws {
         let expected = "label=Lunch%20Tab"
 
-        XCTAssertEqual(Render.parameter(label: "Lunch Tab".asQcharString!, index: nil), expected)
+        #expect(Render.parameter(label: "Lunch Tab".asQcharString!, index: nil) == expected)
     }
 
-    func testLabelRendersWithParamIndex() throws {
+    @Test func labelRendersWithParamIndex() throws {
         let expected = "label.1=Lunch%20Tab"
 
-        XCTAssertEqual(Render.parameter(label: "Lunch Tab".asQcharString!, index: 1), expected)
+        #expect(Render.parameter(label: "Lunch Tab".asQcharString!, index: 1) == expected)
     }
 
-    func testReqParamRendersNoParamIndex() throws {
+    @Test func reqParamRendersNoParamIndex() throws {
         let expected = "req-futureParam=Future%20is%20Z"
 
-        XCTAssertEqual(Render.parameter(label: "req-futureParam", value: "Future is Z".asQcharString!, index: nil), expected)
+        #expect(Render.parameter(label: "req-futureParam", value: "Future is Z".asQcharString!, index: nil) == expected)
     }
 
-    func testReqParamRendersWithParamIndex() throws {
+    @Test func reqParamRendersWithParamIndex() throws {
         let expected = "req-futureParam.1=Future%20is%20Z"
 
-        XCTAssertEqual(Render.parameter(label: "req-futureParam", value: "Future is Z".asQcharString!, index: 1), expected)
+        #expect(Render.parameter(label: "req-futureParam", value: "Future is Z".asQcharString!, index: 1) == expected)
     }
 
-    func testMemoParamRendersNoParamIndex() throws {
+    @Test func memoParamRendersNoParamIndex() throws {
         let expected = "memo=VGhpcyBpcyBhIHVuaWNvZGUgbWVtbyDinKjwn6aE8J-PhvCfjok"
 
-        XCTAssertEqual(Render.parameter(try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"), index: nil), expected)
+        #expect(Render.parameter(try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"), index: nil) == expected)
     }
 
-    func testMemoParamRendersWithParamIndex() throws {
+    @Test func memoParamRendersWithParamIndex() throws {
         let expected = "memo.10=VGhpcyBpcyBhIHVuaWNvZGUgbWVtbyDinKjwn6aE8J-PhvCfjok"
 
-        XCTAssertEqual(Render.parameter(try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"), index: 10), expected)
+        #expect(Render.parameter(try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"), index: 10) == expected)
     }
 
     // MARK: Payment
 
-    func testPaymentRendersWithNoParamIndex() throws {
+    @Test func paymentRendersWithNoParamIndex() throws {
         let expected = "address=tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU&amount=123.456"
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
-            XCTFail("failed to create recipient without validation for address: \(address0)")
-            return
-        }
+        let recipient0 = try #require(RecipientAddress(value: address0, context: .testnet))
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
@@ -121,19 +113,16 @@ final class RendererTests: XCTestCase {
             otherParams: nil
         )
 
-        XCTAssertEqual(Render.payment(payment0, index: nil), expected)
+        #expect(Render.payment(payment0, index: nil) == expected)
     }
 
-    func testPaymentRendersWithParamIndex() throws {
+    @Test func paymentRendersWithParamIndex() throws {
         // swiftlint:disable:next line_length
         let expected = "address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=0.789&memo.1=VGhpcyBpcyBhIHVuaWNvZGUgbWVtbyDinKjwn6aE8J-PhvCfjok"
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        guard let recipient1 = RecipientAddress(value: address1, context: .testnet) else {
-            XCTFail("failed to create recipient without validation for address: \(address1)")
-            return
-        }
+        let recipient1 = try #require(RecipientAddress(value: address1, context: .testnet))
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
@@ -144,18 +133,15 @@ final class RendererTests: XCTestCase {
             otherParams: nil
         )
 
-        XCTAssertEqual(Render.payment(payment1, index: 1), expected)
+        #expect(Render.payment(payment1, index: 1) == expected)
     }
 
-    func testPaymentRendersWithNoParamIndexAndNoAddressLabel() throws {
+    @Test func paymentRendersWithNoParamIndexAndNoAddressLabel() throws {
         let expected = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU?amount=123.456"
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        guard let recipient0 = RecipientAddress(value: address0, context: .testnet) else {
-            XCTFail("failed to create recipient without validation for address: \(address0)")
-            return
-        }
+        let recipient0 = try #require(RecipientAddress(value: address0, context: .testnet))
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
@@ -166,19 +152,16 @@ final class RendererTests: XCTestCase {
             otherParams: nil
         )
 
-        XCTAssertEqual(Render.payment(payment0, index: nil, omittingAddressLabel: true), expected)
+        #expect(Render.payment(payment0, index: nil, omittingAddressLabel: true) == expected)
     }
 
-    func testPaymentRendererIgnoresLabelOmissionWhenIndexIsProvided() throws {
+    @Test func paymentRendererIgnoresLabelOmissionWhenIndexIsProvided() throws {
         // swiftlint:disable:next line_length
         let expected = "address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=0.789&memo.1=VGhpcyBpcyBhIHVuaWNvZGUgbWVtbyDinKjwn6aE8J-PhvCfjok"
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        guard let recipient1 = RecipientAddress(value: address1, context: .testnet) else {
-            XCTFail("failed to create recipient without validation for address: \(address1)")
-            return
-        }
+        let recipient1 = try #require(RecipientAddress(value: address1, context: .testnet))
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
@@ -189,6 +172,6 @@ final class RendererTests: XCTestCase {
             otherParams: nil
         )
 
-        XCTAssertEqual(Render.payment(payment1, index: 1, omittingAddressLabel: true), expected)
+        #expect(Render.payment(payment1, index: 1, omittingAddressLabel: true) == expected)
     }
 }

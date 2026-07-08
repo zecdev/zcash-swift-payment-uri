@@ -3,23 +3,20 @@
 //  zcash-swift-payment-uri
 //
 //  Created by Pacu in 2025-04-14.
-//    
-   
+//
 
-import XCTest
+import Testing
 @testable import ZcashPaymentURI
 
-final class PaymentTests: XCTestCase {
+@Suite("Payment")
+struct PaymentTests {
     // MARK: Param validation - no memos to transparent
 
-    func testThrowsWhenMemoIsPresentOnTransparentRecipient() throws {
-        guard let recipient = RecipientAddress(
+    @Test func throwsWhenMemoIsPresentOnTransparentRecipient() throws {
+        let recipient = try #require(RecipientAddress(
             value: "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU",
             context: .testnet
-        ) else {
-            XCTFail("failed to create recipient")
-            return
-        }
+        ))
 
         let params: [Param] = [
             .address(recipient),
@@ -39,31 +36,20 @@ final class PaymentTests: XCTestCase {
             )
         ]
 
-        XCTAssertThrowsError(try Payment.uniqueIndexedParameters(index: 1, parameters: params)) { err in
-
-            switch err {
-            case ZIP321.Errors.transparentMemoNotAllowed(1):
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.transparentMemoNotAllowed(1)))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try Payment.uniqueIndexedParameters(index: 1, parameters: params)
+        } throws: { error in
+            guard case ZIP321.Errors.transparentMemoNotAllowed(1) = error else { return false }
+            return true
         }
     }
 
     // MARK: Payment Validation
-    func testPaymentIsCreatedFromIndexedParameters() throws {
-        guard let recipient = RecipientAddress(
+    @Test func paymentIsCreatedFromIndexedParameters() throws {
+        let recipient = try #require(RecipientAddress(
             value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
             context: .testnet
-        ) else {
-            XCTFail("failed to create recipient")
-            return
-        }
+        ))
 
         let params: [Param] = [
             .address(recipient),
@@ -84,13 +70,13 @@ final class PaymentTests: XCTestCase {
 
         let payment = try Payment.uniqueIndexedParameters(index: 1, parameters: params)
 
-        XCTAssertEqual(try Payment(
+        #expect(try Payment(
             recipientAddress: recipient,
             amount: try Amount(value: 1),
             memo: nil,
             label: "payment",
             message: "Thanks",
             otherParams: [OtherParam(key: "future", value: "is awesome")]
-        ), payment)
+        ) == payment)
     }
 }
