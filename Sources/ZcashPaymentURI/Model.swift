@@ -7,124 +7,208 @@
 
 import Foundation
 
-public struct PaymentRequest: Equatable {
-    public let payments: [Payment]
-    
-    /// Create a Payment Request from a sequence of payments
-    /// - parameter payments: a sequence of ``Payment`` structs
-    /// - throws: ``ZIP321.Errors.networkMismatchFound`` if more than one
-    /// kind of ``RecipientAddress.Network`` payment recipients are found.
-    public init(payments: [Payment]) throws {
-        try payments.enforceNetworkCoherence()
-        self.payments = payments
+/// A [ZIP-321](https://zips.z.cash/zip-0321) transaction request: an ordered
+/// collection of payments, each addressed by its `paramindex`.
+///
+/// Unlike v1, `PaymentRequest` **retains ZIP-321 paramindices**. Indices need
+/// not be contiguous or start at zero (see ZIP-321 "URI Semantics"), so a
+/// request whose only payment sits at index 5 preserves that 5 in
+/// ``indexedPayments``. An empty request (zero payments) is valid.
+public struct PaymentRequest: Equatable, Sendable {
+    /// The maximum number of payments a single request may contain; ZIP-321
+    /// `paramindex` values are limited to four digits.
+    static let maxPaymentCount: UInt = 9999
+
+    /// Payments keyed by their ZIP-321 `paramindex` (index `0` denotes the
+    /// empty paramindex).
+    private let paymentsByIndex: [UInt: Payment]
+
+    /// The payments of this request, ordered by ascending `paramindex`.
+    public var payments: [Payment] {
+        paymentsByIndex.keys.sorted().map { paymentsByIndex[$0]! }
     }
-    
-    /// Create Payment Request from a single ``Payment`` struct
+
+    /// The payments of this request paired with their ZIP-321 `paramindex`,
+    /// ordered by ascending index.
+    public var indexedPayments: [(index: UInt, payment: Payment)] {
+        paymentsByIndex.keys.sorted().map { (index: $0, payment: paymentsByIndex[$0]!) }
+    }
+
+    /// Create a Payment Request from a sequence of payments, assigning
+    /// sequential paramindices `0, 1, 2, …` in order.
+    /// - parameter payments: a sequence of ``Payment`` structs (may be empty).
+    /// - throws: ``ZIP321Error/tooManyPayments(count:)`` if more than
+    /// ``maxPaymentCount`` payments are provided.
+    public init(payments: [Payment]) throws {
+        guard payments.count <= Int(Self.maxPaymentCount) else {
+            throw ZIP321Error.tooManyPayments(count: UInt(payments.count))
+        }
+
+        var byIndex: [UInt: Payment] = [:]
+        for (offset, payment) in payments.enumerated() {
+            byIndex[UInt(offset)] = payment
+        }
+        self.paymentsByIndex = byIndex
+    }
+
+    /// Create a Payment Request from payments paired with explicit ZIP-321
+    /// paramindices.
+    /// - parameter indexedPayments: `(index, payment)` pairs. Indices must be
+    /// unique and each `≤ 9999`.
+    /// - throws: ``ZIP321Error/duplicateParameter(name:index:)`` if an index
+    /// repeats, or ``ZIP321Error/tooManyPayments(count:)`` if any index exceeds
+    /// ``maxPaymentCount``.
+    public init(indexedPayments: [(index: UInt, payment: Payment)]) throws {
+        var byIndex: [UInt: Payment] = [:]
+
+        for pair in indexedPayments {
+            guard pair.index <= Self.maxPaymentCount else {
+                throw ZIP321Error.tooManyPayments(count: pair.index)
+            }
+
+            guard byIndex[pair.index] == nil else {
+                throw ZIP321Error.duplicateParameter(name: "address", index: pair.index == 0 ? nil : pair.index)
+            }
+
+            byIndex[pair.index] = pair.payment
+        }
+
+        self.paymentsByIndex = byIndex
+    }
+
+    /// Create Payment Request from a single ``Payment`` struct (at the empty
+    /// paramindex).
     public init(singlePayment: Payment) {
-        self.payments = [singlePayment]
+        self.paymentsByIndex = [0: singlePayment]
     }
 }
 
 /// A Single payment that will be requested
-public struct Payment: Equatable {
+public struct Payment: Equatable, Sendable {
     /// Recipient of the payment.
     public let recipientAddress: RecipientAddress
-    /// The amount of the payment expressed in decimal ZEC
-    public let amount: LegacyAmount?
+    /// The amount of the payment, as a ``NonNegativeAmount`` count, or `nil` if unspecified.
+    public let amount: NonNegativeAmount?
     /// bytes of the ZIP-302 Memo if present. Payments to addresses that are not shielded should be reported as erroneous by wallets.
     public let memo: MemoBytes?
-    /// A human-readable label for this payment within the larger structure of the transaction request.
-    /// this will be pct-encoded
-    public let label: QcharString?
-    /// A human-readable message to be displayed to the user describing the purpose of this payment.
-    public let message: QcharString?
-    /// A list of other arbitrary key/value pairs associated with this payment.
-    public let otherParams: [OtherParam]?
+    /// A human-readable (already decoded) label for this payment.
+    public let label: String?
+    /// A human-readable (already decoded) message describing this payment.
+    public let message: String?
+    /// The additional, non-reserved `otherparam` entries of this payment, in
+    /// the order they appeared (or were added).
+    ///
+    /// This is always an array: there is NO distinction between "no other
+    /// params" and "an empty list of other params", because ZIP-321 has no way
+    /// to spell the difference and the reference implementation does not model
+    /// one either. An absent list and an empty list would render identically,
+    /// so representing both would make two distinct `Payment` values with the
+    /// same URI — breaking the round-trip law.
+    ///
+    /// Names are unique within a payment; ``create(recipientAddress:amount:memo:label:message:otherParams:)``
+    /// rejects duplicates.
+    public let otherParams: [OtherParam]
 
-    /// Initializes a Payment struct. validation of the whole payment is deferred to the ZIP-321 serializer.
-    /// - parameter recipientAddress: a valid Zcash recipient address
-    /// - parameter amount: a valid `LegacyAmount` or `nil`i
-    /// - parameter memo: valid `MemoBytes` or `nil`
-    /// - parameter label: a label that wallets might show to their users as a way to label this payment.
-    /// Will not be included in the blockchain
-    /// - parameter message: a message that wallets might show to their users as part of this payment. 
-    /// Will not be included in the blockchain
-    /// - parameter otherParams: other parameters that you'd like to define. See ZIP-321 for more 
-    /// information about these parameters.
-    public init(
-        recipientAddress: RecipientAddress,
-        amount: LegacyAmount?,
-        memo: MemoBytes?,
-        qcharLabel: QcharString?,
-        qcharMessage: QcharString?,
-        otherParams: [OtherParam]?
-    ) throws {
-        if memo != nil && !recipientAddress.canReceiveMemos {
-            throw ZIP321.Errors.transparentMemoNotAllowed(nil)
-        }
-        self.recipientAddress = recipientAddress
-        self.amount = amount
-        self.memo = memo
-        self.label = qcharLabel
-        self.message = qcharMessage
-        self.otherParams = otherParams
-    }
-
-    /// Initializes a Payment struct. validation of the whole payment is deferred to the ZIP-321 serializer.
-    /// - parameter recipientAddress: a valid Zcash recipient address
-    /// - parameter amount: a valid `LegacyAmount` or `nil`i
-    /// - parameter memo: valid `MemoBytes` or `nil`
-    /// - parameter label: a label that wallets might show to their users as a way to label this payment.
-    /// Will not be included in the blockchain
-    /// - parameter message: a message that wallets might show to their users as part of this payment.
-    /// Will not be included in the blockchain
-    /// - parameter otherParams: other parameters that you'd like to define. See ZIP-321 for more
-    /// information about these parameters.
-    public init(
-        recipientAddress: RecipientAddress,
-        amount: LegacyAmount?,
+    /// Internal designated initializer; performs no validation. Use
+    /// ``create(recipientAddress:amount:memo:label:message:otherParams:)`` for
+    /// the validated public factory.
+    init(
+        unchecked recipientAddress: RecipientAddress,
+        amount: NonNegativeAmount?,
         memo: MemoBytes?,
         label: String?,
         message: String?,
-        otherParams: [OtherParam]?
-    ) throws {
-        if memo != nil && !recipientAddress.canReceiveMemos {
-            throw ZIP321.Errors.transparentMemoNotAllowed(nil)
-        }
-
-        // compiler has a limitation and this can't be a result builder
-        if let label = label {
-            guard let qcharLabel = QcharString(value: label) else {
-                throw ZIP321.Errors.qcharEncodeFailed(label)
-            }
-            self.label = qcharLabel
-        } else {
-            self.label = Optional<QcharString>.none
-        }
-
-        // compiler has a limitation and this can't be a result builder
-        if let message = message {
-            guard let qcharMessage = QcharString(value: message) else {
-                throw ZIP321.Errors.qcharEncodeFailed(message)
-            }
-            self.message = qcharMessage
-        } else {
-            self.message = Optional<QcharString>.none
-        }
-
+        otherParams: [OtherParam]
+    ) {
         self.recipientAddress = recipientAddress
         self.amount = amount
         self.memo = memo
+        self.label = label
+        self.message = message
         self.otherParams = otherParams
     }
 
-    public static func == (lhs: Payment, rhs: Payment) -> Bool {
-        lhs.amount == rhs.amount &&
-        lhs.label == rhs.label &&
-        lhs.memo == rhs.memo &&
-        lhs.message == rhs.message &&
-        lhs.recipientAddress == rhs.recipientAddress &&
-        lhs.otherParams == rhs.otherParams
+    /// The first `otherparam` name that appears more than once in `params`, or
+    /// `nil` when every name is unique.
+    static func firstDuplicateName(in params: [OtherParam]) -> String? {
+        var seen: Set<String> = []
+
+        for param in params {
+            guard seen.insert(param.name).inserted else { return param.name }
+        }
+
+        return nil
+    }
+
+    /// Creates a validated ``Payment``, enforcing the ZIP-321 structural rules
+    /// that apply to an individual payment (matching the reference
+    /// `to_payment`):
+    ///
+    /// - a `memo` may not be attached to a recipient that cannot receive memos
+    ///   (a transparent address) — ``ZIP321Error/transparentMemo(index:)``;
+    /// - a zero-valued `amount` may not be sent to a transparent recipient —
+    ///   ``ZIP321Error/zeroValuedTransparentOutput(index:)``.
+    ///
+    /// Errors are produced index-agnostically (`index: nil`); the parser tags
+    /// them with the concrete payment index via ``ZIP321Error/withIndex(_:)``.
+    ///
+    /// - parameter label: a plain (decoded) label, or `nil`. Wallets may show
+    /// this; it is not included in the blockchain.
+    /// - parameter message: a plain (decoded) message, or `nil`. Wallets may
+    /// show this; it is not included in the blockchain.
+    public static func create(
+        recipientAddress: RecipientAddress,
+        amount: NonNegativeAmount?,
+        memo: MemoBytes?,
+        label: String?,
+        message: String?,
+        otherParams: [OtherParam] = []
+    ) -> Result<Payment, ZIP321Error> {
+        if let duplicate = Self.firstDuplicateName(in: otherParams) {
+            return .failure(.duplicateParameter(name: duplicate, index: nil))
+        }
+
+        if memo != nil && !recipientAddress.canReceiveMemos {
+            return .failure(.transparentMemo(index: nil))
+        }
+
+        if let amount = amount, amount.value == 0, recipientAddress.isTransparent {
+            return .failure(.zeroValuedTransparentOutput(index: nil))
+        }
+
+        return .success(
+            Payment(
+                unchecked: recipientAddress,
+                amount: amount,
+                memo: memo,
+                label: label,
+                message: message,
+                otherParams: otherParams
+            )
+        )
+    }
+
+    /// Initializes a Payment struct.
+    /// - Warning: **Deprecated.** Prefer
+    /// ``create(recipientAddress:amount:memo:label:message:otherParams:)``,
+    /// which returns a `Result` consistent with v2 totality.
+    @available(*, deprecated, message: "Use Payment.create(...) which returns a Result<Payment, ZIP321Error>.")
+    public init(
+        recipientAddress: RecipientAddress,
+        amount: NonNegativeAmount?,
+        memo: MemoBytes?,
+        label: String?,
+        message: String?,
+        otherParams: [OtherParam] = []
+    ) throws {
+        self = try Payment.create(
+            recipientAddress: recipientAddress,
+            amount: amount,
+            memo: memo,
+            label: label,
+            message: message,
+            otherParams: otherParams
+        ).get()
     }
 }
 
@@ -132,38 +216,26 @@ public struct Payment: Equatable {
 /// ```
 ///   otherparam      = paramname [ paramindex ] [ "=" *qchar ]
 /// ```
-public struct OtherParam: Equatable {
-    public let key: ParamNameString
-    public let value: QcharString?
+///
+/// Both fields carry plain, already-decoded values: `name` is the `paramname`,
+/// and `value` is the percent-decoded `*qchar` value (or `nil` when the
+/// parameter had no `= value`).
+public struct OtherParam: Equatable, Sendable {
+    public let name: String
+    public let value: String?
 
-    /// initialized `OtherParam` with a key an Optional value
-    /// - returns `nil` when the key collides with reserved queryparam keys,
-    /// key is empty or if either key or value do not conform to the `CharacterSet.qchar` set
-    public init(key: String, value: String?) throws {
-        guard !key.isEmpty else { throw ZIP321.Errors.otherParamKeyEmpty }
-        guard !Self.isReservedKey(key) else { throw ZIP321.Errors.otherParamUsesReservedKey("\(key)") }
-        
-        guard let qcharKey = ParamNameString(value: key) else {
-            throw ZIP321.Errors.otherParamEncodingError("\(key)")
+    /// Initializes an `OtherParam` with a plain (decoded) name and optional
+    /// (decoded) value.
+    /// - throws: an internal error when the name is empty, collides with a
+    /// reserved query key, or is not a valid `paramname`.
+    public init(name: String, value: String?) throws {
+        guard !name.isEmpty else { throw ZIP321.Errors.otherParamKeyEmpty }
+        guard !Self.isReservedKey(name) else { throw ZIP321.Errors.otherParamUsesReservedKey(name) }
+        guard name.asParamNameString != nil else {
+            throw ZIP321.Errors.otherParamEncodingError(name)
         }
 
-        var qcharValue: QcharString?
-
-        if let value = value {
-            guard let unwrappedValue = QcharString(value: value) else {
-                throw ZIP321.Errors.otherParamEncodingError(value)
-            }
-
-            qcharValue = unwrappedValue
-        }
-
-        try self.init(key: qcharKey, value: qcharValue)
-    }
-
-    public init(key: ParamNameString, value: QcharString?) throws {
-        guard !Self.isReservedKey(key.value) else { throw ZIP321.Errors.otherParamUsesReservedKey("\(key.value)") }
-
-        self.key = key
+        self.name = name
         self.value = value
     }
 
@@ -189,12 +261,6 @@ extension NumberFormatter {
 
         return formatter
     }()
-}
-
-extension String.StringInterpolation {
-    mutating func appendInterpolation(_ value: LegacyAmount) {
-        appendLiteral(value.toString())
-    }
 }
 
 extension String {
@@ -265,21 +331,7 @@ extension String {
         }) else {
             return false
         }
-        
-        return true
-    }
-}
 
-extension Array where Element == Payment {
-    func enforceNetworkCoherence() throws {
-        var networkSet = Set<Network>()
-        
-        for payment in self {
-            networkSet.insert(payment.recipientAddress.network)
-            
-            guard networkSet.count == 1 else {
-                throw ZIP321.Errors.networkMismatchFound
-            }
-        }
+        return true
     }
 }

@@ -7,21 +7,10 @@
 
 import Foundation
 
-/// Result of the URI parser. This returns a `PaymentRequest` if a compliant
-/// [ZIP-321](https://zips.z.cash/zip-0321) request is parsed from
-/// a URI String. This implementation accounts of legacy schemes like that preceded
-/// the existence of the ZIP like `zcash:{valid_address}`.
-/// See [Backward Compatibility](https://zips.z.cash/zip-0321#backward-compatibility) section
-/// of the ZIP for more details.
-public enum ParserResult: Equatable {
-    case legacy(RecipientAddress)
-    case request(PaymentRequest)
-}
-
 /// Represent an checked-param
-public enum Param: Equatable {
+enum Param: Equatable {
     case address(RecipientAddress)
-    case amount(LegacyAmount)
+    case amount(NonNegativeAmount)
     case memo(MemoBytes)
     case label(QcharString)
     case message(QcharString)
@@ -40,7 +29,7 @@ public enum Param: Equatable {
         case .message:
             return ReservedParamName.message.rawValue
         case .other(let param):
-            return param.key.value
+            return param.name
         }
     }
 }
@@ -51,13 +40,14 @@ public enum Param: Equatable {
 /// ```
 ///  paramname       = ALPHA *( ALPHA / DIGIT / "+" / "-" )
 /// ```
-public struct ParamNameString: Equatable {
-    public let value: String
+/// - Note: internal in v2; the public surface uses plain `String` for parameter names.
+struct ParamNameString: Equatable {
+    let value: String
 
     /// Initializes a `paramname` encoded string according to [ZIP-321](https://zips.z.cash/zip-0321)
     /// - Returns: a ``ParamNameString`` or ``nil`` if the provided string does not belong to the
     /// `paramname` charset
-    public init?(value: String) {
+    init?(value: String) {
         // String can't be empty
         guard !value.isEmpty else { return nil }
         // String can't start with a digit, "+" or "-"
@@ -70,7 +60,8 @@ public struct ParamNameString: Equatable {
 }
 
 /// A type-safe qchar-encoded String
-public struct QcharString: Equatable {
+/// - Note: internal in v2; the public surface uses plain (decoded) `String` for label/message.
+struct QcharString: Equatable {
     private let storage: String
 
     /// initalizes a ``QcharString`` from a non-qchar encoded value.
@@ -81,7 +72,7 @@ public struct QcharString: Equatable {
     /// can be assumed that the value provided is already qchar-encoded to avoid re-encoding an already
     /// qchar-encoded value
     /// - Returns: a ``QcharString`` or ``nil`` if encoding fails
-    public init?(value: String, strictMode: Bool = false) {
+    init?(value: String, strictMode: Bool = false) {
         /// check whether value is already qchar-encoded
         if strictMode {
             guard let qcharDecode = value.qcharDecode(), value == qcharDecode else { return nil }
@@ -92,12 +83,12 @@ public struct QcharString: Equatable {
     }
 
     /// the qchar-decoded value of this qchar String
-    public var value: String {
+    var value: String {
         // decoding cannot fail: `storage` was qchar-validated at construction.
         storage.qcharDecode() ?? storage
     }
 
-    public var qcharValue: String {
+    var qcharValue: String {
         storage
     }
 }
@@ -351,6 +342,14 @@ enum Parser {
         }
 
         let afterQuestionMark = substring.dropFirst()
+
+        // A completely empty query (`zcash:?` or `zcash:<addr>?`) contributes no
+        // parameters — it is NOT an empty-named parameter. The reference treats
+        // `zcash:?` as a valid empty request.
+        guard !afterQuestionMark.isEmpty else {
+            return indexedParameters
+        }
+
         let tokens = afterQuestionMark.split(separator: "&", omittingEmptySubsequences: false)
 
         for token in tokens {
@@ -369,10 +368,12 @@ enum Parser {
         return indexedParameters
     }
 
-    /// maps a list of `IndexParameter` structs to `Payment` structs and validates them as individual payments and as payment requests
-    /// - parameter indexedParameters: `IndexedParameter` sequence
-    /// - returns a `[Payment]` or throws if errors are found.
-    static func mapToPayments(_ indexedParameters: [IndexedParameter]) throws -> [Payment] {
+    /// Groups a flat list of `IndexedParameter` values by `paramindex`, checking each group for
+    /// duplicate parameters, and maps each group to a validated ``Payment`` **retaining its
+    /// paramindex**.
+    /// - parameter indexedParameters: `IndexedParameter` sequence (must be non-empty)
+    /// - returns a `[(index, payment)]` ordered by ascending index, or throws if errors are found.
+    static func mapToIndexedPayments(_ indexedParameters: [IndexedParameter]) throws -> [(index: UInt, payment: Payment)] {
         guard !indexedParameters.isEmpty else {
             throw ZIP321.Errors.recipientMissing(nil)
         }
@@ -392,7 +393,7 @@ enum Parser {
             }
         }
 
-        var payments: [Payment] = []
+        var payments: [(index: UInt, payment: Payment)] = []
 
         try paramsByIndex.keys.sorted().forEach { index in
             guard let params = paramsByIndex[index] else {
@@ -400,17 +401,23 @@ enum Parser {
             }
 
             payments.append(
-                try Payment.uniqueIndexedParameters(index: index, parameters: params)
+                (index: index, payment: try Payment.uniqueIndexedParameters(index: index, parameters: params))
             )
         }
 
         return payments
     }
+
+    /// Maps a list of `IndexedParameter` structs to `Payment` structs, discarding paramindices.
+    /// - Note: retained for internal/test use; prefer ``mapToIndexedPayments(_:)`` which preserves
+    /// the ZIP-321 paramindices.
+    static func mapToPayments(_ indexedParameters: [IndexedParameter]) throws -> [Payment] {
+        try mapToIndexedPayments(indexedParameters).map(\.payment)
+    }
 }
 
 extension Payment {
     /// creates a Payment from parameters that are proven to be unique and non-duplicate
-    // swiftlint:disable:next cyclomatic_complexity
     static func uniqueIndexedParameters(
         index: UInt,
         parameters: [Param]
@@ -432,10 +439,10 @@ extension Payment {
             throw ZIP321.Errors.recipientMissing(index == 0 ? nil : index)
         }
 
-        var amount: LegacyAmount?
+        var amount: NonNegativeAmount?
         var memo: MemoBytes?
-        var label: QcharString?
-        var message: QcharString?
+        var label: String?
+        var message: String?
         var other: [OtherParam] = []
 
         for param in parameters {
@@ -447,36 +454,34 @@ extension Payment {
                 amount = decimalAmount
 
             case let .memo(memoBytes):
-                if address.isTransparent {
-                    throw ZIP321.Errors.transparentMemoNotAllowed(index == 0 ? nil : index)
-                }
-
                 memo = memoBytes
 
             case let .label(lbl):
-                label = lbl
+                label = lbl.value
 
             case let .message(msg):
-                message = msg
+                message = msg.value
 
             case let .other(param):
                 other.append(param)
             }
         }
 
-        do {
-            return try Payment(
-                recipientAddress: address,
-                amount: amount,
-                memo: memo,
-                qcharLabel: label,
-                qcharMessage: message,
-                otherParams: other.isEmpty ? nil : other
-            )
-        } catch ZIP321.Errors.transparentMemoNotAllowed {
-            throw ZIP321.Errors.transparentMemoNotAllowed(index)
-        } catch {
-            throw error
+        // `Payment.create` enforces the structural rules (memo-to-transparent,
+        // zero-valued transparent output) index-agnostically; tag the concrete
+        // paramindex onto any resulting error.
+        switch Payment.create(
+            recipientAddress: address,
+            amount: amount,
+            memo: memo,
+            label: label,
+            message: message,
+            otherParams: other
+        ) {
+        case .success(let payment):
+            return payment
+        case .failure(let error):
+            throw error.withIndex(index == 0 ? nil : index)
         }
     }
 }
@@ -510,9 +515,8 @@ extension Param {
 
                 return .address(addr)
             case .amount:
-                // Strict ZIP-321 `amountparam` grammar via `NonNegativeAmount`, bridged to the
-                // still-`LegacyAmount`-typed `Payment.amount`.
-                return .amount(LegacyAmount(zatoshi: try AmountParser.parse(value, index: index)))
+                // Strict ZIP-321 `amountparam` grammar via `NonNegativeAmount`.
+                return .amount(try AmountParser.parse(value, index: index))
             case .label:
                 let qcharDecoded = try tryDecodeQcharValue(value)
 
@@ -548,7 +552,7 @@ extension Param {
                 decodedValue = nil
             }
 
-            return .other(try OtherParam(key: queryKey, value: decodedValue))
+            return .other(try OtherParam(name: queryKey, value: decodedValue))
         }
     }
 
@@ -607,7 +611,7 @@ extension Array where Element == Param {
             case (.label, .label): return true
             case (.message, .message): return true
             case let (.other(lhs), .other(rhs)):
-                if lhs.key == rhs.key {
+                if lhs.name == rhs.name {
                     return true
                 }
             default: continue
