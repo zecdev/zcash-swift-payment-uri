@@ -7,8 +7,6 @@
    
 
 import XCTest
-import Parsing
-import CustomDump
 @testable import ZcashPaymentURI
 
 final class DuplicateParameterDetectionTests: XCTestCase {

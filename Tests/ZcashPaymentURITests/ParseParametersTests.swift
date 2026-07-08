@@ -6,8 +6,6 @@
 //
 
 import XCTest
-import Parsing
-import CustomDump
 @testable import ZcashPaymentURI
 
 final class ParsingTests: XCTestCase {
@@ -76,7 +74,7 @@ final class ParsingTests: XCTestCase {
         let query = "amount"[...]
         let value = "1.00020112"[...]
 
-        XCTAssertNoDifference(
+        XCTAssertEqual(
             IndexedParameter(index: 0, param: .amount(try Amount(string: String(value)))),
             try Parser.zcashParameter(
                 (query, nil, value),
@@ -95,7 +93,7 @@ final class ParsingTests: XCTestCase {
             return
         }
 
-        XCTAssertNoDifference(
+        XCTAssertEqual(
             IndexedParameter(index: UInt(index), param: .message(qcharDecodedValue)),
             try Parser.zcashParameter(
                 (query, index, value),
@@ -115,7 +113,7 @@ final class ParsingTests: XCTestCase {
             return
         }
 
-        XCTAssertNoDifference(
+        XCTAssertEqual(
             IndexedParameter(index: UInt(index), param: .label(qcharDecodedValue)),
             try Parser.zcashParameter(
                 (query, index, value),
@@ -130,7 +128,7 @@ final class ParsingTests: XCTestCase {
         let index = 99
         let value = "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"[...]
 
-        XCTAssertNoDifference(
+        XCTAssertEqual(
             IndexedParameter(index: UInt(index), param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
             try Parser.zcashParameter(
                 (query, index, value),
@@ -156,7 +154,7 @@ final class ParsingTests: XCTestCase {
             return
         }
 
-        XCTAssertNoDifference(
+        XCTAssertEqual(
             IndexedParameter(index: UInt(index), param: .other(try OtherParam(key: queryKey, value: qcharDecodedValue))),
             try Parser.zcashParameter(
                 (query, index, value),
@@ -210,7 +208,7 @@ final class ParsingTests: XCTestCase {
             validating: Parser.onlyCharsetValidation
         )
 
-        XCTAssertNoDifference(result, expected)
+        XCTAssertEqual(result, expected)
     }
 
     func testThatIndexParametersAreParsedWithLeadingAddress() throws {

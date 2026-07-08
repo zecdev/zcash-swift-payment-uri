@@ -7,8 +7,6 @@
    
 
 import XCTest
-import Parsing
-import CustomDump
 @testable import ZcashPaymentURI
 
 final class ParsingAddressEncodingTests: XCTestCase {
@@ -30,7 +28,7 @@ final class ParsingAddressEncodingTests: XCTestCase {
             return
         }
 
-        XCTAssertNoDifference(
+        XCTAssertEqual(
             try Param.from(
                 queryKey: "address",
                 value: "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU",
@@ -46,7 +44,7 @@ final class ParsingAddressEncodingTests: XCTestCase {
             return
         }
 
-        XCTAssertNoDifference(
+        XCTAssertEqual(
             try Param.from(
                 queryKey: "address",
                 value: "u1fl5mprj0t9p4jg92hjjy8q5myvwc60c9wv0xachauqpn3c3k4xwzlaueafq27dcg7tzzzaz5jl8tyj93wgs983y0jq0qfhzu6n4r8rakpv5f4gg2lrw4z6pyqqcrcqx04d38yunc6je",
@@ -63,7 +61,7 @@ final class ParsingAddressEncodingTests: XCTestCase {
             return
         }
 
-        XCTAssertNoDifference(
+        XCTAssertEqual(
             try Param.from(
                 queryKey: "address",
                 value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
@@ -92,7 +90,7 @@ final class ParsingAddressEncodingTests: XCTestCase {
     func testCharsetValidationPassesOnValidTransparentAddress() throws {
         let address = try Parser.transparentEncodingCharsetParser
             .parse("tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU")
-        XCTAssertNoDifference("tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU", address)
+        XCTAssertEqual("tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU", address)
     }
 
     func testCharsetValidationPassesOnValidSaplingAddress() throws {
@@ -100,7 +98,7 @@ final class ParsingAddressEncodingTests: XCTestCase {
         let address = try Parser.saplingEncodingCharsetParser
             .parse(expected)
 
-        XCTAssertNoDifference("0yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", address)
+        XCTAssertEqual("0yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", address)
     }
 
     func testCharsetValidationPassesOnValidUnifiedAddress() throws {
@@ -108,7 +106,7 @@ final class ParsingAddressEncodingTests: XCTestCase {
         let address = try Parser.unifiedEncodingCharsetParser
             .parse(expected)
 
-        XCTAssertNoDifference("fl5mprj0t9p4jg92hjjy8q5myvwc60c9wv0xachauqpn3c3k4xwzlaueafq27dcg7tzzzaz5jl8tyj93wgs983y0jq0qfhzu6n4r8rakpv5f4gg2lrw4z6pyqqcrcqx04d38yunc6je", address)
+        XCTAssertEqual("fl5mprj0t9p4jg92hjjy8q5myvwc60c9wv0xachauqpn3c3k4xwzlaueafq27dcg7tzzzaz5jl8tyj93wgs983y0jq0qfhzu6n4r8rakpv5f4gg2lrw4z6pyqqcrcqx04d38yunc6je", address)
     }
 
     func testThatTEXAddressCharsetIsValidated() throws {

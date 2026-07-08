@@ -16,7 +16,7 @@ import Foundation
 ///
 /// - Note: when extending this parser use this enum to describe variants of the
 /// a behavior that is network-dependent
-public enum ParserContext {
+public enum ParserContext: Sendable {
     case mainnet
     case testnet
     case regtest
