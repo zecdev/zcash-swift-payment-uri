@@ -172,11 +172,46 @@ library.
 - Conformance: the invalid-vector runner now asserts the **exact** error
   discriminant against the corpus. Expected-failure ledger: burned
   `structure_empty_request`, `structure_empty_request_query_marker`, and
-  `spec_invalid_zero_valued_transparent_output`; the two render-owned entries
-  remain for S13 — joined by `structure_single_address_no_query_params`, which
-  now re-renders through `Render.request` and picks up its trailing `?` — plus
-  one corpus discriminant dispute
-  (`invalid_req_asset_two_recipients_flattened`) pending adjudication.
+  `spec_invalid_zero_valued_transparent_output`; one corpus discriminant
+  dispute (`invalid_req_asset_two_recipients_flattened`) remains pending
+  adjudication.
+
+### Breaking changes — v2.0.0 canonical renderer
+
+- **The renderer now renders from `PaymentRequest.indexedPayments`, preserving
+  each payment's ACTUAL stored `paramindex`.** A request whose only payment
+  sits at index `5` renders `zcash:?address.5=…&amount.5=1` (previously it was
+  collapsed onto the empty index). Per-payment parameter order matches the
+  reference exactly: address, amount, memo, label, message, then `otherParams`
+  in stored order.
+- **The default `formattingOptions` of `uriString(from:)` and
+  `request(_ payment:)` changed to
+  `.useEmptyParamIndex(omitAddressLabel: true)`** — the canonical reference
+  form. A single payment at the empty paramindex renders as the leading-address
+  form `zcash:<addr>?amount=…`; multi-payment (or any payment at a non-zero
+  index) renders as `zcash:?address[.n]=…&…`. The round-trip law
+  `parse(uriString(from: r)) == r` holds for every request `r` under the
+  default options (asserted over the corpus's valid vectors).
+- **`FormattingOptions.enumerateAllPayments` is now a documented NORMALIZATION
+  mode**: it discards stored paramindices and re-numbers payments sequentially
+  from `1` (`address.1=…&address.2=…`) under `zcash:?`. It now emits the
+  mandatory `?` query separator (previously the multi-payment output omitted
+  it, producing a non-round-trippable URI).
+
+### Fixed
+
+- **A bare `zcash:<addr>` now re-renders exactly**, without the spurious
+  trailing `?` the previous renderer emitted for a payment carrying no query
+  parameters. This fixes the `structure_single_address_no_query_params`
+  conformance divergence, which S12 surfaced when it collapsed the
+  single-address result shape into an ordinary one-payment request.
+- **`otherparam` rendering now emits the `=` separator** when the parameter
+  carries a value (`future-param=hello%20world`), matching the reference
+  `str_param`. A value-less otherparam still renders as a bare `name`. This
+  fixes the `structure_unknown_param_preserved` conformance divergence.
+- **A single payment at a non-zero paramindex now re-renders faithfully**
+  instead of being collapsed onto the empty index, fixing the
+  `structure_index_gap_only_address_5` conformance divergence.
 
 ### Added
 - **Internal single-pass `Scanner`** (`Sources/ZcashPaymentURI/parser/Scanner.swift`): a

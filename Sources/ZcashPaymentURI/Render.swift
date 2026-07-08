@@ -14,15 +14,27 @@ enum ReservedParamName: String {
     case memo
     case message
 }
+
+/// The canonical ZIP-321 renderer.
+///
+/// This mirrors the librustzcash `zip321` reference `mod render` and
+/// `TransactionRequest::to_uri` (see `components/zip321/src/lib.rs`, lines
+/// ~380-589). Rendering is driven by ``PaymentRequest/indexedPayments``, so the
+/// ACTUAL stored `paramindex` of every payment is preserved (an empty
+/// paramindex — stored index `0` — renders with no `.n` suffix; a payment at
+/// index `5` renders `address.5=…`).
 enum Render {
-    // TODO [#5]: validate the idx, since zero is not a valid number
-    // see: https://github.com/pacu/zcash-swift-payment-uri/issues/5
+    /// Renders the `paramindex` suffix for a query key.
+    ///
+    /// Matches the reference `render::param_index`: only a POSITIVE index
+    /// produces a `.n` suffix; both `nil` and the empty paramindex (`0`) render
+    /// the empty string.
     static func parameterIndex(_ idx: UInt?) -> String {
         switch idx {
-        case .some(let i):
-            ".\(i)"
-        case .none:
-            ""
+        case .some(let i) where i > 0:
+            return ".\(i)"
+        default:
+            return ""
         }
     }
 
@@ -40,7 +52,7 @@ enum Render {
     }
 
     static func parameter(_ address: RecipientAddress, index: UInt?, omittingAddressLabel: Bool = false) -> String {
-        if index == nil && omittingAddressLabel {
+        if (index == nil || index == 0) && omittingAddressLabel {
             address.value
         } else {
             "\(ReservedParamName.address.rawValue)\(parameterIndex(index))=\(address.value)"
@@ -59,120 +71,122 @@ enum Render {
         parameter(named: ReservedParamName.message.rawValue, decodedValue: message, index: index)
     }
 
+    /// Renders an `otherparam` per the ZIP-321 grammar
+    /// `otherparam = paramname [ paramindex ] [ "=" *qchar ]`, matching the
+    /// reference `render::str_param`. The `=` separator is emitted whenever the
+    /// parameter carries a value (including an empty `""` value → `name=`); a
+    /// value-less parameter renders as a bare `name` with no `=`.
     static func parameter(other: OtherParam, index: UInt?) -> String {
-        // NOTE: the `=` separator is intentionally NOT emitted here — this
-        // preserves the known S13 render bug tracked by the
-        // `structure_unknown_param_preserved` conformance expected-failure.
         var parameter = "\(other.name)\(parameterIndex(index))"
 
         if let value = other.value {
+            parameter.append("=")
             parameter.append(QcharCodec.encode(value))
         }
 
         return parameter
     }
 
-    /// Creates a query parameter string for this `Payment`. This is not
-    /// aware of the context of the composing payment request. This function
-    /// will deterministically turn the payment into query parameters.
-    /// the order of the paramenters is: address, amount, memo, label, message.
-    /// - Note: Forming a valid ZIP-321 with many Payment parameters is not the responsibility of this rendering function. Bad ordering of the paramenters may form an invalid ZIP-321 request.
-    /// When `index` is `nil` and `omittingAddressLabel` the function will return the address without the leading `address=` query param.
-    /// - parameter payment: a valid `Payment` struct
-    /// - parameter index: the index of the `paramindex` as defined by [ZIP-321](https://zips.z.cash/zip-0321). note that passing `zero` will generate an invalid request.
-    /// - parameter omittingAddressLabel: When `index` is `nil` and `omittingAddressLabel` the function will return the address without the leading `address=` query param. if index is not nil this parameter will be ignored.
-    // Transitional v1 renderer replaced by the canonical indexed renderer (#89);
-    // the per-field branching is inherent to parameter presence checks.
-    // swiftlint:disable:next cyclomatic_complexity
-    static func payment(_ payment: Payment, index: UInt?, omittingAddressLabel: Bool = false) -> String {
-        var result = ""
-
-        result.append(parameter(payment.recipientAddress, index: index, omittingAddressLabel: omittingAddressLabel))
-
-        if index == nil && omittingAddressLabel {
-            // mark the start of the query params. Otherwise this will marked by caller
-            result.append("?")
-        }
+    /// The ordered non-address query parameters for a payment, in the canonical
+    /// ZIP-321 order: `amount`, `memo`, `label`, `message`, then `otherParams`
+    /// in stored order. Mirrors the reference `payment_params` (`lib.rs`
+    /// ~381-415).
+    static func paymentParams(_ payment: Payment, index: UInt?) -> [String] {
+        var params: [String] = []
 
         if let amount = payment.amount {
-            if !result.hasSuffix("?") {
-                result.append("&")
-            }
-            result.append(parameter(amount, index: index))
+            params.append(parameter(amount, index: index))
         }
 
         if let memo = payment.memo {
-            if !result.hasSuffix("?") {
-                result.append("&")
-            }
-            result.append(parameter(memo, index: index))
+            params.append(parameter(memo, index: index))
         }
 
         if let label = payment.label {
-            if !result.hasSuffix("?") {
-                result.append("&")
-            }
-            result.append(parameter(label: label, index: index))
+            params.append(parameter(label: label, index: index))
         }
 
         if let message = payment.message {
-            if !result.hasSuffix("?") {
-                result.append("&")
-            }
-            result.append((parameter(message: message, index: index)))
+            params.append(parameter(message: message, index: index))
         }
 
         for otherParam in payment.otherParams {
-            if !result.hasSuffix("?") {
-                result.append("&")
-            }
-            result.append(parameter(other: otherParam, index: index))
+            params.append(parameter(other: otherParam, index: index))
         }
 
-        return result
+        return params
     }
 
-    static func request(_ paymentRequest: PaymentRequest, startIndex: UInt?, omittingFirstAddressLabel: Bool = false) -> String {
-        var result = "zcash:"
+    /// Renders a single ``Payment`` as a query-parameter fragment. This is not
+    /// aware of the surrounding request; forming a valid ZIP-321 URI from many
+    /// payments is the caller's (``request(_:formattingOptions:)``)
+    /// responsibility.
+    ///
+    /// The parameter order is: address, amount, memo, label, message, then
+    /// otherParams in stored order.
+    ///
+    /// When `index` is `nil`/`0` and `omittingAddressLabel` is `true`, the
+    /// fragment uses the leading-address form (`<addr>?amount=…`), i.e. the bare
+    /// address followed by a `?` and the query params. Otherwise the address is
+    /// rendered as an `address[.n]=…` query key alongside the rest.
+    /// - parameter payment: a valid `Payment` struct
+    /// - parameter index: the `paramindex` for this payment (`nil`/`0` for the empty index).
+    /// - parameter omittingAddressLabel: when `index` is `nil`/`0` and this is `true`,
+    /// renders the address without the leading `address=` label; ignored when `index > 0`.
+    static func payment(_ payment: Payment, index: UInt?, omittingAddressLabel: Bool = false) -> String {
+        let params = paymentParams(payment, index: index)
 
-        // we want this to be a contiguous array so we can trust the `enumerated()` iterator to have contiguous indices.
-        var payments = ContiguousArray(paymentRequest.payments)
-
-        // this is the offset that will give the paramindex number from what their real position in the array is.
-        let paramIndexOffset = startIndex ?? 1
-
-        if startIndex == nil {
-            guard !payments.isEmpty else {
-                // Empty request renders as the bare `zcash:` scheme.
-                return result
-            }
-
-            // this is the special case where the URI String can start either with `zcash:` or `zcash:?`
-            result.append(omittingFirstAddressLabel ? "" : "?")
-
-            result.append(
-                payment(payments[0], index: startIndex, omittingAddressLabel: omittingFirstAddressLabel)
-            )
-
-            payments.removeFirst()
-
-            if !payments.isEmpty {
-                result.append("&")
-            }
+        if (index == nil || index == 0) && omittingAddressLabel {
+            // Leading-address form: `<addr>[?param&param…]`. No trailing `?`
+            // when there are no query params (matching the reference).
+            let query = params.isEmpty ? "" : "?" + params.joined(separator: "&")
+            return payment.recipientAddress.value + query
         }
 
-        let count = payments.count
+        let addressParam = parameter(payment.recipientAddress, index: index, omittingAddressLabel: false)
+        return ([addressParam] + params).joined(separator: "&")
+    }
 
-        for (elementIndex, element) in payments.enumerated() {
-            let paramIndex = UInt(elementIndex) + paramIndexOffset
+    /// Renders a whole ``PaymentRequest`` to its `zcash:` URI string according
+    /// to `formattingOptions`.
+    ///
+    /// - `.useEmptyParamIndex(omitAddressLabel:)` renders each payment at its
+    ///   ACTUAL stored `paramindex` (empty suffix for index `0`, `.n`
+    ///   otherwise). When `omitAddressLabel` is `true` AND the request holds
+    ///   exactly one payment AND that payment sits at index `0`, the canonical
+    ///   single-payment leading-address form is used (`zcash:<addr>?amount=…`);
+    ///   every other shape uses `zcash:?address[.n]=…&…`.
+    /// - `.enumerateAllPayments` is a NORMALIZATION mode: it discards the stored
+    ///   indices and re-numbers payments SEQUENTIALLY from `1` (`address.1`,
+    ///   `address.2`, …), always with explicit address labels under `zcash:?`.
+    ///
+    /// The empty request renders as the bare `zcash:` scheme in either mode.
+    static func request(_ paymentRequest: PaymentRequest, formattingOptions: ZIP321.FormattingOptions) -> String {
+        let indexed = paymentRequest.indexedPayments
 
-            result.append(payment(element, index: paramIndex))
+        switch formattingOptions {
+        case .enumerateAllPayments:
+            guard !indexed.isEmpty else { return "zcash:" }
 
-            if paramIndex < count {
-                result.append("&")
+            let segments = indexed.enumerated().map { offset, pair in
+                payment(pair.payment, index: UInt(offset + 1), omittingAddressLabel: false)
             }
-        }
+            return "zcash:?" + segments.joined(separator: "&")
 
-        return result
+        case .useEmptyParamIndex(let omitAddressLabel):
+            guard !indexed.isEmpty else { return "zcash:" }
+
+            // Reference `to_uri` single-payment special case: exactly one
+            // payment at the empty paramindex, rendered as the leading-address
+            // form when label omission is requested.
+            if omitAddressLabel, indexed.count == 1, indexed[0].index == 0 {
+                return "zcash:" + payment(indexed[0].payment, index: nil, omittingAddressLabel: true)
+            }
+
+            let segments = indexed.map { pair in
+                payment(pair.payment, index: pair.index, omittingAddressLabel: false)
+            }
+            return "zcash:?" + segments.joined(separator: "&")
+        }
     }
 }

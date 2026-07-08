@@ -11,8 +11,8 @@
 //  expectation itself fails, flagging the stale entry so it can be deleted.
 //  A vector NOT listed here must pass outright.
 //
-//  As of S12 (the public API reshape) the remaining entries are two
-//  render-owned divergences (owned by the S13 renderer work) plus one corpus
+//  As of S13 (the canonical renderer) the two render-owned divergences are
+//  fixed and their entries removed; the sole remaining entry is one corpus
 //  discriminant dispute pending architect adjudication.
 //
 
@@ -20,23 +20,6 @@
 ///
 /// Observed against corpus commit pinned by the `Tests/Vectors` submodule.
 let conformanceExpectedFailures: [String: String] = [
-    // MARK: Rendering divergences (owned by S13)
-    "structure_single_address_no_query_params":
-        "renderMismatch: a bare 'zcash:{addr}' now parses to an ordinary one-payment "
-        + "PaymentRequest (ParsedRequest.singleAddress is gone), so it re-renders through "
-        + "Render.request, which still emits a trailing '?' for a payment with no query "
-        + "parameters. The render fix belongs to S13.",
-    "structure_index_gap_only_address_5":
-        "renderMismatch: the parser now PRESERVES paramindex 5 in indexedPayments, but the "
-        + "renderer still re-emits a single-payment request at the empty index "
-        + "(zcash:{addr}?amount=1) where the reference preserves address.5/amount.5. The render "
-        + "fix belongs to S13.",
-    "structure_unknown_param_preserved":
-        "renderMismatch: otherparam values now percent-decode correctly on parse, but "
-        + "Render.parameter(other:) still drops the '=' separator, rendering "
-        + "'future-paramhello%20world' instead of 'future-param=hello%20world'. The render "
-        + "fix belongs to S13.",
-
     // MARK: Corpus discriminant disputes (architect adjudication pending)
     "invalid_req_asset_two_recipients_flattened":
         "discriminant mismatch: lib says invalidAddress corpus says unknownRequiredParameter. "
