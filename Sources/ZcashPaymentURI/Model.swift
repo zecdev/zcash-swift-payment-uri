@@ -231,30 +231,11 @@ extension String {
 // MARK: character sets
 
 extension CharacterSet {
-    /// non-zero digits
-    static let nonZeroDigits = CharacterSet(charactersIn: "123456789")
-
-    /// characters in Bech32 encoding
-    static let bech32 = CharacterSet(charactersIn: "qpzry9x8gf2tvdw0s3jn54khce6mua7l")
-
-    /// characters in Base58 encoding
-    static let base58 = CharacterSet(charactersIn: "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
-    
-    /// All ASCII characters from 0 to 127
-    static let ASCIICharacters = CharacterSet(
-        charactersIn: UnicodeScalar(0) ... UnicodeScalar(127)
-    )
-
     /// ASCII Alphabetic
     static let ASCIIAlpha = CharacterSet(
         charactersIn: UnicodeScalar(65) ... UnicodeScalar(90)
     ).union(
         CharacterSet(charactersIn: UnicodeScalar(97) ... UnicodeScalar(122))
-    )
-
-    /// ASCII non-zero numbers
-    static let ASCIINonZeroNum = CharacterSet(
-        charactersIn: UnicodeScalar(49) ... UnicodeScalar(57)
     )
 
     /// ASCII numbers
@@ -265,67 +246,8 @@ extension CharacterSet {
     /// ASCII Alphanumerics
     static let ASCIIAlphaNum = ASCIIAlpha.union(.ASCIINum)
 
-    /// ASCII Hexadecimal digits
-    static let ASCIIHexDigits = ASCIINum.union(
-        CharacterSet(charactersIn: UnicodeScalar(65) ... UnicodeScalar(70))
-            .union(
-                CharacterSet(charactersIn: UnicodeScalar(97) ... UnicodeScalar(102))
-            )
-    )
-
     ///  `paramname` character set according to [ZIP-321](https://zips.z.cash/zip-0321)
     static let paramname = ASCIIAlpha.union(ASCIINum).union(CharacterSet(arrayLiteral: "+", "-"))
-
-    /// `paramindex` character set according to [ZIP-321](https://zips.z.cash/zip-0321)
-    static let paramindex = ASCIINum.union(CharacterSet(arrayLiteral: "."))
-
-    /// the query key part of `otherparam` character set according to [ZIP-321](https://zips.z.cash/zip-0321)
-    static let otherParamsKey = paramname.union(paramindex)
-
-    /// `unreserved`character set defined on [rfc3986](https://www.rfc-editor.org/rfc/rfc3986.html#appendix-A)
-    static let unreserved = CharacterSet
-        .ASCIIAlphaNum
-        .union(CharacterSet(arrayLiteral: "-", ".", "_", "~"))
-    
-    /// `pct-encoded` charset according to [rfc3986](https://www.rfc-editor.org/rfc/rfc3986.html#appendix-A)
-    static let pctEncoded = CharacterSet.ASCIIHexDigits.union(CharacterSet(charactersIn: "%"))
-
-    /// `allowed-delims` character set as defined on [ZIP-321](https://zips.z.cash/zip-0321)
-    static let allowedDelims = CharacterSet(charactersIn: "-._~!$'()*+,;:@%")
-    
-    /// ASCII control characters from 0x00 to 0x1F
-    static let ASCIIControl = CharacterSet((0x00...0x1F).map { UnicodeScalar($0) })
-
-    /// All characters of qchar as defined on [ZIP-321](https://zips.z.cash/zip-0321)
-    static let qchar = CharacterSet()
-        .union(.ASCIIAlphaNum)
-        .union(.unreserved)
-        .union(.allowedDelims)
-        .union(CharacterSet(arrayLiteral: "@", ":"))
-    
-    static let qcharComplement = CharacterSet.ASCIIControl
-        .union(
-            CharacterSet(
-                arrayLiteral: " ",
-                "\"",
-                "#",
-                "%",
-                "&",
-                "/",
-                "<",
-                "=",
-                ">",
-                "?",
-                "[",
-                "\\",
-                "]",
-                "^",
-                "`",
-                "{",
-                "|",
-                "}"
-            )
-        )
 
     /// [RFC 4648  Base64URL](https://www.rfc-editor.org/rfc/rfc4648.html#section-5) Character Set.
     /// A-Z, a-z, 0-9, _, -

@@ -111,19 +111,19 @@ struct ParsingAddressesTests {
     @Test func maybeLeadingAddress() throws {
         let validURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=1.0001&message=lunch"
 
-        let result = try Parser.maybeLeadingAddress.parse(validURI)
+        let result = Parser.splitLeadingAddress(validURI)
 
-        #expect(result.0 == "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez")
-        #expect(result.1 == "?amount=1.0001&message=lunch")
+        #expect(result.address == "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez")
+        #expect(result.rest == "?amount=1.0001&message=lunch")
 
         let noLeadingAddressValidURI = "zcash:?address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=1.0001&message.1=lunch"
 
-        let partial = try Parser.maybeLeadingAddress.parse(noLeadingAddressValidURI[...])
+        let partial = Parser.splitLeadingAddress(noLeadingAddressValidURI)
 
-        #expect(partial.0 == "")
+        #expect(partial.address == "")
 
         #expect(
-            partial.1
+            partial.rest
             == "?address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=1.0001&message.1=lunch"
         )
     }
@@ -131,10 +131,19 @@ struct ParsingAddressesTests {
     @Test func noLeadingAddressParsesPastPrefix() throws {
         let validURI = "zcash:?address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=1.0001&message.1=lunch"
 
-        let result = try Parser.maybeLeadingAddress.parse(validURI)
+        let result = Parser.splitLeadingAddress(validURI)
 
-        #expect(result.0 == "")
-        #expect(result.1 == "?address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=1.0001&message.1=lunch")
+        #expect(result.address == "")
+        #expect(result.rest == "?address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=1.0001&message.1=lunch")
+    }
+
+    @Test func leadingAddressWithoutQueryHasNilRest() throws {
+        let legacyURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
+
+        let result = Parser.splitLeadingAddress(legacyURI)
+
+        #expect(result.address == "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez")
+        #expect(result.rest == nil)
     }
 
     @Test func thatValidLeadingAddressesAreParsed() throws {
@@ -147,7 +156,7 @@ struct ParsingAddressesTests {
         let result = try Parser.leadingAddress(
             validAddressURI,
             network: .testnet,
-validator: ReferenceAddressValidator.testnet
+            validator: ReferenceAddressValidator.testnet
         )
 
         #expect(result.1 == expected)
@@ -188,18 +197,13 @@ validator: ReferenceAddressValidator.testnet
     }
 
     @Test func zcashParameterCreatesValidAddress() throws {
-        let query = "address"[...]
-        let value = "u1fl5mprj0t9p4jg92hjjy8q5myvwc60c9wv0xachauqpn3c3k4xwzlaueafq27dcg7tzzzaz5jl8tyj93wgs983y0jq0qfhzu6n4r8rakpv5f4gg2lrw4z6pyqqcrcqx04d38yunc6je"[...]
+        let value = "u1fl5mprj0t9p4jg92hjjy8q5myvwc60c9wv0xachauqpn3c3k4xwzlaueafq27dcg7tzzzaz5jl8tyj93wgs983y0jq0qfhzu6n4r8rakpv5f4gg2lrw4z6pyqqcrcqx04d38yunc6je"
 
-        let recipient = try #require(RecipientAddress(value: String(value), validator: ReferenceAddressValidator.mainnet))
+        let recipient = try #require(RecipientAddress(value: value, validator: ReferenceAddressValidator.mainnet))
 
         #expect(
             IndexedParameter(index: 0, param: .address(recipient))
-            == (try Parser.zcashParameter(
-                (query, nil, value),
-                network: .mainnet,
-validator: ReferenceAddressValidator.mainnet
-            ))
+            == (try Parser.zcashParameter(name: "address", index: nil, value: value, network: .mainnet, validator: ReferenceAddressValidator.mainnet))
         )
     }
 }

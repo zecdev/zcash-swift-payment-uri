@@ -10,173 +10,176 @@ import Testing
 
 @Suite("ParseParameters")
 struct ParsingTests {
-    // MARK: Partial parsers - QueryKey parsing
+    // MARK: Partial parsers - paramindex
+
     @Test func paramIndexParserRejectsLeadingZeros() throws {
         #expect(throws: (any Error).self) {
-            try Parser.parameterIndex.parse("01")
+            try Parser.parseParamIndex("01")
         }
         #expect(throws: (any Error).self) {
-            try Parser.parameterIndex.parse("0")
+            try Parser.parseParamIndex("0")
         }
     }
 
     @Test func paramIndexParserAcceptsValidIndices() throws {
-        _ = try Parser.parameterIndex.parse("1")
-        _ = try Parser.parameterIndex.parse("10")
-        _ = try Parser.parameterIndex.parse("100")
-        _ = try Parser.parameterIndex.parse("100")
-        _ = try Parser.parameterIndex.parse("1000")
-        _ = try Parser.parameterIndex.parse("9990")
+        #expect(try Parser.parseParamIndex("1") == 1)
+        #expect(try Parser.parseParamIndex("10") == 10)
+        #expect(try Parser.parseParamIndex("100") == 100)
+        #expect(try Parser.parseParamIndex("1000") == 1000)
+        #expect(try Parser.parseParamIndex("9990") == 9990)
     }
 
     @Test func paramIndexParserRejectsIndexAboveMaximum() throws {
         #expect(throws: (any Error).self) {
-            try Parser.parameterIndex.parse("10000")
+            try Parser.parseParamIndex("10000")
         }
     }
 
+    // MARK: Partial parsers - name + index
+
     @Test func anyIndexedParamNameIsParsed() throws {
-        let paramName = "asdf.1"
+        let result = try Parser.parseNameAndIndex("asdf.1")
 
-        let result = try Parser.optionallyIndexedParameterName.parse(paramName)
+        #expect(result.name == "asdf")
+        #expect(result.index == 1)
+    }
 
-        #expect(result.0 == "asdf")
-        #expect(result.1 == 1)
+    @Test func paramNameWithoutIndexIsParsed() throws {
+        let result = try Parser.parseNameAndIndex("asset-id")
+
+        #expect(result.name == "asset-id")
+        #expect(result.index == nil)
     }
 
     @Test func invalidIndexedParamNameIsNotParsed() throws {
-        let paramName = "%asdf.1"
-
+        // A percent-escaped (or otherwise non-ALPHA-leading) name is rejected.
         #expect(throws: (any Error).self) {
-            try Parser.optionallyIndexedParameterName.parse(paramName)
+            try Parser.parseNameAndIndex("%asdf.1")
         }
     }
 
+    // MARK: Partial parsers - full query segment
+
     @Test func anySeeminglySoundParameterIsParsed() throws {
-        let otherNoIndex = try Parser.queryKeyAndValue.parse("asset-id=zPOAP")
-        #expect(otherNoIndex.0 == "asset-id"[...])
-        #expect(otherNoIndex.1 == nil)
-        #expect(otherNoIndex.2 == "zPOAP"[...])
+        let otherNoIndex = try Parser.parseQueryToken("asset-id=zPOAP")
+        #expect(otherNoIndex.name == "asset-id")
+        #expect(otherNoIndex.index == nil)
+        #expect(otherNoIndex.value == "zPOAP")
 
-        let otherIndexed = try Parser.queryKeyAndValue.parse("asset-id.1=zPOAP")
-        #expect(otherIndexed.0 == "asset-id"[...])
-        #expect(otherIndexed.1 == 1)
-        #expect(otherIndexed.2 == "zPOAP"[...])
+        let otherIndexed = try Parser.parseQueryToken("asset-id.1=zPOAP")
+        #expect(otherIndexed.name == "asset-id")
+        #expect(otherIndexed.index == 1)
+        #expect(otherIndexed.value == "zPOAP")
 
-        let amountIndexed = try Parser.queryKeyAndValue.parse("amount.1=0.0001")
-        #expect(amountIndexed.0 == "amount"[...])
-        #expect(amountIndexed.1 == 1)
-        #expect(amountIndexed.2 == "0.0001"[...])
+        let amountIndexed = try Parser.parseQueryToken("amount.1=0.0001")
+        #expect(amountIndexed.name == "amount")
+        #expect(amountIndexed.index == 1)
+        #expect(amountIndexed.value == "0.0001")
+    }
+
+    @Test func valuelessParameterIsAccepted() throws {
+        // ZIP-321 `otherparam` grammar allows an absent `= *qchar`; v1 preserves this.
+        let token = try Parser.parseQueryToken("future-flag")
+        #expect(token.name == "future-flag")
+        #expect(token.index == nil)
+        #expect(token.value == nil)
+    }
+
+    @Test func emptyValueIsAccepted() throws {
+        let token = try Parser.parseQueryToken("message=")
+        #expect(token.name == "message")
+        #expect(token.value == "")
+    }
+
+    // MARK: Grammar rejections
+
+    @Test func percentEscapedNameIsRejected() {
+        #expect(throws: (any Error).self) { try Parser.parseQueryToken("%61mount=1") }
+    }
+
+    @Test func nonQcharInValueIsRejected() {
+        // A raw non-qchar byte (space) is not part of the value and leaves trailing input.
+        #expect(throws: (any Error).self) { try Parser.parseQueryToken("label=a b") }
+    }
+
+    @Test func leadingZeroIndexIsRejected() {
+        #expect(throws: (any Error).self) { try Parser.parseQueryToken("address.0=x") }
+    }
+
+    @Test func overlongIndexIsRejected() {
+        #expect(throws: (any Error).self) { try Parser.parseQueryToken("amount.10000=1") }
     }
 
     @Test func keyValueParserNotThrowsOnUnknownRequiredParam() {
+        // The tokenizer is name/value-agnostic; `req-` rejection happens in `zcashParameter`.
         #expect(throws: Never.self) {
-            try Parser.queryKeyAndValue.parse("req-unknown-future-option=true")
+            try Parser.parseQueryToken("req-unknown-future-option=true")
         }
     }
 
     @Test func zcashParamParserFailsOnUnknownRequiredParam() throws {
         #expect(throws: (any Error).self) {
-            try Parser.zcashParameter(("req-unknown-future-option"[...], nil, "true"[...]), network: .testnet, validator: ReferenceAddressValidator.testnet)
+            try Parser.zcashParameter(name: "req-unknown-future-option", index: nil, value: "true", network: .testnet, validator: ReferenceAddressValidator.testnet)
         }
     }
 
-    // MARK: Partial parser - Query Key value tests
-    @Test func zcashParameterCreatesValidAmount() throws {
-        let query = "amount"[...]
-        let value = "1.00020112"[...]
+    // MARK: zcashParameter - reserved query keys
 
+    @Test func zcashParameterCreatesValidAmount() throws {
         #expect(
-            IndexedParameter(index: 0, param: .amount(try LegacyAmount(string: String(value))))
-            == (try Parser.zcashParameter(
-                (query, nil, value),
-                network: .testnet,
-validator: ReferenceAddressValidator.testnet
-            ))
+            IndexedParameter(index: 0, param: .amount(try LegacyAmount(string: "1.00020112")))
+            == (try Parser.zcashParameter(name: "amount", index: nil, value: "1.00020112", network: .testnet, validator: ReferenceAddressValidator.testnet))
         )
     }
 
     @Test func zcashParameterCreatesValidMessage() throws {
-        let query = "message"[...]
-        let index = 1
-        let value = "Thank%20You%20For%20Your%20Purchase"[...]
-        let qcharDecodedValue = try #require(QcharString(value: String(value).qcharDecode()!))
+        let value = "Thank%20You%20For%20Your%20Purchase"
+        let qcharDecodedValue = try #require(QcharString(value: value.qcharDecode()!))
 
         #expect(
-            IndexedParameter(index: UInt(index), param: .message(qcharDecodedValue))
-            == (try Parser.zcashParameter(
-                (query, index, value),
-                network: .testnet,
-validator: ReferenceAddressValidator.testnet
-            ))
+            IndexedParameter(index: 1, param: .message(qcharDecodedValue))
+            == (try Parser.zcashParameter(name: "message", index: 1, value: value, network: .testnet, validator: ReferenceAddressValidator.testnet))
         )
     }
 
     @Test func zcashParameterCreatesValidLabel() throws {
-        let query = "label"[...]
-        let index = 99
-        let value = "Thank%20You%20For%20Your%20Purchase"[...]
-
-        let qcharDecodedValue = try #require(QcharString(value: String(value).qcharDecode()!))
+        let value = "Thank%20You%20For%20Your%20Purchase"
+        let qcharDecodedValue = try #require(QcharString(value: value.qcharDecode()!))
 
         #expect(
-            IndexedParameter(index: UInt(index), param: .label(qcharDecodedValue))
-            == (try Parser.zcashParameter(
-                (query, index, value),
-                network: .testnet,
-validator: ReferenceAddressValidator.testnet
-            ))
+            IndexedParameter(index: 99, param: .label(qcharDecodedValue))
+            == (try Parser.zcashParameter(name: "label", index: 99, value: value, network: .testnet, validator: ReferenceAddressValidator.testnet))
         )
     }
 
     @Test func zcashParameterCreatesValidMemo() throws {
-        let query = "memo"[...]
-        let index = 99
-        let value = "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"[...]
-
         #expect(
-            IndexedParameter(index: UInt(index), param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg")))
-            == (try Parser.zcashParameter(
-                (query, index, value),
-                network: .testnet,
-validator: ReferenceAddressValidator.testnet
-            ))
+            IndexedParameter(index: 99, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg")))
+            == (try Parser.zcashParameter(name: "memo", index: 99, value: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg", network: .testnet, validator: ReferenceAddressValidator.testnet))
         )
     }
 
     @Test func zcashParameterCreatesSafelyIgnoredOtherParameter() throws {
-        let query = "future-binary-format"[...]
-        let index = 99
-        let value = "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"[...]
+        let value = "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"
 
-        let queryKey = try #require(ParamNameString(value: String(query)))
-        let qcharDecodedValue = try #require(QcharString(value: String(value)))
+        let queryKey = try #require(ParamNameString(value: "future-binary-format"))
+        let qcharValue = try #require(QcharString(value: value))
 
         #expect(
-            IndexedParameter(index: UInt(index), param: .other(try OtherParam(key: queryKey, value: qcharDecodedValue)))
-            == (try Parser.zcashParameter(
-                (query, index, value),
-                network: .testnet,
-validator: ReferenceAddressValidator.testnet
-            ))
+            IndexedParameter(index: 99, param: .other(try OtherParam(key: queryKey, value: qcharValue)))
+            == (try Parser.zcashParameter(name: "future-binary-format", index: 99, value: value, network: .testnet, validator: ReferenceAddressValidator.testnet))
         )
     }
 
-    @Test func zcashParameterThrowsOnInvalidLabelValue() throws {
-        let query = "label"[...]
-        let index = 99
-        let value = "Thank%20You%20For%20Your%20Purchase"[...]
+    @Test func zcashParameterDecodesOtherParameterValue() throws {
+        // otherparam values are percent-decoded on parse.
+        let result = try Parser.zcashParameter(name: "future-param", index: nil, value: "hello%20world", network: .testnet, validator: ReferenceAddressValidator.testnet)
 
-        let qcharEncodedValue = try #require(QcharString(value: String(value).qcharDecode()!))
-
-        #expect(
-            IndexedParameter(index: UInt(index), param: .label(qcharEncodedValue))
-            == (try Parser.zcashParameter(
-                (query, index, value),
-                network: .testnet,
-validator: ReferenceAddressValidator.testnet
-            ))
-        )
+        guard case let .other(otherParam) = result.param else {
+            Issue.record("expected an other param")
+            return
+        }
+        #expect(otherParam.value?.value == "hello world")
     }
 
     // MARK: Partial parser - indexed parameters
@@ -197,7 +200,7 @@ validator: ReferenceAddressValidator.testnet
             validAddressURI,
             leadingAddress: nil,
             network: .testnet,
-validator: ReferenceAddressValidator.testnet
+            validator: ReferenceAddressValidator.testnet
         )
 
         #expect(result == expected)
@@ -222,7 +225,7 @@ validator: ReferenceAddressValidator.testnet
                 param: .address(recipient)
             ),
             network: .testnet,
-validator: ReferenceAddressValidator.testnet
+            validator: ReferenceAddressValidator.testnet
         )
 
         #expect(result == expected)

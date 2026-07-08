@@ -105,6 +105,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `addingPercentEncoding` / `removingPercentEncoding`), so decoding is stricter than before.
 
 ### Changed
+- **The ZIP-321 URI tokenizer was rewritten onto `Scanner`**, replacing the hand-rolled
+  substring-combinator (`ZParser`) port with a single-pass grammar that follows the reference
+  `nom` pipeline: `zcash:` scheme, `take_till('?')` lead address (empty allowed, non-empty must
+  validate), then `&`-separated query segments each parsed as `name [ "." index ] [ "=" value ]`.
+  Parameter names must be `ALPHA *( ALPHA / DIGIT / "+" / "-" )` (a percent-escape in a name is
+  rejected); indices are `NONZERO 0*3DIGIT` (no leading zero, at most four digits); raw values
+  are restricted to `qchar`-permitted bytes. `label`/`message`/`other` values are now
+  percent-decoded via `QcharCodec` (previously `other` values were left raw/double-encoded),
+  while `address`/`amount`/`memo` values are handed to their own grammars verbatim, so a `%` in
+  them is rejected. This fixes the parse/field half of `structure_unknown_param_preserved`
+  (its `renderMismatch` remains, tracked as a render-only expected failure pending the S12
+  Render restructure). Grouping, duplicate detection, empty-request and legacy-URI behavior are
+  unchanged. The dead `ZParser` combinators and the `CharacterSet` definitions they used were
+  removed.
 - **The parser now enforces the strict `amountparam` grammar.** `amount` values are parsed
   through the new `AmountParser`/`NonNegativeAmount.zec` path instead of the lenient
   `LegacyAmount(string:)`, so a leading or trailing decimal point (`amount=.5`, `amount=123.`),

@@ -109,251 +109,221 @@ struct IndexedParameter: Equatable {
     let param: Param
 }
 
-/// A minimal hand-rolled parsing failure used internally by the ZIP-321 URI
-/// parser below. Business-logic call sites always catch and re-map failures
-/// from the combinators in this file into a specific `ZIP321.Errors` case;
-/// callers should never rely on this concrete type leaking out uncaught.
-struct ZParseError: Error, CustomStringConvertible {
-    let description: String
-
-    init(_ description: String) {
-        self.description = description
-    }
-}
-
-/// A tiny, hand-rolled substring parser combinator. This replaces the small
-/// subset of swift-parsing's `Parser` protocol that this file used
-/// (literal matching, greedy character-set prefixes, optional/backtracking
-/// sub-parsers, and "consume the rest of the input"), while preserving the
-/// exact same `.parse(_:)` calling convention every call site (including
-/// tests) relies on.
-struct ZParser<Output: Sendable>: Sendable {
-    let run: @Sendable (inout Substring) throws -> Output
-
-    /// Runs the parser and requires the ENTIRE input to be consumed,
-    /// mirroring swift-parsing's `Parser.parse(_:)` convenience.
-    /// - throws if the parser fails, or if any input remains unconsumed.
-    func parse<S: StringProtocol>(_ input: S) throws -> Output {
-        var substring = Substring(input)
-        let output = try run(&substring)
-        guard substring.isEmpty else {
-            throw ZParseError("unconsumed input remains: \(substring)")
-        }
-        return output
-    }
-}
-
-/// Parses a literal prefix, consuming it and throwing if the input does not start with it.
-private func zLiteral(_ literal: String) -> ZParser<Void> {
-    ZParser { input in
-        guard input.hasPrefix(literal) else {
-            throw ZParseError("expected literal '\(literal)'")
-        }
-        input.removeFirst(literal.count)
-    }
-}
-
-/// Tries each literal in order, consuming the first one that matches as a prefix.
-private func zOneOfLiterals(_ literals: [String]) -> ZParser<Void> {
-    ZParser { input in
-        for literal in literals where input.hasPrefix(literal) {
-            input.removeFirst(literal.count)
-            return
-        }
-        throw ZParseError("expected one of \(literals)")
-    }
-}
-
-/// Greedily consumes characters (by `Character`, all of whose unicode scalars must belong to
-/// `set`) from the front of the input. Always succeeds, possibly consuming zero characters.
-private func zCharacterSet(_ set: CharacterSet) -> ZParser<Substring> {
-    ZParser { input in
-        let match = input.prefix { character in
-            character.unicodeScalars.allSatisfy { set.contains($0) }
-        }
-        input.removeFirst(match.count)
-        return match
-    }
-}
-
-/// Greedily consumes characters while `predicate` holds. Always succeeds, possibly
-/// consuming zero characters.
-private func zPrefix(_ predicate: @escaping @Sendable (Character) -> Bool) -> ZParser<Substring> {
-    ZParser { input in
-        let match = input.prefix(while: predicate)
-        input.removeFirst(match.count)
-        return match
-    }
-}
-
-/// Consumes 1 to `max` ASCII digit characters (greedily, up to `max`), interpreting them as
-/// an `Int`. Fails if there is no digit at all at the front of the input.
-private func zDigits(max: Int) -> ZParser<Int> {
-    ZParser { input in
-        let digitRun = input.prefix { character in
-            character.unicodeScalars.allSatisfy { CharacterSet.ASCIINum.contains($0) }
-        }
-        let matched = digitRun.prefix(max)
-        guard !matched.isEmpty, let value = Int(matched) else {
-            throw ZParseError("expected at least one digit")
-        }
-        input.removeFirst(matched.count)
-        return value
-    }
-}
-
-/// Consumes and returns the entire remaining input. Fails if the input is already empty.
-private func zRest() -> ZParser<Substring> {
-    ZParser { input in
-        guard !input.isEmpty else {
-            throw ZParseError("no remaining input")
-        }
-        defer { input = Substring() }
-        return input
-    }
-}
-
-/// Attempts `parser` on a copy of the input; if it fails, the input is left completely
-/// untouched (full backtracking) and `nil` is returned instead of throwing.
-private func zOptionally<T>(_ parser: ZParser<T>) -> ZParser<T?> {
-    ZParser { input in
-        var attempt = input
-        guard let value = try? parser.run(&attempt) else {
-            return nil
-        }
-        input = attempt
-        return value
-    }
-}
-
 enum Parser {
-    /// Allowed characters for paramName are alphanumerics (Unicode, matching Foundation's
-    /// `CharacterSet.alphanumerics`) and `+` and `-`.
-    /// - Note: this is intentionally more permissive than `CharacterSet.paramname` (ASCII-only):
-    /// a query key containing e.g. non-ASCII letters is accepted at this low-level tokenizing
-    /// stage and rejected later by `ParamNameString`/`OtherParam` validation, matching v1 behavior.
-    static let parameterNameCharset = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "+-"))
+    // MARK: - ASCII terminals
 
-    static let parameterName: ZParser<Substring> = zCharacterSet(parameterNameCharset)
+    private static let questionMark: UInt8 = 0x3F // "?"
+    private static let ampersand: UInt8 = 0x26    // "&"
+    private static let equals: UInt8 = 0x3D       // "="
+    private static let dot: UInt8 = 0x2E          // "."
+    private static let zeroDigit: UInt8 = 0x30    // "0"
+    private static let schemeLiteral = Array("zcash:".utf8)
 
-    /// parses characters from the `qchar` set.
-    static let otherParamValue: ZParser<Substring> = zCharacterSet(.qchar)
-
-    static let maybeLeadingAddress: ZParser<(Substring?, Substring?)> = ZParser { input in
-        try zLiteral("zcash:").run(&input)
-        let addressPart: Substring? = try zPrefix { $0 != "?" }.run(&input)
-        let rest = try zOptionally(zRest()).run(&input)
-        return (addressPart, rest)
+    /// ASCII letter (`ALPHA`).
+    private static func isAlpha(_ byte: UInt8) -> Bool {
+        (0x41...0x5A).contains(byte) || (0x61...0x7A).contains(byte)
     }
 
-    /// parameter indexes according to ZIP-321 can't have leading zeroes and should not be more than 9999
-    static let parameterIndex: ZParser<Int> = ZParser { input in
-        guard
-            let first = input.first,
-            first.unicodeScalars.allSatisfy({ CharacterSet.nonZeroDigits.contains($0) })
-        else {
-            throw ZParseError("expected paramindex to start with a nonzero digit")
-        }
-        return try zDigits(max: 4).run(&input)
+    /// ASCII digit (`DIGIT`).
+    private static func isDigit(_ byte: UInt8) -> Bool {
+        (0x30...0x39).contains(byte)
     }
 
-    /// parser for a `paramname` that can contain an index or not.
-    static let optionallyIndexedParameterName: ZParser<(Substring, Int?)> = ZParser { input in
-        let name = try Parser.parameterName.run(&input)
-        let index = try zOptionally(
-            ZParser<Int> { inner in
-                try zLiteral(".").run(&inner)
-                return try Parser.parameterIndex.run(&inner)
-            }
-        ).run(&input)
-        return (name, index)
+    /// A `paramname` continuation byte: `ALPHA / DIGIT / "+" / "-"`. This matches the reference
+    /// `namechars` (`alphanum_or("+-")`), which — like `nom`'s `AsChar` — is ASCII-only.
+    private static func isNameChar(_ byte: UInt8) -> Bool {
+        isAlpha(byte) || isDigit(byte) || byte == 0x2B /* + */ || byte == 0x2D /* - */
     }
 
-    /// Parser for query key and value
-    /// supports `otherParam` and `req-` params without validation logic
-    // swiftlint:disable:next large_tuple
-    static let queryKeyAndValue: ZParser<(Substring, Int?, Substring?)> = ZParser { input in
-        let (name, index) = try Parser.optionallyIndexedParameterName.run(&input)
-        let value = try zOptionally(
-            ZParser<Substring> { inner in
-                try zLiteral("=").run(&inner)
-                return try Parser.otherParamValue.run(&inner)
-            }
-        ).run(&input)
-        return (name, index, value)
-    }
+    // MARK: - Leading address
 
-    /// maps a parsed Query Parameter key and value into an `IndexedParameter`
-    /// providing validation of Query keys and values. Recipient addresses are resolved
-    /// by the caller-supplied `validator`.
-    static func zcashParameter(
-        // swiftlint:disable:next large_tuple
-        _ input: (Substring, Int?, Substring?),
-        network: Network,
-        validator: any AddressValidator
-    ) throws -> IndexedParameter {
-        let queryKey = String(input.0)
+    /// Splits a `zcash:` URI into its lead address and the remaining query part.
+    ///
+    /// Mirrors the reference `preceded(tag("zcash:"), take_till(|c| c == '?'))`: the lead address
+    /// is every character after `zcash:` up to (but not including) the first `?`. The returned
+    /// `address` is a (possibly empty) `Substring`; `rest` is the remainder starting at `?`, or
+    /// `nil` when there is no `?` in the input.
+    /// - Precondition: `input` starts with `zcash:`.
+    static func splitLeadingAddress(_ input: String) -> (address: Substring, rest: Substring?) {
+        let afterScheme = Substring(input).dropFirst(schemeLiteral.count)
 
-        guard input.1 != Int?(0) else {
-            throw ZIP321.Errors.invalidParamIndex("\(input).0")
+        if let questionMarkIndex = afterScheme.firstIndex(of: "?") {
+            return (afterScheme[..<questionMarkIndex], afterScheme[questionMarkIndex...])
         }
 
-        guard !queryKey.hasPrefix("req-") else {
-            throw ZIP321.Errors.unknownRequiredParameter(queryKey)
-        }
-
-        let index = UInt(input.1 ?? 0) // zero is not allowed in the spec but we imply no index
-        let value = if let value = input.2 {
-            String(value)
-        } else {
-            Optional<String>.none
-        }
-
-        let param = try Param.from(
-            queryKey: queryKey,
-            value: value,
-            index: index,
-            network: network,
-            validator: validator
-        )
-
-        return IndexedParameter(index: index, param: param)
+        return (afterScheme, nil)
     }
 
-    /// Attempts to parse the leading address and returns the rest of the input
+    /// Attempts to parse the leading address and returns the rest of the input.
+    ///
+    /// A non-empty lead address MUST validate as a recipient address (payment index 0); an empty
+    /// lead address is allowed (the request's payments come entirely from query parameters, or the
+    /// request is a bare `zcash:`).
+    ///
     /// - parameter input: the input String of the URI
-    /// - parameter validator: the caller-supplied authority on recipient addresses
-    /// - returns a tuple containing an optional `IndexedParameter` and the rest of the remaining
-    /// subsequence.
+    /// - parameter network: the consensus network the request is being parsed for.
+    /// - parameter validator: the caller-supplied authority on recipient addresses.
+    /// - returns a tuple containing the rest of the input (the `?`-prefixed query part, or `nil`)
+    /// and an optional leading-address `IndexedParameter`.
     static func leadingAddress(
         _ input: String,
         network: Network,
         validator: any AddressValidator
     ) throws -> (Substring?, IndexedParameter?) {
-        guard input.starts(with: "zcash:") else {
+        guard input.hasPrefix("zcash:") else {
             throw ZIP321.Errors.parseError("Not `zcash:` uri")
         }
 
-        let partial = try maybeLeadingAddress.parse(input)
+        let (address, rest) = splitLeadingAddress(input)
 
-        if let maybeAddress = partial.0, !maybeAddress.isEmpty {
-            guard let address = Parser.recipient(String(maybeAddress), network: network, validator: validator) else {
+        if !address.isEmpty {
+            guard let recipient = Parser.recipient(String(address), network: network, validator: validator) else {
                 throw ZIP321.Errors.invalidAddress(nil)
             }
 
-            return (partial.1, IndexedParameter(index: 0, param: .address(address)))
+            return (rest, IndexedParameter(index: 0, param: .address(recipient)))
         }
 
-        return (partial.1, nil)
+        return (rest, nil)
     }
 
-    /// this function parses query parameters and checks that are valid internally.
-    /// - parameter substring: a substring with the sequence after `?` separator
+    // MARK: - Query parameter grammar
+
+    /// Scans a `paramname` (`ALPHA *( ALPHA / DIGIT / "+" / "-" )`) from the current position.
+    /// Returns `nil` (consuming nothing) if the first byte is not an `ALPHA`.
+    private static func scanName(_ scanner: inout Scanner) -> String? {
+        guard let first = scanner.peek(), isAlpha(first) else { return nil }
+
+        scanner.advance()
+        var bytes: [UInt8] = [first]
+        bytes.append(contentsOf: scanner.takeWhile(isNameChar))
+
+        return String(decoding: bytes, as: UTF8.self)
+    }
+
+    /// Scans a `paramindex` digit run (no leading `.`): `NONZERO 0*3DIGIT`, i.e. 1 to 4 digits
+    /// with no leading zero. Throws ``ZIP321/Errors/invalidParamIndex(_:)`` on an empty run, a
+    /// leading zero, or more than four digits.
+    private static func scanIndexDigits(_ scanner: inout Scanner) throws -> UInt {
+        let digits = scanner.takeWhile(isDigit)
+        let text = String(decoding: digits, as: UTF8.self)
+
+        guard !digits.isEmpty, digits.count <= 4, digits[0] != zeroDigit, let value = UInt(text) else {
+            throw ZIP321.Errors.invalidParamIndex(text)
+        }
+
+        return value
+    }
+
+    /// Scans an optional `"." paramindex`. Returns `nil` (consuming nothing) when the next byte is
+    /// not `.`; throws when a `.` is present but not followed by a valid index.
+    private static func scanIndex(_ scanner: inout Scanner) throws -> UInt? {
+        guard scanner.peek() == dot else { return nil }
+        scanner.advance()
+        return try scanIndexDigits(&scanner)
+    }
+
+    /// Parses a single `&`-delimited query segment into its `(name, index, value)` components.
+    ///
+    /// Grammar (per ZIP-321, with v1's preserved leniency that the `"=" value` is optional):
+    /// ```
+    /// name  = ALPHA *( ALPHA / DIGIT / "+" / "-" )
+    /// index = [ "." NONZERO 0*3DIGIT ]
+    /// value = [ "=" *qchar ]
+    /// ```
+    /// The raw value is charset-restricted to `qchar`-permitted bytes/percent-escapes here; its
+    /// interpretation (percent-decoding vs. sub-grammar parsing) happens later in ``Param/from``.
+    /// Throws ``ZIP321/Errors/parseError(_:)`` if the name is missing/invalid (e.g. empty, or
+    /// containing a percent-escape) or if any byte in the segment is left unconsumed.
+    static func parseQueryToken(_ token: Substring) throws -> (name: String, index: UInt?, value: String?) {
+        var scanner = Scanner(token)
+
+        guard let name = scanName(&scanner) else {
+            throw ZIP321.Errors.parseError("invalid or empty parameter name in query segment '\(token)'")
+        }
+
+        let index = try scanIndex(&scanner)
+
+        var value: String?
+        if scanner.expect(ascii: equals) {
+            let valueBytes = scanner.takeWhile(QcharCodec.isValueByte)
+            value = String(decoding: valueBytes, as: UTF8.self)
+        }
+
+        guard scanner.isAtEnd else {
+            throw ZIP321.Errors.parseError("unexpected characters in query segment '\(token)'")
+        }
+
+        return (name, index, value)
+    }
+
+    /// Test-facing helper: parses a standalone `paramindex` digit run, requiring full consumption.
+    static func parseParamIndex(_ input: Substring) throws -> UInt {
+        var scanner = Scanner(input)
+        let value = try scanIndexDigits(&scanner)
+        guard scanner.isAtEnd else {
+            throw ZIP321.Errors.invalidParamIndex(String(input))
+        }
+        return value
+    }
+
+    /// Test-facing helper: parses a `paramname` with optional `.paramindex`, requiring full
+    /// consumption.
+    static func parseNameAndIndex(_ input: Substring) throws -> (name: String, index: UInt?) {
+        var scanner = Scanner(input)
+
+        guard let name = scanName(&scanner) else {
+            throw ZIP321.Errors.parseError("invalid parameter name '\(input)'")
+        }
+
+        let index = try scanIndex(&scanner)
+
+        guard scanner.isAtEnd else {
+            throw ZIP321.Errors.parseError("unexpected characters in parameter name '\(input)'")
+        }
+
+        return (name, index)
+    }
+
+    /// Validates a parsed `(name, index, value)` triple and maps it into an `IndexedParameter`.
+    ///
+    /// Address validation semantics: every recipient address is resolved by the
+    /// caller-supplied `validator`, which is AUTHORITATIVE — this library performs
+    /// no address validation of its own.
+    static func zcashParameter(
+        name: String,
+        index: UInt?,
+        value: String?,
+        network: Network,
+        validator: any AddressValidator
+    ) throws -> IndexedParameter {
+        guard !name.hasPrefix("req-") else {
+            throw ZIP321.Errors.unknownRequiredParameter(name)
+        }
+
+        // zero is not a valid explicit index; the grammar (no leading zero) already prevents it,
+        // and `index == nil` maps to the "no index" sentinel 0.
+        let resolvedIndex = index ?? 0
+
+        let param = try Param.from(
+            queryKey: name,
+            value: value,
+            index: resolvedIndex,
+            network: network,
+            validator: validator
+        )
+
+        return IndexedParameter(index: resolvedIndex, param: param)
+    }
+
+    /// Parses the query parameters and checks that they are individually valid.
+    /// - parameter substring: a substring beginning with the `?` query separator
     /// - parameter leadingAddress: an optional indexed parameter with the previously parsed
     /// leading address if any
+    /// - parameter network: the consensus network the request is being parsed for
     /// - parameter validator: the caller-supplied authority on recipient addresses
     static func parseParameters(
-        _ substring: Substring.SubSequence,
+        _ substring: Substring,
         leadingAddress: IndexedParameter?,
         network: Network,
         validator: any AddressValidator
@@ -371,11 +341,18 @@ enum Parser {
         let afterQuestionMark = substring.dropFirst()
         let tokens = afterQuestionMark.split(separator: "&", omittingEmptySubsequences: false)
 
-        indexedParameters.append(
-            contentsOf: try tokens
-                .map { try Parser.queryKeyAndValue.parse($0) }
-                .map { try zcashParameter($0, network: network, validator: validator) }
-        )
+        for token in tokens {
+            let (name, index, value) = try parseQueryToken(token)
+            indexedParameters.append(
+                try zcashParameter(
+                    name: name,
+                    index: index,
+                    value: value,
+                    network: network,
+                    validator: validator
+                )
+            )
+        }
 
         return indexedParameters
     }
@@ -493,23 +470,17 @@ extension Payment {
 }
 
 extension Param {
-    private static func decodeQchar(_ value: String) throws -> String {
-        guard (try? Parser.otherParamValue.parse(value)) != nil else {
-            throw ZIP321.Errors.qcharDecodeFailed(value)
-        }
-
-        guard let qcharDecoded = value.qcharDecode() else {
-            throw ZIP321.Errors.qcharDecodeFailed(value)
-        }
-
-        return qcharDecoded
-    }
-
     /// Creates a `Param` enum from
     /// - parameter queryKey: `paramname` from ZIP-321
     /// - parameter value: the value fo the query key
-    // Transitional v1 dispatch replaced by the Scanner grammar rewrite (#87);
-    // its branching is inherent to the per-parameter dispatch it performs.
+    /// - parameter validator: the caller-supplied authority on recipient
+    /// addresses; it is the ONLY source of address validity here
+    ///
+    /// Percent-decoding policy (matching the reference `to_indexed_param`): `label`, `message`
+    /// and `other` values are percent-decoded via ``QcharCodec``; `address`, `amount` and `memo`
+    /// values are handed to their own grammars verbatim (a `%` in them is therefore rejected).
+    // The branching here is inherent to the per-parameter dispatch this function performs:
+    // one arm per ZIP-321 `paramname`, each with its own grammar and error mapping.
     // swiftlint:disable:next cyclomatic_complexity
     static func from(
         queryKey: String,
@@ -553,7 +524,19 @@ extension Param {
                 throw ZIP321.Errors.unknownRequiredParameter(queryKey)
             }
 
-            return .other(try OtherParam(key: queryKey, value: value))
+            // `otherparam` values are percent-decoded per the `qchar` grammar (matching the
+            // reference), then preserved. An absent value (no `=`) is carried through as `nil`.
+            let decodedValue: String?
+            if let value = value {
+                guard let decoded = QcharCodec.decode(value) else {
+                    throw ZIP321.Errors.qcharDecodeFailed(value)
+                }
+                decodedValue = decoded
+            } else {
+                decodedValue = nil
+            }
+
+            return .other(try OtherParam(key: queryKey, value: decodedValue))
         }
     }
 
