@@ -259,17 +259,17 @@ struct ZcashSwiftPaymentUriTests {
     }
 
     /// invalid; amount component wraps beyond u64
-    /// 18446744073709551624 => amountInvalid (arithmetic overflow while parsing)
+    /// 18446744073709551624 => amountExceededSupply (overflow necessarily exceeds MAX_MONEY)
     @Test func throwsWhenAmountWrapsBeyondU64() {
         let invalidURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=18446744073709551624"
-        #expect(ZIP321.parse(invalidURI, expecting: .testnet, validator: ReferenceAddressValidator.testnet) == .failure(.amountInvalid(index: nil)))
+        #expect(ZIP321.parse(invalidURI, expecting: .testnet, validator: ReferenceAddressValidator.testnet) == .failure(.amountExceededSupply(index: nil)))
     }
 
     /// invalid; amount component exceeds an i64
-    /// 9223372036854775808 = i64::MAX + 1 => amountInvalid (arithmetic overflow while parsing)
+    /// 9223372036854775808 = i64::MAX + 1 => amountExceededSupply (overflow necessarily exceeds MAX_MONEY)
     @Test func throwsWhenAmountExceedsInt64() {
         let invalidURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=9223372036854775808"
-        #expect(ZIP321.parse(invalidURI, expecting: .testnet, validator: ReferenceAddressValidator.testnet) == .failure(.amountInvalid(index: nil)))
+        #expect(ZIP321.parse(invalidURI, expecting: .testnet, validator: ReferenceAddressValidator.testnet) == .failure(.amountExceededSupply(index: nil)))
     }
 
     @Test func throwsWhenMemoIsInvalid() {

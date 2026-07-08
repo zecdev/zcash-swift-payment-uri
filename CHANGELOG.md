@@ -82,6 +82,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `AmountError.negativeAmount` remains only for the decimal-string path's
   error taxonomy.
 
+### Changed — conformance corpus sync (S15)
+
+- Bumped the `Tests/Vectors` corpus submodule to the adjudicated revision:
+  integer-overflow amounts classify as `amountExceededSupply` (any
+  checked-accumulation overflow necessarily exceeds MAX_MONEY); the spec's
+  fabricated req-asset example addresses are documented as checksum-invalid
+  (`invalidAddress`); a new vector pairs `req-asset` with a checksum-valid UA
+  to isolate `unknownRequiredParameter`.
+- Removed the overflow special-case in `AmountParser` accordingly.
+- The conformance expected-failure map is now **empty**: the implementation
+  matches the librustzcash reference on every corpus vector — parse decision,
+  exact error discriminant, and canonical re-render.
+
 ### Breaking changes — v2.0.0 public API reshape
 
 This is the deliberate breaking-change milestone of the v2 rewrite. The public
