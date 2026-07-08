@@ -73,17 +73,15 @@ public struct ParamNameString: Equatable {
 public struct QcharString: Equatable {
     private let storage: String
 
-    /// initalizes a ``QcharString`` from an assumed non-empty non-qchar encoded value.
+    /// initalizes a ``QcharString`` from a non-qchar encoded value.
     /// This initilalizers will check whether decoding a this string produces any changes to avoid nested encodings
-    /// - Parameter value: the string value that will be qchar-encoded
+    /// - Parameter value: the string value that will be qchar-encoded. The empty string is a
+    /// valid (zero-length) `*qchar` value and is accepted.
     /// - Parameter strictMode: this checks whether decoding the provided value changes it and fails if it
     /// can be assumed that the value provided is already qchar-encoded to avoid re-encoding an already
     /// qchar-encoded value
     /// - Returns: a ``QcharString`` or ``nil`` if encoding fails
     public init?(value: String, strictMode: Bool = false) {
-        // value is not empty
-        guard !value.isEmpty else { return nil }
-
         /// check whether value is already qchar-encoded
         if strictMode {
             guard let qcharDecode = value.qcharDecode(), value == qcharDecode else { return nil }

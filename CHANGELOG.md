@@ -83,6 +83,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   error taxonomy.
 
 ### Added
+- **Internal ZIP-321 `qchar` codec** (`Sources/ZcashPaymentURI/parser/QcharCodec.swift`):
+  a self-contained `encode`/`decode` pair that percent-encodes exactly the complement of the
+  ZIP-321 `qchar` set, mirroring the reference `QCHAR_ENCODE` `AsciiSet` in librustzcash
+  `zip321` (space, `"`, `#`, `%`, `&`, `/`, `<`, `=`, `>`, `?`, `[`, `\`, `]`, `^`, `` ` ``,
+  `{`, `|`, `}`, the C0 controls, DEL, and every non-ASCII byte via UTF-8 `%XX`, uppercase
+  hex). `decode` is strict: `%XX` must be two hex digits (either case), raw bytes must be
+  `qchar` bytes, and the decoded bytes must be valid UTF-8 (overlong sequences, lone
+  continuation bytes and unpaired surrogates are rejected). The `String.qcharEncoded()` /
+  `qcharDecode()` extensions now delegate to this codec (previously Foundation's
+  `addingPercentEncoding` / `removingPercentEncoding`), so decoding is stricter than before.
+
+### Fixed
+- **Empty `qchar` values are now valid**: `QcharString` accepts the empty string (a valid
+  zero-length `*qchar` value), so a URI containing an empty `message=` or `label=` now parses
+  to a payment with an empty (not rejected) value, matching the reference. The conformance
+  vectors `amount_one_with_empty_message` and `amount_parse_simple_large_decimal` now pass and
+  were removed from the expected-failure map.
 - **Internal strict base64url codec** (`Sources/ZcashPaymentURI/parser/Base64URL.swift`):
   a pure-Swift, Foundation-free implementation of the unpadded
   [RFC 4648 §5](https://www.rfc-editor.org/rfc/rfc4648.html#section-5)

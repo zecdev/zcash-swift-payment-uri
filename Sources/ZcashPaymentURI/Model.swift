@@ -206,14 +206,17 @@ extension String {
     /// from  RPC-3986: https://www.rfc-editor.org/rfc/rfc3986.html#appendix-A
     /// unreserved    = ALPHA / DIGIT / "-" / "." / "_" / "~"
     /// pct-encoded   = "%" HEXDIG HEXDIG
+    ///
+    /// - Note: delegates to ``QcharCodec/encode(_:)``. The optional return type is retained for
+    /// source compatibility; encoding always succeeds.
     func qcharEncoded() -> String? {
-        let qcharEncodeAllowed = CharacterSet.qchar.subtracting(.qcharComplement)
-        
-        return self.addingPercentEncoding(withAllowedCharacters: qcharEncodeAllowed)
+        QcharCodec.encode(self)
     }
 
+    /// Strictly percent-decodes a `qchar` value, delegating to ``QcharCodec/decode(_:)``.
+    /// Returns `nil` for malformed `%XX` escapes, non-`qchar` raw bytes, or invalid UTF-8.
     func qcharDecode() -> String? {
-        self.removingPercentEncoding
+        QcharCodec.decode(self)
     }
 
     var asQcharString: QcharString? {
