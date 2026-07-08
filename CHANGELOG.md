@@ -213,6 +213,32 @@ library.
   instead of being collapsed onto the empty index, fixing the
   `structure_index_gap_only_address_5` conformance divergence.
 
+### Added — fluent builders
+
+- **`Payment.Builder`** (`init(recipient:)` + chainable `amount(_:)`,
+  `amount(zec:)`, `memo(_:)`, `memo(utf8:)`, `label(_:)`, `message(_:)`,
+  `otherParam(name:value:)`, terminal `build() -> Result<Payment, ZIP321Error>`).
+  Fallible inputs are validated LAZILY at `build()`: a bad `amount(zec:)`
+  surfaces as `.amountInvalid` (or `.amountExceededSupply`), an oversized
+  `memo(utf8:)` as `.memoBytesError`, an invalid `otherParam` name as
+  `.parseError(.invalidParameter)`; a memo to a transparent recipient surfaces
+  as `.transparentMemo` via `Payment.create`. When several fields are invalid,
+  the first error wins in field order (amount → memo → other params →
+  structural rules).
+- **`PaymentRequest.Builder`** (`add(_:)` auto-indexing sequentially from `0`,
+  `add(_:at:)` for an explicit paramindex, terminal
+  `build() -> Result<PaymentRequest, ZIP321Error>`). Deferred validation:
+  a duplicate index fails with `.duplicateParameter`, an index above `9999`
+  with `.tooManyPayments`.
+- **`@resultBuilder PaymentRequestBuilder`** with the `PaymentRequest.build { … }`
+  entry point (`try PaymentRequest.build { payment1; payment2 }.get()`), a thin
+  layer over `PaymentRequest.Builder` that auto-indexes block statements from
+  `0` and accepts both single `Payment` expressions and `[Payment]` arrays. The
+  entry point is `PaymentRequest.build` rather than a bare `PaymentRequest { … }`
+  free function because Swift forbids a global function sharing a name with a
+  type in the same module; `.build` preserves the Result-returning `.get()`
+  totality contract.
+
 ### Added
 - **Internal single-pass `Scanner`** (`Sources/ZcashPaymentURI/parser/Scanner.swift`): a
   byte-level scanner over a `Substring`'s UTF-8 view (`peek`/`advance`/`expect(ascii:)`/
