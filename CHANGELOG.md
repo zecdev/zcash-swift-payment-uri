@@ -20,6 +20,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `large_tuple` disable on the transitional parser tuple).
 
 ### Added
+- **Internal strict base64url codec** (`Sources/ZcashPaymentURI/parser/Base64URL.swift`):
+  a pure-Swift, Foundation-free implementation of the unpadded
+  [RFC 4648 §5](https://www.rfc-editor.org/rfc/rfc4648.html#section-5)
+  base64url encoding used by ZIP-321 `memo` values (matching the reference
+  implementation's `BASE64_URL_SAFE_NO_PAD`). `decode` strictly rejects `+`,
+  `/`, `=` padding, whitespace, any character outside the base64url
+  alphabet, impossible lengths (`length % 4 == 1`), and non-canonical
+  encodings with nonzero trailing bits. This will replace the
+  Foundation-based translate-and-pad decode path inside `MemoBytes`.
 - **New public `NonNegativeAmount` value type** (`Sources/ZcashPaymentURI/model/NonNegativeAmount.swift`):
   an `Equatable`, `Hashable`, `Sendable`, `Comparable` wrapper around an
   `Int64` count of zatoshi with `NonNegativeAmount.maxMoney` (`2_100_000_000_000_000`)
