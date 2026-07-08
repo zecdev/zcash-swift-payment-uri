@@ -19,7 +19,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   parameter brackets, redundant type annotation; one justified
   `large_tuple` disable on the transitional parser tuple).
 
+### Added
+- **New public `NonNegativeAmount` value type** (`Sources/ZcashPaymentURI/model/NonNegativeAmount.swift`):
+  an `Equatable`, `Hashable`, `Sendable`, `Comparable` wrapper around an
+  `Int64` count of zatoshi with `NonNegativeAmount.maxMoney` (`2_100_000_000_000_000`)
+  as the upper bound. `Result`-based factories `NonNegativeAmount.zatoshi(_:)` (raw
+  zatoshi) and `NonNegativeAmount.zec(_:)` (decimal ZEC string) enforce the **strict**
+  ZIP-321 `amountparam` grammar (`1*DIGIT [ "." 1*8DIGIT ]`): leading zeros
+  in the whole part are accepted, while `"123."`, `".5"`, empty strings,
+  signs, whitespace, and scientific notation are rejected, using checked
+  integer arithmetic only. `decimalString()` renders exactly like the
+  reference `amount_str` (whole part always, fraction only when nonzero,
+  trailing zeros trimmed). `NonNegativeAmount` is amount-agnostic: zero is
+  representable; zero-amount policy (e.g. zero-valued transparent outputs)
+  belongs to `Payment`-level validation.
+
 ### Changed
+- **`Amount` is deprecated in favor of `NonNegativeAmount`.** The v1 type keeps working
+  unchanged: the struct is now declared as `LegacyAmount` and `Amount` is a
+  deprecated public typealias for it, so external code that spells `Amount`
+  (or any of its members through that name) gets a deprecation warning while
+  remaining 100% source-compatible. The library refers to the type by its
+  non-deprecated `LegacyAmount` name internally (the parser's switch to
+  `NonNegativeAmount` lands with the v2 parser rewrite), keeping the build warning-free.
 - **Breaking (toolchain):** `swift-tools-version` raised to `6.0`; minimum
   platforms raised to macOS 13 / iOS 16.
 - **Removed all runtime dependencies.** `zcash-swift-payment-uri` is now a

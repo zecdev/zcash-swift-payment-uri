@@ -34,7 +34,7 @@ struct ParsingAddressesTests {
                     payments: [
                         try Payment(
                             recipientAddress: recipient,
-                            amount: try Amount(string: "1.0001"),
+                            amount: try LegacyAmount(string: "1.0001"),
                             memo: nil,
                             label: nil,
                             message: "lunch",

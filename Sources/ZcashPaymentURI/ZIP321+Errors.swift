@@ -26,7 +26,7 @@ extension ZIP321.Errors {
         }
     }
 
-    static func mapFrom(_ amountError: Amount.AmountError, index: UInt) -> ZIP321.Errors {
+    static func mapFrom(_ amountError: LegacyAmount.AmountError, index: UInt) -> ZIP321.Errors {
         switch amountError {
         case .greaterThanSupply:
             return .amountExceededSupply(index)

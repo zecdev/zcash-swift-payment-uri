@@ -41,7 +41,7 @@ struct DuplicateParameterDetectionTests {
 
         let duplicateAddressParams: [IndexedParameter] = [
             IndexedParameter(index: 0, param: .address(shieldedRecipient)),
-            IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
+            IndexedParameter(index: 0, param: .amount(try LegacyAmount(value: 1))),
             IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
             IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
@@ -63,11 +63,11 @@ struct DuplicateParameterDetectionTests {
 
         let duplicateAmountParams: [IndexedParameter] = [
             IndexedParameter(index: 0, param: .address(shieldedRecipient)),
-            IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
+            IndexedParameter(index: 0, param: .amount(try LegacyAmount(value: 1))),
             IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
             IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
-            IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
+            IndexedParameter(index: 0, param: .amount(try LegacyAmount(value: 1))),
             IndexedParameter(
                 index: 0,
                 param: .other(
@@ -85,7 +85,7 @@ struct DuplicateParameterDetectionTests {
 
         let duplicateMessageParams: [IndexedParameter] = [
             IndexedParameter(index: 0, param: .address(shieldedRecipient)),
-            IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
+            IndexedParameter(index: 0, param: .amount(try LegacyAmount(value: 1))),
             IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
             IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
@@ -107,7 +107,7 @@ struct DuplicateParameterDetectionTests {
 
         let duplicateMemoParams: [IndexedParameter] = [
             IndexedParameter(index: 0, param: .address(shieldedRecipient)),
-            IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
+            IndexedParameter(index: 0, param: .amount(try LegacyAmount(value: 1))),
             IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
             IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
@@ -130,7 +130,7 @@ struct DuplicateParameterDetectionTests {
         let duplicateLabelParams: [IndexedParameter] = [
             IndexedParameter(index: 0, param: .address(shieldedRecipient)),
             IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
-            IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
+            IndexedParameter(index: 0, param: .amount(try LegacyAmount(value: 1))),
             IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
             IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
@@ -165,7 +165,7 @@ struct DuplicateParameterDetectionTests {
                     )
                 )
             ),
-            IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
+            IndexedParameter(index: 0, param: .amount(try LegacyAmount(value: 1))),
             IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
             IndexedParameter(
@@ -234,7 +234,7 @@ struct DuplicateParameterDetectionTests {
                     context: .testnet
                 )!
             ),
-            .amount(try Amount(value: 1)),
+            .amount(try LegacyAmount(value: 1)),
             .message(QcharString(value: "Thanks")!),
             .label(QcharString(value: "payment")!),
             .other(
@@ -254,7 +254,7 @@ struct DuplicateParameterDetectionTests {
 
     @Test func duplicateParameterIsFalseWhenNoDuplication() throws {
         let params: [Param] = [
-            .amount(try Amount(value: 1)),
+            .amount(try LegacyAmount(value: 1)),
             .message(QcharString(value: "Thanks")!),
             .label(QcharString(value: "payment")!),
             .other(
@@ -280,7 +280,7 @@ struct DuplicateParameterDetectionTests {
                     context: .testnet
                 )!
             ),
-            .amount(try Amount(value: 1)),
+            .amount(try LegacyAmount(value: 1)),
             .message(QcharString(value: "Thanks")!),
             .label(QcharString(value: "payment")!),
             .other(

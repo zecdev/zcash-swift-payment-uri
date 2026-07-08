@@ -20,7 +20,7 @@ struct PaymentTests {
 
         let params: [Param] = [
             .address(recipient),
-            .amount(try Amount(value: 1)),
+            .amount(try LegacyAmount(value: 1)),
             .message(QcharString(value: "Thanks")!),
             .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg")),
             .label(QcharString(value: "payment")!),
@@ -53,7 +53,7 @@ struct PaymentTests {
 
         let params: [Param] = [
             .address(recipient),
-            .amount(try Amount(value: 1)),
+            .amount(try LegacyAmount(value: 1)),
             .message(QcharString(value: "Thanks")!),
             .label(QcharString(value: "payment")!),
             .other(
@@ -72,7 +72,7 @@ struct PaymentTests {
 
         #expect(try Payment(
             recipientAddress: recipient,
-            amount: try Amount(value: 1),
+            amount: try LegacyAmount(value: 1),
             memo: nil,
             label: "payment",
             message: "Thanks",

@@ -30,7 +30,7 @@ public struct Payment: Equatable {
     /// Recipient of the payment.
     public let recipientAddress: RecipientAddress
     /// The amount of the payment expressed in decimal ZEC
-    public let amount: Amount?
+    public let amount: LegacyAmount?
     /// bytes of the ZIP-302 Memo if present. Payments to addresses that are not shielded should be reported as erroneous by wallets.
     public let memo: MemoBytes?
     /// A human-readable label for this payment within the larger structure of the transaction request.
@@ -43,7 +43,7 @@ public struct Payment: Equatable {
 
     /// Initializes a Payment struct. validation of the whole payment is deferred to the ZIP-321 serializer.
     /// - parameter recipientAddress: a valid Zcash recipient address
-    /// - parameter amount: a valid `Amount` or `nil`i
+    /// - parameter amount: a valid `LegacyAmount` or `nil`i
     /// - parameter memo: valid `MemoBytes` or `nil`
     /// - parameter label: a label that wallets might show to their users as a way to label this payment.
     /// Will not be included in the blockchain
@@ -53,7 +53,7 @@ public struct Payment: Equatable {
     /// information about these parameters.
     public init(
         recipientAddress: RecipientAddress,
-        amount: Amount?,
+        amount: LegacyAmount?,
         memo: MemoBytes?,
         qcharLabel: QcharString?,
         qcharMessage: QcharString?,
@@ -72,7 +72,7 @@ public struct Payment: Equatable {
 
     /// Initializes a Payment struct. validation of the whole payment is deferred to the ZIP-321 serializer.
     /// - parameter recipientAddress: a valid Zcash recipient address
-    /// - parameter amount: a valid `Amount` or `nil`i
+    /// - parameter amount: a valid `LegacyAmount` or `nil`i
     /// - parameter memo: valid `MemoBytes` or `nil`
     /// - parameter label: a label that wallets might show to their users as a way to label this payment.
     /// Will not be included in the blockchain
@@ -82,7 +82,7 @@ public struct Payment: Equatable {
     /// information about these parameters.
     public init(
         recipientAddress: RecipientAddress,
-        amount: Amount?,
+        amount: LegacyAmount?,
         memo: MemoBytes?,
         label: String?,
         message: String?,
@@ -273,7 +273,7 @@ extension NumberFormatter {
 }
 
 extension String.StringInterpolation {
-    mutating func appendInterpolation(_ value: Amount) {
+    mutating func appendInterpolation(_ value: LegacyAmount) {
         appendLiteral(value.toString())
     }
 }

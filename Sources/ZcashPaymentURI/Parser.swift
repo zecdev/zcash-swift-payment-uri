@@ -21,7 +21,7 @@ public enum ParserResult: Equatable {
 /// Represent an checked-param
 public enum Param: Equatable {
     case address(RecipientAddress)
-    case amount(Amount)
+    case amount(LegacyAmount)
     case memo(MemoBytes)
     case label(QcharString)
     case message(QcharString)
@@ -478,7 +478,7 @@ extension Payment {
             throw ZIP321.Errors.recipientMissing(index == 0 ? nil : index)
         }
 
-        var amount: Amount?
+        var amount: LegacyAmount?
         var memo: MemoBytes?
         var label: QcharString?
         var message: QcharString?
@@ -570,9 +570,9 @@ extension Param {
                 return .address(addr)
             case .amount:
                 do {
-                    return .amount(try Amount(string: value))
+                    return .amount(try LegacyAmount(string: value))
                 } catch {
-                    let amountError = try error.mapToErrorOrRethrow(Amount.AmountError.self)
+                    let amountError = try error.mapToErrorOrRethrow(LegacyAmount.AmountError.self)
 
                     throw ZIP321.Errors.mapFrom(amountError, index: index)
                 }
