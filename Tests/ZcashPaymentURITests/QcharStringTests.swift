@@ -8,7 +8,6 @@
 
 import XCTest
 @testable import ZcashPaymentURI
-import CustomDump
 final class QcharStringTests: XCTestCase {
     func testValidQcharStringIsInitialized() throws {
         let string = "valid QcharString"
