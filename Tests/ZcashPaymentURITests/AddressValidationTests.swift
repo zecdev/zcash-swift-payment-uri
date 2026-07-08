@@ -91,12 +91,8 @@ struct AddressValidationTests {
             AddressDescriptor(network: .mainnet, isTransparent: false, canReceiveMemos: true)
         }
 
-        let result = try ZIP321.request(from: "zcash:not-an-address?amount=1", expecting: .mainnet, validator: validator)
+        let request = try ZIP321.parse("zcash:not-an-address?amount=1", expecting: .mainnet, validator: validator).get()
 
-        guard case .request(let request) = result else {
-            Issue.record("expected a payment request")
-            return
-        }
         #expect(request.payments.first?.recipientAddress.value == "not-an-address")
     }
 
@@ -105,12 +101,10 @@ struct AddressValidationTests {
     @Test func theValidatorCanRejectAWellFormedAddress() throws {
         let uri = "zcash:\(Self.saplingTestnet)?amount=1"
 
-        #expect {
-            try ZIP321.request(from: uri, expecting: .testnet, validator: ClosureAddressValidator { _ in nil })
-        } throws: { error in
-            guard case ZIP321.Errors.invalidAddress = error else { return false }
-            return true
-        }
+        #expect(
+            ZIP321.parse(uri, expecting: .testnet, validator: ClosureAddressValidator { _ in nil })
+            == .failure(.invalidAddress(index: nil))
+        )
     }
 
     /// The capabilities the library enforces (memo support, zero-valued
@@ -125,7 +119,7 @@ struct AddressValidationTests {
         let memoURI = "zcash:\(Self.p2pkhMainnet)?amount=1&memo=VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"
 
         #expect(throws: Never.self) {
-            try ZIP321.request(from: memoURI, expecting: .mainnet, validator: asShielded)
+            try ZIP321.parse(memoURI, expecting: .mainnet, validator: asShielded).get()
         }
 
         // The same URI with a validator that reports a transparent recipient is
@@ -134,12 +128,10 @@ struct AddressValidationTests {
             AddressDescriptor(network: .mainnet, isTransparent: true, canReceiveMemos: false)
         }
 
-        #expect {
-            try ZIP321.request(from: memoURI, expecting: .mainnet, validator: asTransparent)
-        } throws: { error in
-            guard case ZIP321.Errors.transparentMemoNotAllowed = error else { return false }
-            return true
-        }
+        #expect(
+            ZIP321.parse(memoURI, expecting: .mainnet, validator: asTransparent)
+            == .failure(.transparentMemo(index: nil))
+        )
     }
 
     /// Every address in the URI is offered to the validator, including the
@@ -152,7 +144,7 @@ struct AddressValidationTests {
         }
 
         let uri = "zcash:\(Self.saplingTestnet)?amount=1&address.1=\(Self.p2pkhTestnet)&amount.1=2"
-        _ = try ZIP321.request(from: uri, expecting: .testnet, validator: validator)
+        _ = try ZIP321.parse(uri, expecting: .testnet, validator: validator).get()
 
         #expect(seen.addresses == [Self.saplingTestnet, Self.p2pkhTestnet])
     }
@@ -175,24 +167,21 @@ struct AddressValidationTests {
             AddressDescriptor(network: .testnet, isTransparent: false, canReceiveMemos: true)
         }
 
-        #expect {
-            try ZIP321.request(
-                from: "zcash:\(Self.saplingTestnet)?amount=1",
+        #expect(
+            ZIP321.parse(
+                "zcash:\(Self.saplingTestnet)?amount=1",
                 expecting: .mainnet,
                 validator: testnetSayingValidator
-            )
-        } throws: { error in
-            guard case ZIP321.Errors.invalidAddress = error else { return false }
-            return true
-        }
+            ) == .failure(.invalidAddress(index: nil))
+        )
 
         // The same URI and validator against the matching network parses.
         #expect(throws: Never.self) {
-            try ZIP321.request(
-                from: "zcash:\(Self.saplingTestnet)?amount=1",
+            try ZIP321.parse(
+                "zcash:\(Self.saplingTestnet)?amount=1",
                 expecting: .testnet,
                 validator: testnetSayingValidator
-            )
+            ).get()
         }
     }
 
@@ -209,12 +198,10 @@ struct AddressValidationTests {
         let uri = "zcash:?address=\(Self.saplingTestnet)&amount=1"
             + "&address.1=\(Self.saplingMainnet)&amount.1=2"
 
-        #expect {
-            try ZIP321.request(from: uri, expecting: .testnet, validator: mixedNetworkValidator)
-        } throws: { error in
-            guard case ZIP321.Errors.invalidAddress(.some(1)) = error else { return false }
-            return true
-        }
+        #expect(
+            ZIP321.parse(uri, expecting: .testnet, validator: mixedNetworkValidator)
+            == .failure(.invalidAddress(index: 1))
+        )
     }
 
     // MARK: - The reference (test-only) validator: valid matrix

@@ -20,8 +20,8 @@ struct ConformanceValidVector: Decodable {
         let index: UInt
         /// Recipient address exactly as it appears in the URI.
         let address: String
-        /// LegacyAmount in zatoshis (exact integer), or `nil` if no `amount` param present.
-        let amountZat: Int64?
+        /// Amount in zatoshis (exact integer), or `nil` if no `amount` param present.
+        let amountZat: UInt64?
         /// The raw base64url-without-padding memo value from the URI, or `nil`
         /// if no `memo` param is present. `""` means `memo=` (a 0-byte memo).
         let memoBase64: String?

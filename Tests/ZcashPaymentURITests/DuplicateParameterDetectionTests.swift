@@ -13,24 +13,13 @@ struct DuplicateParameterDetectionTests {
     /// invalid; duplicate `amount=` field/
     @Test func throwsWhenThereAreDuplicateParameters() {
         let invalidURI = "zcash:?amount=1.234&amount=2.345&address=tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
-        #expect {
-            try ZIP321.request(from: invalidURI, expecting: .testnet, validator: ReferenceAddressValidator.testnet)
-        } throws: { error in
-            guard case ZIP321.Errors.duplicateParameter("amount", nil) = error else { return false }
-            return true
-        }
+        #expect(ZIP321.parse(invalidURI, expecting: .testnet, validator: ReferenceAddressValidator.testnet) == .failure(.duplicateParameter(name: "amount", index: nil)))
     }
 
     /// invalid; duplicate `amount.1=` field
     @Test func throwsWhenThereAreDuplicateParametersWithParamIndex() {
         let invalidURI = "zcash:?amount.1=1.234&amount.1=2.345&address.1=tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
-
-        #expect {
-            try ZIP321.request(from: invalidURI, expecting: .testnet, validator: ReferenceAddressValidator.testnet)
-        } throws: { error in
-            guard case ZIP321.Errors.duplicateParameter("amount", 1) = error else { return false }
-            return true
-        }
+        #expect(ZIP321.parse(invalidURI, expecting: .testnet, validator: ReferenceAddressValidator.testnet) == .failure(.duplicateParameter(name: "amount", index: 1)))
     }
 
     @Test func thatDuplicateParametersAreDetected() throws {
@@ -39,149 +28,45 @@ struct DuplicateParameterDetectionTests {
             validator: ReferenceAddressValidator.testnet
         ))
 
-        let duplicateAddressParams: [IndexedParameter] = [
-            IndexedParameter(index: 0, param: .address(shieldedRecipient)),
-            IndexedParameter(index: 0, param: .amount(try LegacyAmount(value: 1))),
-            IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
-            IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
-            IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
-            IndexedParameter(index: 0, param: .address(shieldedRecipient)),
-            IndexedParameter(
-                index: 0,
-                param: .other(
-                    try OtherParam(
-                        key: ParamNameString(
-                            value: "future"
-                        )!,
-                        value: QcharString(
-                            value: "is awesome"
-                        )!
-                    )
-                )
-            )
-        ]
+        let futureParam = Param.other(try OtherParam(name: "future", value: "is awesome"))
+        let amountParam = Param.amount(try NonNegativeAmount.zec("1").get())
+        let messageParam = Param.message(QcharString(value: "Thanks")!)
+        let labelParam = Param.label(QcharString(value: "payment")!)
+        let memoParam = Param.memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))
 
-        let duplicateAmountParams: [IndexedParameter] = [
-            IndexedParameter(index: 0, param: .address(shieldedRecipient)),
-            IndexedParameter(index: 0, param: .amount(try LegacyAmount(value: 1))),
-            IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
-            IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
-            IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
-            IndexedParameter(index: 0, param: .amount(try LegacyAmount(value: 1))),
-            IndexedParameter(
-                index: 0,
-                param: .other(
-                    try OtherParam(
-                        key: ParamNameString(
-                            value: "future"
-                        )!,
-                        value: QcharString(
-                            value: "is awesome"
-                        )!
-                    )
-                )
-            )
-        ]
+        func indexed(_ params: [Param]) -> [IndexedParameter] {
+            params.map { IndexedParameter(index: 0, param: $0) }
+        }
 
-        let duplicateMessageParams: [IndexedParameter] = [
-            IndexedParameter(index: 0, param: .address(shieldedRecipient)),
-            IndexedParameter(index: 0, param: .amount(try LegacyAmount(value: 1))),
-            IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
-            IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
-            IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
-            IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
-            IndexedParameter(
-                index: 0,
-                param: .other(
-                    try OtherParam(
-                        key: ParamNameString(
-                            value: "future"
-                        )!,
-                        value: QcharString(
-                            value: "is awesome"
-                        )!
-                    )
-                )
-            )
-        ]
+        let duplicateAddressParams = indexed([
+            .address(shieldedRecipient), amountParam, messageParam, memoParam, labelParam,
+            .address(shieldedRecipient), futureParam
+        ])
 
-        let duplicateMemoParams: [IndexedParameter] = [
-            IndexedParameter(index: 0, param: .address(shieldedRecipient)),
-            IndexedParameter(index: 0, param: .amount(try LegacyAmount(value: 1))),
-            IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
-            IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
-            IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
-            IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
-            IndexedParameter(
-                index: 0,
-                param: .other(
-                    try OtherParam(
-                        key: ParamNameString(
-                            value: "future"
-                        )!,
-                        value: QcharString(
-                            value: "is awesome"
-                        )!
-                    )
-                )
-            )
-        ]
+        let duplicateAmountParams = indexed([
+            .address(shieldedRecipient), amountParam, messageParam, memoParam, labelParam,
+            amountParam, futureParam
+        ])
 
-        let duplicateLabelParams: [IndexedParameter] = [
-            IndexedParameter(index: 0, param: .address(shieldedRecipient)),
-            IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
-            IndexedParameter(index: 0, param: .amount(try LegacyAmount(value: 1))),
-            IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
-            IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
-            IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
-            IndexedParameter(
-                index: 0,
-                param: .other(
-                    try OtherParam(
-                        key: ParamNameString(
-                            value: "future"
-                        )!,
-                        value: QcharString(
-                            value: "is awesome"
-                        )!
-                    )
-                )
-            )
-        ]
+        let duplicateMessageParams = indexed([
+            .address(shieldedRecipient), amountParam, messageParam, memoParam, labelParam,
+            messageParam, futureParam
+        ])
 
-        let duplicateOtherParams: [IndexedParameter] = [
-            IndexedParameter(index: 0, param: .address(shieldedRecipient)),
-            IndexedParameter(index: 0, param: .label(QcharString(value: "payment")!)),
-            IndexedParameter(
-                index: 0,
-                param: .other(
-                    try OtherParam(
-                        key: ParamNameString(
-                            value: "future"
-                        )!,
-                        value: QcharString(
-                            value: "is awesome"
-                        )!
-                    )
-                )
-            ),
-            IndexedParameter(index: 0, param: .amount(try LegacyAmount(value: 1))),
-            IndexedParameter(index: 0, param: .message(QcharString(value: "Thanks")!)),
-            IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
-            IndexedParameter(
-                index: 0,
-                param: .other(
-                    try OtherParam(
-                        key: ParamNameString(
-                            value: "future"
-                        )!,
-                        value: QcharString(
-                            value: "is awesome"
-                        )!
-                    )
-                )
-            )
-        ]
+        let duplicateMemoParams = indexed([
+            .address(shieldedRecipient), amountParam, messageParam, memoParam, labelParam,
+            memoParam, futureParam
+        ])
+
+        let duplicateLabelParams = indexed([
+            .address(shieldedRecipient), labelParam, amountParam, messageParam, memoParam,
+            labelParam, futureParam
+        ])
+
+        let duplicateOtherParams = indexed([
+            .address(shieldedRecipient), labelParam, futureParam, amountParam, messageParam,
+            memoParam, futureParam
+        ])
 
         #expect {
             try Parser.mapToPayments(duplicateAddressParams)
@@ -227,87 +112,54 @@ struct DuplicateParameterDetectionTests {
     }
 
     @Test func duplicateAddressParamsAreDetected() throws {
+        let recipient = try #require(RecipientAddress(
+            value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
+            validator: ReferenceAddressValidator.testnet
+        ))
+
         let params: [Param] = [
-            .address(
-                RecipientAddress(
-                    value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
-                    validator: ReferenceAddressValidator.testnet
-                )!
-            ),
-            .amount(try LegacyAmount(value: 1)),
+            .address(recipient),
+            .amount(try NonNegativeAmount.zec("1").get()),
             .message(QcharString(value: "Thanks")!),
             .label(QcharString(value: "payment")!),
-            .other(
-                try OtherParam(
-                    key: ParamNameString(
-                        value: "future"
-                    )!,
-                    value: QcharString(
-                        value: "is awesome"
-                    )!
-                )
-            )
+            .other(try OtherParam(name: "future", value: "is awesome"))
         ]
 
-        #expect(params.hasDuplicateParam(.address(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", validator: ReferenceAddressValidator.testnet)!)))
+        #expect(params.hasDuplicateParam(.address(recipient)))
     }
 
     @Test func duplicateParameterIsFalseWhenNoDuplication() throws {
+        let recipient = try #require(RecipientAddress(
+            value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
+            validator: ReferenceAddressValidator.testnet
+        ))
+
         let params: [Param] = [
-            .amount(try LegacyAmount(value: 1)),
+            .amount(try NonNegativeAmount.zec("1").get()),
             .message(QcharString(value: "Thanks")!),
             .label(QcharString(value: "payment")!),
-            .other(
-                try OtherParam(
-                    key: ParamNameString(
-                        value: "future"
-                    )!,
-                    value: QcharString(
-                        value: "is awesome"
-                    )!
-                )
-            )
+            .other(try OtherParam(name: "future", value: "is awesome"))
         ]
 
-        #expect(!params.hasDuplicateParam(.address(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", validator: ReferenceAddressValidator.testnet)!)))
+        #expect(!params.hasDuplicateParam(.address(recipient)))
     }
 
     @Test func duplicateOtherParamsAreDetected() throws {
+        let recipient = try #require(RecipientAddress(
+            value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
+            validator: ReferenceAddressValidator.testnet
+        ))
+
         let params: [Param] = [
-            .address(
-                RecipientAddress(
-                    value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
-                    validator: ReferenceAddressValidator.testnet
-                )!
-            ),
-            .amount(try LegacyAmount(value: 1)),
+            .address(recipient),
+            .amount(try NonNegativeAmount.zec("1").get()),
             .message(QcharString(value: "Thanks")!),
             .label(QcharString(value: "payment")!),
-            .other(
-                try OtherParam(
-                    key: ParamNameString(
-                        value: "future"
-                    )!,
-                    value: QcharString(
-                        value: "is awesome"
-                    )!
-                )
-            )
+            .other(try OtherParam(name: "future", value: "is awesome"))
         ]
 
         #expect(
-            params.hasDuplicateParam(
-                .other(
-                    try OtherParam(
-                        key: ParamNameString(
-                            value: "future"
-                        )!,
-                        value: QcharString(
-                            value: "is dystopic"
-                        )!
-                    )
-                )
-            )
+            params.hasDuplicateParam(.other(try OtherParam(name: "future", value: "is dystopic")))
         )
     }
 }

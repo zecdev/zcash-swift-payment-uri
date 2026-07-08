@@ -5,25 +5,21 @@
 //  (`Tests/Vectors` submodule, oracle-verified against librustzcash `zip321`).
 //
 //  For every vector in `vectors/valid/*.json` the runner asserts that
-//  `ZIP321.request(from:expecting:validator:)` succeeds — with the test-only
+//  `ZIP321.parse(_:expecting:validator:)` succeeds — with the test-only
 //  `ReferenceAddressValidator` supplying recipient-address validity and
-//  capabilities — and that the parsed model matches
-//  the vector's per-payment expectations (address, zatoshi amount, memo,
-//  label, message, other params), then re-renders the request and compares it
-//  against the Rust-reference `canonicalUri` as a *documented expectation*
-//  (v1's formatting may legitimately differ; mismatches are tracked as
-//  `renderMismatch` entries in the expected-failure map, not treated as
-//  hard requirements).
+//  capabilities — and that the parsed model matches the
+//  vector's per-payment expectations (address, zatoshi amount, memo, label,
+//  message, other params), then re-renders the request and compares it against
+//  the Rust-reference `canonicalUri` as a *documented expectation* (render
+//  fixes are S13; mismatches are tracked as `renderMismatch` entries in the
+//  expected-failure map).
 //
-//  For every vector in `vectors/invalid/*.json` the runner asserts only that
-//  parsing throws. The corpus's cross-language error discriminants do not map
-//  1:1 onto v1's `ZIP321.Errors` taxonomy, so the exact error case is not
-//  asserted; when a vector unexpectedly *succeeds*, the parsed result is
-//  included in the failure message.
+//  For every vector in `vectors/invalid/*.json` the runner now asserts the
+//  EXACT sealed ``ZIP321Error`` discriminant against the corpus's shared
+//  cross-language error string.
 //
 //  Vectors named in `conformanceExpectedFailures` are asserted to CURRENTLY
-//  FAIL via a strict `withKnownIssue`: fixing the library without pruning the
-//  map turns the suite red, so the gap inventory can never silently go stale.
+//  FAIL via a strict `withKnownIssue`.
 //
 //  The suite is fully deterministic: no network, no clocks, JSON loaded from
 //  the submodule via `#filePath`.
@@ -71,8 +67,7 @@ struct Zip321ConformanceTests {
         }
 
         // Strict (the default): if the vector unexpectedly passes, the stale
-        // xfail entry itself is reported as a failure (`withKnownIssue` fails
-        // when its body does NOT record an issue).
+        // xfail entry itself is reported as a failure.
         withKnownIssue("\(name): \(reason)") {
             body()
         }
@@ -80,53 +75,40 @@ struct Zip321ConformanceTests {
 
     // MARK: - Valid vector checks
 
-    /// The v1 parsed model normalized for comparison. `ParserResult.legacy`
-    /// (a bare `zcash:{address}` URI) is represented as a single payment with
-    /// only an address, mirroring the reference's single-payment request.
+    /// The parsed model normalized for comparison. A bare `zcash:{address}` URI
+    /// parses to an ordinary one-payment request carrying only an address —
+    /// there is no separate "single address" result shape.
     private struct NormalizedPayment {
         let address: String
-        let amount: LegacyAmount?
+        let amountZat: UInt64?
         let memoBase64: String?
         let label: String?
         let message: String?
         let other: [(name: String, value: String?)]
     }
 
-    private static func normalize(_ result: ParserResult) -> [NormalizedPayment] {
-        switch result {
-        case .legacy(let recipient):
-            return [
-                NormalizedPayment(
-                    address: recipient.value,
-                    amount: nil,
-                    memoBase64: nil,
-                    label: nil,
-                    message: nil,
-                    other: []
-                )
-            ]
-        case .request(let request):
-            return request.payments.map { payment in
-                NormalizedPayment(
-                    address: payment.recipientAddress.value,
-                    amount: payment.amount,
-                    memoBase64: payment.memo?.toBase64URL(),
-                    label: payment.label?.value,
-                    message: payment.message?.value,
-                    other: (payment.otherParams ?? []).map { ($0.key.value, $0.value?.value) }
-                )
-            }
+    private static func normalize(_ request: PaymentRequest) -> [NormalizedPayment] {
+        request.payments.map { payment in
+            NormalizedPayment(
+                address: payment.recipientAddress.value,
+                amountZat: payment.amount?.value,
+                memoBase64: payment.memo?.toBase64URL(),
+                label: payment.label,
+                message: payment.message,
+                other: payment.otherParams.map { ($0.name, $0.value) }
+            )
         }
     }
 
     private static func check(valid vector: ConformanceValidVector) {
         guard let network = network(for: vector.network, vectorName: vector.name) else { return }
 
-        let result: ParserResult
-        do {
-            result = try ZIP321.request(from: vector.uri, expecting: network, validator: ReferenceAddressValidator.of(network))
-        } catch {
-            Issue.record("\(vector.name): expected successful parse but threw \(error)")
+        let result: PaymentRequest
+        switch ZIP321.parse(vector.uri, expecting: network, validator: ReferenceAddressValidator.of(network)) {
+        case .success(let parsed):
+            result = parsed
+        case .failure(let error):
+            Issue.record("\(vector.name): expected successful parse but failed with \(error)")
             return
         }
 
@@ -139,15 +121,14 @@ struct Zip321ConformanceTests {
             return
         }
 
-        // v1's PaymentRequest does not retain ZIP-321 paramindices, so payments
-        // are compared by array position (the corpus orders payments by
-        // ascending paramindex, which matches v1's parse order).
+        // The corpus orders payments by ascending paramindex, which matches the
+        // parser's `payments` accessor order.
         for (expected, actual) in zip(vector.payments, parsed) {
             let subject = "\(vector.name) payment[\(expected.index)]"
 
             #expect(actual.address == expected.address, "\(subject): address mismatch")
 
-            checkAmount(expected: expected.amountZat, actual: actual.amount, subject: subject)
+            #expect(actual.amountZat == expected.amountZat, "\(subject): amount mismatch")
 
             #expect(
                 actual.memoBase64 == expected.memoBase64,
@@ -161,58 +142,6 @@ struct Zip321ConformanceTests {
         }
 
         checkRender(vector: vector, result: result)
-    }
-
-    /// Compares the vector's exact zatoshi amount against v1's decimal-ZEC
-    /// `LegacyAmount`.
-    ///
-    /// Precision note: v1 stores amounts as a checked `Int64` zatoshi
-    /// fixed-point value, and `LegacyAmount.toString()` renders a plain (non-
-    /// scientific) decimal string, so scaling that string by 10^8 with exact
-    /// integer string arithmetic is lossless — no floating point, no rounding.
-    /// If a future `LegacyAmount` ever rendered scientific notation or more than 8
-    /// fractional digits, the conversion returns `nil` and the test fails
-    /// loudly instead of rounding silently.
-    private static func checkAmount(expected: Int64?, actual: LegacyAmount?, subject: String) {
-        switch (expected, actual) {
-        case (.none, .none):
-            return
-        case (.some(let zat), .none):
-            Issue.record("\(subject): expected amount of \(zat) zatoshis but v1 parsed no amount")
-        case (.none, .some(let amount)):
-            Issue.record("\(subject): expected no amount but v1 parsed \(amount.toString())")
-        case (.some(let zat), .some(let amount)):
-            let rendered = amount.toString()
-            guard let actualZat = Self.zatoshis(fromDecimalZecString: rendered) else {
-                Issue.record("\(subject): could not losslessly convert v1 amount '\(rendered)' to zatoshis")
-                return
-            }
-            #expect(actualZat == zat, "\(subject): amount mismatch (v1 rendered '\(rendered)')")
-        }
-    }
-
-    /// Exact decimal-ZEC-string → zatoshi conversion using integer string
-    /// arithmetic only. Returns `nil` for anything that is not a plain,
-    /// non-negative decimal with at most 8 fractional digits.
-    static func zatoshis(fromDecimalZecString string: String) -> Int64? {
-        let parts = string.split(separator: ".", omittingEmptySubsequences: false)
-        guard (1...2).contains(parts.count) else { return nil }
-
-        let integerDigits = parts[0].isEmpty ? "0" : String(parts[0])
-        var fractionDigits = parts.count == 2 ? String(parts[1]) : ""
-
-        guard fractionDigits.count <= 8 else { return nil }
-        fractionDigits += String(repeating: "0", count: 8 - fractionDigits.count)
-
-        let isASCIIDigits: (String) -> Bool = { $0.allSatisfy { $0.isASCII && $0.isNumber } }
-        guard
-            isASCIIDigits(integerDigits),
-            isASCIIDigits(fractionDigits),
-            let whole = Int64(integerDigits),
-            let fraction = Int64(fractionDigits)
-        else { return nil }
-
-        return whole * 100_000_000 + fraction
     }
 
     private static func checkOtherParams(
@@ -238,32 +167,19 @@ struct Zip321ConformanceTests {
 
     /// Re-renders the parsed request and compares against the Rust reference's
     /// `canonicalUri`. This is a *documented expectation*, not a spec
-    /// requirement — v1's default formatting may legitimately differ — so any
-    /// mismatch here belongs in the expected-failure map under a
-    /// `renderMismatch:` reason rather than being "fixed" in the runner.
-    ///
-    /// Formatting choice: the librustzcash renderer emits a single payment at
-    /// the empty paramindex as `zcash:{address}?...` (address label omitted)
-    /// and multi-payment requests as `zcash:?address=...&address.1=...`, so
-    /// the closest v1 options are `.useEmptyParamIndex(omitAddressLabel:
-    /// count == 1)`.
-    private static func checkRender(vector: ConformanceValidVector, result: ParserResult) {
+    /// requirement — v2's renderer is fixed in S13 — so any mismatch belongs in
+    /// the expected-failure map under a `renderMismatch:` reason.
+    private static func checkRender(vector: ConformanceValidVector, result: PaymentRequest) {
         guard let canonical = vector.canonicalUri else { return }
 
-        let rendered: String
-        switch result {
-        case .legacy(let recipient):
-            rendered = ZIP321.request(recipient, formattingOptions: .useEmptyParamIndex(omitAddressLabel: true))
-        case .request(let request):
-            rendered = ZIP321.uriString(
-                from: request,
-                formattingOptions: .useEmptyParamIndex(omitAddressLabel: request.payments.count == 1)
-            )
-        }
+        let rendered = ZIP321.uriString(
+            from: result,
+            formattingOptions: .useEmptyParamIndex(omitAddressLabel: result.payments.count == 1)
+        )
 
         #expect(
             rendered == canonical,
-            "\(vector.name): renderMismatch — v1 re-render differs from reference canonical URI"
+            "\(vector.name): renderMismatch — v2 re-render differs from reference canonical URI"
         )
     }
 
@@ -272,28 +188,47 @@ struct Zip321ConformanceTests {
     private static func check(invalid vector: ConformanceInvalidVector) {
         guard let network = network(for: vector.network, vectorName: vector.name) else { return }
 
-        do {
-            let result = try ZIP321.request(from: vector.uri, expecting: network, validator: ReferenceAddressValidator.of(network))
-            let message: String = "\(vector.name): expected rejection (corpus discriminant: \(vector.error)) "
+        switch ZIP321.parse(vector.uri, expecting: network, validator: ReferenceAddressValidator.of(network)) {
+        case .success(let result):
+            let message = "\(vector.name): expected rejection (corpus discriminant: \(vector.error)) "
                 + "but parsing succeeded with \(describe(result))"
             Issue.record("\(message)")
-        } catch {
-            // Pass. Any thrown error counts as rejection: v1's error taxonomy
-            // does not map 1:1 onto the corpus discriminants, so the exact
-            // case is deliberately not asserted.
+        case .failure(let error):
+            let actual = discriminant(of: error)
+            #expect(
+                actual == vector.error,
+                "\(vector.name): discriminant mismatch — lib says \(actual), corpus says \(vector.error) (\(error))"
+            )
         }
     }
 
-    private static func describe(_ result: ParserResult) -> String {
-        switch result {
-        case .legacy(let recipient):
-            return "legacy(\(recipient.value))"
-        case .request(let request):
-            let payments = request.payments.map { payment in
-                "(address: \(payment.recipientAddress.value), amount: \(payment.amount?.toString() ?? "nil"))"
-            }
-            return "request(\(payments.joined(separator: ", ")))"
+    /// Maps a sealed ``ZIP321Error`` onto the shared cross-language corpus
+    /// discriminant string. This is the single source of truth for the
+    /// case-name comparison performed by ``check(invalid:)``.
+    static func discriminant(of error: ZIP321Error) -> String {
+        switch error {
+        case .invalidBase64:               return "invalidBase64"
+        case .memoBytesError:              return "memoBytesError"
+        case .transparentMemo:             return "transparentMemo"
+        case .zeroValuedTransparentOutput: return "zeroValuedTransparentOutput"
+        case .tooManyPayments:             return "tooManyPayments"
+        case .duplicateParameter:          return "duplicateParameter"
+        case .recipientMissing:            return "recipientMissing"
+        case .invalidAddress:              return "invalidAddress"
+        case .unknownRequiredParameter:    return "unknownRequiredParameter"
+        case .invalidParamIndex:           return "invalidParamIndex"
+        case .amountExceededSupply:        return "amountExceededSupply"
+        case .amountInvalid:               return "amountInvalid"
+        case .invalidURI:                  return "invalidURI"
+        case .parseError:                  return "parseError"
         }
+    }
+
+    private static func describe(_ request: PaymentRequest) -> String {
+        let payments = request.payments.map { payment in
+            "(address: \(payment.recipientAddress.value), amount: \(payment.amount?.value.description ?? "nil"))"
+        }
+        return "request(\(payments.joined(separator: ", ")))"
     }
 
     // MARK: - Helpers

@@ -127,7 +127,7 @@ struct ParsingTests {
 
     @Test func zcashParameterCreatesValidAmount() throws {
         #expect(
-            IndexedParameter(index: 0, param: .amount(try LegacyAmount(string: "1.00020112")))
+            IndexedParameter(index: 0, param: .amount(try NonNegativeAmount.zec("1.00020112").get()))
             == (try Parser.zcashParameter(name: "amount", index: nil, value: "1.00020112", network: .testnet, validator: ReferenceAddressValidator.testnet))
         )
     }
@@ -162,11 +162,8 @@ struct ParsingTests {
     @Test func zcashParameterCreatesSafelyIgnoredOtherParameter() throws {
         let value = "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"
 
-        let queryKey = try #require(ParamNameString(value: "future-binary-format"))
-        let qcharValue = try #require(QcharString(value: value))
-
         #expect(
-            IndexedParameter(index: 99, param: .other(try OtherParam(key: queryKey, value: qcharValue)))
+            IndexedParameter(index: 99, param: .other(try OtherParam(name: "future-binary-format", value: value)))
             == (try Parser.zcashParameter(name: "future-binary-format", index: 99, value: value, network: .testnet, validator: ReferenceAddressValidator.testnet))
         )
     }
@@ -179,7 +176,7 @@ struct ParsingTests {
             Issue.record("expected an other param")
             return
         }
-        #expect(otherParam.value?.value == "hello world")
+        #expect(otherParam.value == "hello world")
     }
 
     // MARK: Partial parser - indexed parameters
@@ -191,7 +188,7 @@ struct ParsingTests {
 
         let expected = [
             IndexedParameter(index: 0, param: .address(recipient)),
-            IndexedParameter(index: 0, param: .amount(try LegacyAmount(value: 1))),
+            IndexedParameter(index: 0, param: .amount(try NonNegativeAmount.zec("1").get())),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
             IndexedParameter(index: 0, param: .message(QcharString(value: "Thank you for your purchase")!))
         ]
@@ -213,7 +210,7 @@ struct ParsingTests {
 
         let expected = [
             IndexedParameter(index: 0, param: .address(recipient)),
-            IndexedParameter(index: 0, param: .amount(try LegacyAmount(value: 1))),
+            IndexedParameter(index: 0, param: .amount(try NonNegativeAmount.zec("1").get())),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
             IndexedParameter(index: 0, param: .message(QcharString(value: "Thank you for your purchase")!))
         ]

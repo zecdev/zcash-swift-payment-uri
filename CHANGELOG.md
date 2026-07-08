@@ -82,6 +82,102 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `AmountError.negativeAmount` remains only for the decimal-string path's
   error taxonomy.
 
+### Breaking changes — v2.0.0 public API reshape
+
+This is the deliberate breaking-change milestone of the v2 rewrite. The public
+surface now matches the cross-language v2 contract shared with the Kotlin
+library.
+
+- **`ZIP321.parse(_:expecting:validator:maxInputBytes:)` is the parsing entry
+  point** and is a *total* function: it returns
+  `Result<PaymentRequest, ZIP321Error>` instead of throwing. The `validator` is
+  REQUIRED and has no default — the library performs no address validation of
+  its own, so there is nothing sensible to default to. Input guards run
+  first: input larger than `maxInputBytes` (default
+  `ZIP321.defaultMaxInputBytes` = 8 KiB) fails with
+  `.invalidURI(reason: .inputTooLarge)`; the empty string fails with
+  `.parseError(reason: .emptyInput)`; a non-`zcash:` scheme fails with
+  `.invalidURI(reason: .notZcashScheme)`; a `//` authority component fails with
+  `.invalidURI(reason: .invalidAuthority)`.
+  The deprecated throwing shim `ZIP321.request(from:context:validatingRecipients:)`
+  is **removed**: its result type no longer exists, so it could not have been
+  kept source-compatible.
+- **`ParserResult` is DELETED and not replaced — parsing returns a
+  `PaymentRequest`.** There is no result enum: `zcash:<addr>` and
+  `zcash:?address=<addr>` are two spellings of the SAME request (ZIP-321 "URI
+  Semantics"), they now parse to **equal** `PaymentRequest` values, and which
+  spelling a URI used is not recorded anywhere in the model — matching the
+  reference `TransactionRequest`. Migration: `case .legacy(let recipient)` /
+  `case .request(let request)` collapse to a single `PaymentRequest`; a bare
+  address URI is simply a one-payment request whose payment carries only a
+  recipient. A single payment at the empty paramindex still RENDERS in the
+  leading-address form by default; the syntax choice lives in the renderer's
+  formatting options, not in the model.
+- **`ZIP321.Errors` (public, v1) was replaced by the sealed `ZIP321Error`
+  taxonomy**, mirroring the conformance corpus's cross-language discriminants:
+  `invalidBase64`, `memoBytesError`, `transparentMemo`,
+  `zeroValuedTransparentOutput`, `tooManyPayments`, `duplicateParameter`,
+  `recipientMissing`, `invalidAddress`, `unknownRequiredParameter`,
+  `invalidParamIndex`, `amountExceededSupply`, `amountInvalid`, `invalidURI`,
+  `parseError`. **Data-leakage policy, enforced by construction**: error
+  payloads carry only parameter names, indices, counts, or fixed
+  `StaticReason` enum values — never addresses, memo contents, amounts, or raw
+  URI slices (the single bounded exception is `invalidParamIndex`'s raw index
+  token, ≤ 5 characters by grammar). Sprout rejection now surfaces as
+  `invalidAddress` (previously `sproutRecipientsNotAllowed`).
+- **`Amount`/`LegacyAmount` was removed entirely.** `Payment.amount` is now
+  `NonNegativeAmount?`. Migration: replace `try Amount(value: 1)` /
+  `try LegacyAmount(string: "1.5")` with `try NonNegativeAmount.zec("1.5").get()` (strict
+  ZIP-321 `amountparam` grammar) or `NonNegativeAmount.zatoshi(150_000_000)` for raw
+  integer counts. `NonNegativeAmount` exposes `value: Int64` and `decimalString()`.
+- **`Payment` construction moved to a `Result` factory.**
+  `Payment.create(recipientAddress:amount:memo:label:message:otherParams:)`
+  returns `Result<Payment, ZIP321Error>` and enforces the reference
+  `to_payment` rules at construction time: a memo to a transparent recipient
+  fails with `.transparentMemo`, and a **zero-valued amount to a transparent
+  recipient fails with `.zeroValuedTransparentOutput`** (new consensus check,
+  also enforced on the parse path). The throwing `Payment.init` remains as a
+  deprecated shim. `label`/`message` are now plain **decoded** `String?`
+  (the `QcharString` wrapper and the `qcharLabel:`/`qcharMessage:` initializer
+  are gone from the public surface; qchar encoding happens at render time).
+- **`PaymentRequest` now preserves ZIP-321 paramindices.** Payments are stored
+  by `paramindex`; `payments: [Payment]` returns them ordered by ascending
+  index and the new `indexedPayments: [(index: UInt, payment: Payment)]`
+  exposes the indices (e.g. a request whose only payment sits at
+  `address.5`/`amount.5` retains index 5). `init(payments:)` auto-indexes
+  sequentially from 0 and enforces the 9999-payment cap
+  (`.tooManyPayments`); the new `init(indexedPayments:)` validates index
+  uniqueness (`.duplicateParameter`) and the ≤ 9999 index bound. **Empty
+  requests are now valid**: `zcash:` and `zcash:?` parse to
+  an empty `PaymentRequest` (previously rejected), and an empty
+  request renders back to `zcash:`. The v1 construction-time
+  network-coherence check (`networkMismatchFound`) was removed — the expected
+  network is enforced once, at the parse boundary, by comparing each
+  recipient's `AddressDescriptor.network` against `expecting:`.
+- **`OtherParam` is now `(name: String, value: String?)`** with plain decoded
+  semantics (previously `key: ParamNameString`, `value: QcharString?`).
+  `QcharString` and `ParamNameString` are no longer public.
+- **`Payment.otherParams` is a non-optional `[OtherParam]`** (defaulting to
+  `[]`). The `nil` vs. `[]` distinction is gone: ZIP-321 cannot spell the
+  difference, both render to the same URI, and keeping both would give two
+  distinct `Payment` values for one URI — breaking the round-trip law.
+  Migration: `otherParams: nil` becomes `otherParams: []` (or is omitted), and
+  `payment.otherParams ?? []` becomes `payment.otherParams`.
+  `Payment.create` additionally **rejects duplicate other-param names** with
+  `.duplicateParameter(name:index: nil)`, matching what the parser already
+  enforces for a URI — so a `Payment` can no longer be constructed that renders
+  to a URI which will not parse back.
+- Rendering entry points keep their existing names and signatures:
+  `uriString(from:formattingOptions:)`, `request(_:formattingOptions:)`.
+- Conformance: the invalid-vector runner now asserts the **exact** error
+  discriminant against the corpus. Expected-failure ledger: burned
+  `structure_empty_request`, `structure_empty_request_query_marker`, and
+  `spec_invalid_zero_valued_transparent_output`; the two render-owned entries
+  remain for S13 — joined by `structure_single_address_no_query_params`, which
+  now re-renders through `Render.request` and picks up its trailing `?` — plus
+  one corpus discriminant dispute
+  (`invalid_req_asset_two_recipients_flattened`) pending adjudication.
+
 ### Added
 - **Internal single-pass `Scanner`** (`Sources/ZcashPaymentURI/parser/Scanner.swift`): a
   byte-level scanner over a `Substring`'s UTF-8 view (`peek`/`advance`/`expect(ascii:)`/

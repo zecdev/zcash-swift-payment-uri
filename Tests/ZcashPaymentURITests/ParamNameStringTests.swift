@@ -6,7 +6,7 @@
 //
 
 import Testing
-import ZcashPaymentURI
+@testable import ZcashPaymentURI
 
 @Suite("ParamNameString")
 struct ParamNameStringTests {
