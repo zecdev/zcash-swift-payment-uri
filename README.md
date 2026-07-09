@@ -1,6 +1,18 @@
-[![Swift](https://github.com/pacu/zcash-swift-payment-uri/actions/workflows/swift.yml/badge.svg?branch=main)](https://github.com/pacu/zcash-swift-payment-uri/actions/workflows/swift.yml)
-
 # zcash-swift-payment-uri
+
+| Job | Status |
+| --- | --- |
+| `test-macos` | [![test-macos](https://github.com/pacu/zcash-swift-payment-uri/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/pacu/zcash-swift-payment-uri/actions/workflows/ci.yml) |
+| `test-linux` | [![test-linux](https://github.com/pacu/zcash-swift-payment-uri/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/pacu/zcash-swift-payment-uri/actions/workflows/ci.yml) |
+| `coverage` (100% gate) | [![coverage](https://github.com/pacu/zcash-swift-payment-uri/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/pacu/zcash-swift-payment-uri/actions/workflows/ci.yml) |
+| `lint` (SwiftLint + swift-format) | [![lint](https://github.com/pacu/zcash-swift-payment-uri/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/pacu/zcash-swift-payment-uri/actions/workflows/ci.yml) |
+| `docc` (zero warnings) | [![docc](https://github.com/pacu/zcash-swift-payment-uri/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/pacu/zcash-swift-payment-uri/actions/workflows/ci.yml) |
+
+All five jobs are required checks on `main` and on every pull request (see `.github/workflows/ci.yml`).
+The badges above all point at the same workflow run; GitHub does not support per-job badges, so
+check the [Actions tab](https://github.com/pacu/zcash-swift-payment-uri/actions/workflows/ci.yml)
+for the individual job's status.
+
 Library for Zcash Payment URIs defined on ZIP-321 for Swift
 
 ## What are Zcash Payment URIs?

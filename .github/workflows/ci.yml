@@ -1,0 +1,164 @@
+name: CI
+#
+# Replaces the old swift.yml + swiftlint.yml. Runner/toolchain notes (as of
+# mid-2026):
+#
+# - `test-macos` drops the old macos-14 / Swift 5.10 leg (via
+#   swift-actions/setup-swift): Xcode 15.4 cannot build a `swift-tools-version:
+#   6.0` manifest at all, which is *why* that leg is gone rather than fixed.
+#   The matrix instead uses the two current macOS runner images whose
+#   DEFAULT, ambient Xcode already supports tools-version 6.0 out of the box,
+#   with no `setup-swift` / `xcode-select -s` override needed:
+#     * macos-15 → Xcode 16.4 (Swift 6.1)
+#     * macos-26 → Xcode 26.5 (Swift 6.2)
+#   (`actions/runner-images` also preinstalls older Xcode 16.0-16.3 / 26.0-26.3
+#   side-by-side on these images, but the point of this matrix is to track
+#   whatever each image ships as its DEFAULT, so we deliberately do not pin.)
+# - `test-linux` uses the official `swift:6.2-noble` image
+#   (hub.docker.com/_/swift, Docker Official Image). The package is
+#   zero-dependency and swift-testing ships bundled with the Swift 6.x
+#   toolchain (no separate package/dependency needed) on Linux.
+# - `lint` runs SwiftLint from the official `ghcr.io/realm/swiftlint` image
+#   (pinned) and the toolchain-bundled `swift format` (from the `swift:6.2-noble`
+#   image) via plain `docker run`, so the job itself needs no toolchain
+#   installed on the runner.
+# - `docc` uses `xcodebuild docbuild` rather than the swift-docc-plugin: adding
+#   the plugin as a Package.swift dependency would put it in every
+#   consumer's resolved dependency graph (SwiftPM resolves a manifest's whole
+#   `dependencies:` array regardless of which products/plugins a consumer
+#   actually uses), which would violate the library's zero-runtime-dependency
+#   guarantee. `xcodebuild docbuild` needs no package manifest changes at all.
+#
+# NOTE: `submodules: recursive` here checks out `Tests/Vectors` from whatever
+# URL is currently in `.gitmodules`. That is presently a local path (see the
+# note in `.gitmodules`); this workflow — and therefore every job below that
+# depends on the test suite — only goes green in CI once
+# https://github.com/zecdev/zcash-zip321-test-vectors is published and
+# `.gitmodules` is re-pointed at it.
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-macos:
+    name: test (${{ matrix.os }}, ${{ matrix.label }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            label: "Xcode 16.4 / Swift 6.1"
+          - os: macos-26
+            label: "Xcode 26.5 / Swift 6.2"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Select ambient default Xcode
+        run: |
+          echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
+          xcode-select -p
+          xcrun swift --version
+
+      - name: Build
+        run: swift build
+
+      - name: Test
+        run: swift test
+
+  test-linux:
+    name: test (ubuntu-latest, swift:6.2-noble)
+    runs-on: ubuntu-latest
+    container: swift:6.2-noble
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Build
+        run: swift build
+
+      - name: Test
+        run: swift test
+
+  coverage:
+    name: coverage (100% gate)
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Select ambient default Xcode
+        run: |
+          echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
+          xcode-select -p
+
+      - name: Run coverage gate
+        run: scripts/coverage-gate.sh
+
+  lint:
+    name: lint (SwiftLint + swift-format)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: SwiftLint --strict
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/repo" -w /repo \
+            ghcr.io/realm/swiftlint:0.65.0 \
+            lint --strict --config .swiftlint.yml Sources
+
+      - name: swift format lint --strict
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/repo" -w /repo \
+            swift:6.2-noble \
+            swift format lint --strict --recursive --configuration .swift-format Sources
+
+  docc:
+    name: docc (xcodebuild docbuild, zero warnings)
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select ambient default Xcode
+        run: |
+          echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
+          xcode-select -p
+
+      - name: Build documentation
+        run: |
+          set -o pipefail
+          xcodebuild docbuild \
+            -scheme zcash-swift-payment-uri \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/docbuild" \
+            2>&1 | tee "$RUNNER_TEMP/docbuild.log"
+
+      - name: Fail on documentation warnings
+        run: |
+          if grep -q "warning:" "$RUNNER_TEMP/docbuild.log"; then
+            echo "::error::xcodebuild docbuild emitted warnings (see log above) — every public symbol must be documented and every doc link must resolve."
+            grep "warning:" "$RUNNER_TEMP/docbuild.log"
+            exit 1
+          fi
+          echo "No documentation warnings."

@@ -7,12 +7,21 @@ on:
 jobs:
   publish:
     name: Publish release
-    runs-on: macos-latest
+    # Matches the `test-macos` matrix in ci.yml: macos-15's default Xcode
+    # (16.4 / Swift 6.1) is the oldest ambient toolchain that supports this
+    # package's `swift-tools-version: 6.0` manifest.
+    runs-on: macos-15
     permissions:
       contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Select ambient default Xcode
+        run: |
+          echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
+          xcode-select -p
       - name: Build and Test Package
         run: swift test
       - name: Publish release
