@@ -47,9 +47,9 @@ enum Base58Check {
         // bytes + data, but 4 is the hard minimum to even split).
         guard raw.count >= 4 else { return nil }
 
-        let payload = Array(raw[0..<(raw.count - 4)])
+        let payload = Array(raw[0 ..< (raw.count - 4)])
         let checksum = Array(raw[(raw.count - 4)...])
-        let computed = Array(SHA256.doubleHash(payload)[0..<4])
+        let computed = Array(SHA256.doubleHash(payload)[0 ..< 4])
         guard computed == checksum else { return nil }
         return payload
     }
@@ -68,7 +68,7 @@ enum Base58Check {
     static func verify(_ s: String, expectedVersionBytes: [[UInt8]]) -> Bool {
         guard let payload = decode(s) else { return false }
         for prefix in expectedVersionBytes where payload.count >= prefix.count {
-            if Array(payload[0..<prefix.count]) == prefix {
+            if Array(payload[0 ..< prefix.count]) == prefix {
                 return true
             }
         }

@@ -105,21 +105,21 @@ struct IndexedParameter: Equatable {
 enum Parser {
     // MARK: - ASCII terminals
 
-    private static let questionMark: UInt8 = 0x3F // "?"
-    private static let ampersand: UInt8 = 0x26    // "&"
-    private static let equals: UInt8 = 0x3D       // "="
-    private static let dot: UInt8 = 0x2E          // "."
-    private static let zeroDigit: UInt8 = 0x30    // "0"
+    private static let questionMark: UInt8 = 0x3F  // "?"
+    private static let ampersand: UInt8 = 0x26  // "&"
+    private static let equals: UInt8 = 0x3D  // "="
+    private static let dot: UInt8 = 0x2E  // "."
+    private static let zeroDigit: UInt8 = 0x30  // "0"
     private static let schemeLiteral = Array("zcash:".utf8)
 
     /// ASCII letter (`ALPHA`).
     private static func isAlpha(_ byte: UInt8) -> Bool {
-        (0x41...0x5A).contains(byte) || (0x61...0x7A).contains(byte)
+        (0x41 ... 0x5A).contains(byte) || (0x61 ... 0x7A).contains(byte)
     }
 
     /// ASCII digit (`DIGIT`).
     private static func isDigit(_ byte: UInt8) -> Bool {
-        (0x30...0x39).contains(byte)
+        (0x30 ... 0x39).contains(byte)
     }
 
     /// A `paramname` continuation byte: `ALPHA / DIGIT / "+" / "-"`. This matches the reference
@@ -425,10 +425,12 @@ extension Payment {
         index: UInt,
         parameters: [Param]
     ) throws -> Payment {
-        guard let address = parameters.lazy.compactMap({ param -> RecipientAddress? in
-            guard case let .address(recipient) = param else { return nil }
-            return recipient
-        }).first else {
+        guard
+            let address = parameters.lazy.compactMap({ param -> RecipientAddress? in
+                guard case let .address(recipient) = param else { return nil }
+                return recipient
+            }).first
+        else {
             throw ZIP321.Errors.recipientMissing(index == 0 ? nil : index)
         }
 
@@ -545,9 +547,11 @@ extension Param {
     }
 
     static func tryDecodeQcharValue(_ value: String) throws -> QcharString {
-        guard let qcharDecodedValue = value.qcharDecode(), let qcharString = QcharString(
-            value: qcharDecodedValue
-        ) else {
+        guard let qcharDecodedValue = value.qcharDecode(),
+            let qcharString = QcharString(
+                value: qcharDecodedValue
+            )
+        else {
             throw ZIP321.Errors
                 .qcharDecodeFailed(
                     value

@@ -58,7 +58,7 @@ struct Scanner {
         while currentOffset < bytes.count, predicate(bytes[currentOffset]) {
             currentOffset += 1
         }
-        return Array(bytes[start..<currentOffset])
+        return Array(bytes[start ..< currentOffset])
     }
 
     /// Consumes `literal` iff the input at the current offset starts with it. Returns whether
