@@ -114,11 +114,12 @@ enum Bech32 {
         let dataPart = Array(lowered[(sepIndex + 1)...])
         guard dataPart.count >= 6 else { return nil }
 
-        // Map each data character to its 5-bit value.
+        // Map each data character to its 5-bit value. Every byte here is
+        // already known to be printable ASCII (33...126, checked above), so
+        // it is always a safe index into `charsetReverse`.
         var values: [UInt8] = []
         values.reserveCapacity(dataPart.count)
         for byte in dataPart {
-            guard byte < 128 else { return nil }
             let v = charsetReverse[Int(byte)]
             guard v != 0xff else { return nil }
             values.append(v)

@@ -142,7 +142,10 @@ public struct NonNegativeAmount: Equatable, Hashable, Sendable, Comparable {
         guard whole <= Self.maxWholeZec else { return .failure(.exceededSupply) }
 
         let paddedFraction = fractionDigits + String(repeating: "0", count: Self.maxFractionalDigits - fractionDigits.count)
-        let fraction = UInt64(paddedFraction) ?? 0
+        // `paddedFraction` is always exactly `maxFractionalDigits` (8) ASCII
+        // digit characters (`fractionDigits` is 1...8 digits, zero-padded up
+        // to 8), i.e. a value in 0...99999999 — always `UInt64`-parseable.
+        let fraction = UInt64(paddedFraction)!
 
         let total = whole * Self.zatoshiPerZec + fraction
 

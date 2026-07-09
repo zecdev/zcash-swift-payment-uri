@@ -78,13 +78,15 @@ struct QcharString: Equatable {
             guard let qcharDecode = value.qcharDecode(), value == qcharDecode else { return nil }
         }
 
-        guard let qchar = value.qcharEncoded() else { return nil }
-        self.storage = qchar
+        // `QcharCodec.encode` always succeeds (it percent-encodes every byte
+        // outside the raw `qchar` set), so this is never `nil`.
+        self.storage = QcharCodec.encode(value)
     }
 
     /// the qchar-decoded value of this qchar String
     var value: String {
-        // decoding cannot fail: `storage` was qchar-validated at construction.
+        // decoding cannot fail: `storage` is always the output of `QcharCodec.encode`.
+        // COVERAGE-EXEMPT: unreachable — construction-validated storage always qchar-decodes.
         storage.qcharDecode() ?? storage
     }
 
@@ -155,27 +157,27 @@ enum Parser {
     /// - parameter network: the consensus network the request is being parsed for.
     /// - parameter validator: the caller-supplied authority on recipient addresses.
     /// - returns a tuple containing the rest of the input (the `?`-prefixed query part, or `nil`)
-    /// and an optional leading-address `IndexedParameter`.
+    /// and the optional leading `RecipientAddress` (always at payment index 0).
     static func leadingAddress(
         _ input: String,
         network: Network,
         validator: any AddressValidator
-    ) throws -> (Substring?, IndexedParameter?) {
+    ) throws -> (rest: Substring?, leadingAddress: RecipientAddress?) {
         guard input.hasPrefix("zcash:") else {
             throw ZIP321.Errors.parseError("Not `zcash:` uri")
         }
 
         let (address, rest) = splitLeadingAddress(input)
 
-        if !address.isEmpty {
-            guard let recipient = Parser.recipient(String(address), network: network, validator: validator) else {
-                throw ZIP321.Errors.invalidAddress(nil)
-            }
-
-            return (rest, IndexedParameter(index: 0, param: .address(recipient)))
+        guard !address.isEmpty else {
+            return (rest, nil)
         }
 
-        return (rest, nil)
+        guard let recipient = Parser.recipient(String(address), network: network, validator: validator) else {
+            throw ZIP321.Errors.invalidAddress(nil)
+        }
+
+        return (rest, recipient)
     }
 
     // MARK: - Query parameter grammar
@@ -395,11 +397,10 @@ enum Parser {
 
         var payments: [(index: UInt, payment: Payment)] = []
 
-        try paramsByIndex.keys.sorted().forEach { index in
-            guard let params = paramsByIndex[index] else {
-                throw ZIP321.Errors.invalidParamIndex(index.description)
-            }
-
+        for index in paramsByIndex.keys.sorted() {
+            // `index` is drawn directly from `paramsByIndex`'s own keys, so
+            // the subscript below always succeeds.
+            let params = paramsByIndex[index]!
             payments.append(
                 (index: index, payment: try Payment.uniqueIndexedParameters(index: index, parameters: params))
             )
@@ -425,20 +426,10 @@ extension Payment {
         index: UInt,
         parameters: [Param]
     ) throws -> Payment {
-        guard let addressMaybe = parameters.first(where: { param in
-            switch param {
-            case .address:
-                return true
-            default:
-                return false
-            }
-        }) else {
-            throw ZIP321.Errors.recipientMissing(index == 0 ? nil : index)
-        }
-
-        let address: RecipientAddress = if case let Param.address(recipient) = addressMaybe {
-            recipient
-        } else {
+        guard let address = parameters.lazy.compactMap({ param -> RecipientAddress? in
+            guard case let .address(recipient) = param else { return nil }
+            return recipient
+        }).first else {
             throw ZIP321.Errors.recipientMissing(index == 0 ? nil : index)
         }
 
@@ -535,10 +526,8 @@ extension Param {
                 return .message(qcharDecoded)
             }
         } else {
-            // this parser rejects any required parameters
-            guard !queryKey.hasPrefix("req-") else {
-                throw ZIP321.Errors.unknownRequiredParameter(queryKey)
-            }
+            // Note: a `req-`-prefixed key is already rejected by the only
+            // caller, `zcashParameter`, before `Param.from` is ever reached.
 
             // `otherparam` values are percent-decoded per the `qchar` grammar (matching the
             // reference), then preserved. An absent value (no `=`) is carried through as `nil`.

@@ -38,9 +38,11 @@ public struct MemoBytes: Equatable, Sendable {
     /// Initializes a Memo from a UTF8 String.
     /// - Important: use [`MemoBytes.init(base64URL:)`] to initialize a memo from base64URL
     public init(utf8String: String) throws {
-        guard let memoStringData = utf8String.data(using: .utf8) else {
-            throw MemoError.notUTF8String
-        }
+        // `String.data(using: .utf8)` cannot fail for a native Swift `String`
+        // (which is always valid Unicode text); `MemoError.notUTF8String`
+        // exists for the `MemoBytes.MemoError` taxonomy's totality (mapped by
+        // `ZIP321.Errors.mapFrom`) but this initializer can never produce it.
+        let memoStringData = utf8String.data(using: .utf8)!
 
         guard memoStringData.count <= maxLength else {
             throw MemoError.memoTooLong

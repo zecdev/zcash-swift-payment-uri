@@ -82,6 +82,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `AmountError.negativeAmount` remains only for the decimal-string path's
   error taxonomy.
 
+### Added — 100% region coverage + machine-checkable gate (S16)
+
+- `scripts/coverage-gate.sh` + `scripts/coverage-gate.py`: runs the full test
+  suite with `swift test --enable-code-coverage`, exports the LLVM coverage
+  report via `xcrun llvm-cov export -format=text`, and computes *region*
+  coverage restricted to `Sources/ZcashPaymentURI/**` (excluding `Tests/`),
+  failing (exit 1) with every file and uncovered line range listed when
+  coverage is below 100.00%. Supports a small, explicit `// COVERAGE-EXEMPT:
+  <reason>` source annotation (max 3 sites) for genuinely unreachable
+  defensive invariant guards; the script fails outright if that budget is
+  exceeded. Usage: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+  scripts/coverage-gate.sh`.
+- Drove region coverage from 91.35% (786 regions, the pre-existing baseline
+  plus the S16 property tests) to **100.00% (757/757)**, via:
+  - Targeted tests for previously-unexercised code: `Payment.Builder`'s
+    `amount(_:NonNegativeAmount)` / `memo(_:MemoBytes)` / `label(_:)` overloads and the
+    `otherParam` success path; the `PaymentRequestBuilder` `for`-loop
+    (`buildArray`) and `if`-without-`else` (`buildOptional`) DSL forms;
+    `PaymentRequest(indexedPayments:)`'s direct duplicate-index throw; the
+    deprecated `Payment.init(...)` throwing shim (silenced via
+    `@available(*, deprecated)` on the test function, matching the existing
+    `ZIP321.request(from:...)` shim test); `ZIP321Error.withIndex(_:)` and
+    `ZIP321Error.init(_:ZIP321.Errors)` exhaustively over every case (the
+    parser's only production call sites each reach a small subset);
+    `ZIP321.Errors.mapFrom` exhaustively over every `MemoBytes.MemoError` /
+    `NonNegativeAmount.AmountError` case; `Render.request(_:.enumerateAllPayments)`'s
+    non-empty-request branch; `ZIP321.request(_:formattingOptions:)`'s
+    non-default-option branch; `ParserContext.isTransparent`'s non-ASCII
+    charset guard; `Bech32.verify`'s decode-failure branch; indexed
+    (`paramindex > 0`) invalid-address and sprout-address query parameters;
+    `otherparam`/`label`/`message` values with malformed percent-escapes;
+    `NonNegativeAmount.zec`'s whole-part-exceeds-`maxMoney` bound (no fractional part
+    involved, distinct from the already-covered overflow paths); several
+    `Parser`-internal helpers (`leadingAddress`, `parseParamIndex`,
+    `parseNameAndIndex`, `parseParameters`, `mapToIndexedPayments`,
+    `mapToPayments`) exercised directly via their own documented contracts
+    rather than only through the public parse path; and the generic
+    `mapToErrorOrRethrow` rethrow branch, exercised directly with a
+    non-matching error type.
+  - Dead-code removal: an always-succeeding `qcharEncoded()` guard in
+    `QcharString.init` (replaced with a direct `QcharCodec.encode` call); a
+    redundant `req-` prefix guard inside `Param.from` (already rejected by
+    its only caller, `zcashParameter`, before `Param.from` is ever reached);
+    an unreachable dictionary-subscript guard in `Parser.mapToIndexedPayments`
+    (the key is always drawn from the same dictionary); a redundant
+    double-guard in `Payment.uniqueIndexedParameters` collapsed into a single
+    `compactMap`-based extraction; an unreachable `byte < 128` guard in
+    `Bech32.decode` (every byte is already known-ASCII by that point); the
+    entirely-unused `NumberFormatter.zcashNumberFormatter` and
+    `String.asQcharString` (dead since the v1→v2 `Amount` removal).
+  - Restructuring for testability: `Parser.leadingAddress` now returns
+    `(rest: Substring?, leadingAddress: RecipientAddress?)` instead of
+    wrapping the address in an `IndexedParameter`, eliminating an
+    unreachable `guard case .address(...)` in `ZIP321.parsePipeline` (the
+    value was always `.address` by construction) rather than papering over
+    it with an exemption.
+  - Two `// COVERAGE-EXEMPT` sites remain (of the 3 allowed), both the same
+    shape: a `catch { ... }` clause in a non-throwing `Result`-returning
+    wrapper (`ZIP321.parse`, `PaymentRequest.Builder.build()`) around an
+    untyped-`throws` call whose every actual path already throws a caught,
+    specific error type — Swift requires the exhaustive catch-all anyway,
+    but reaching it would need a future change to throw some third,
+    untranslated error type from within the wrapped call.
+
 ### Added — deterministic property-style round-trip tests (S16)
 
 - `Tests/ZcashPaymentURITests/PropertyGenerators.swift`: a tiny inline

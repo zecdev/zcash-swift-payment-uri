@@ -194,15 +194,13 @@ struct ParsingAddressesTests {
 
         let recipient = try #require(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", validator: ReferenceAddressValidator.testnet))
 
-        let expected = IndexedParameter(index: 0, param: .address(recipient))
-
         let result = try Parser.leadingAddress(
             validAddressURI,
             network: .testnet,
             validator: ReferenceAddressValidator.testnet
         )
 
-        #expect(result.1 == expected)
+        #expect(result.leadingAddress == recipient)
     }
 
     @Test func thatValidLeadingAddressesAreParsedWithAdditionalParams() throws {
@@ -210,12 +208,11 @@ struct ParsingAddressesTests {
 
         let recipient = try #require(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", validator: ReferenceAddressValidator.testnet))
 
-        let expected = IndexedParameter(index: 0, param: .address(recipient))
         let rest = "?amount=1&memo=VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg&message=Thank%20you%20for%20your%20purchase"
         let result = try Parser.leadingAddress(validAddressURI, network: .testnet, validator: ReferenceAddressValidator.testnet)
 
-        #expect(result.1 == expected)
-        #expect(result.0 == rest[...])
+        #expect(result.leadingAddress == recipient)
+        #expect(result.rest == rest[...])
     }
 
     @Test func thatInvalidLeadingAddressesThrowError() throws {
@@ -231,12 +228,20 @@ struct ParsingAddressesTests {
 
         let recipient = try #require(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", validator: ReferenceAddressValidator.testnet))
 
-        let expected = IndexedParameter(index: 0, param: .address(recipient))
-
         let result = try Parser.leadingAddress(validAddressURI, network: .testnet, validator: ReferenceAddressValidator.testnet)
 
-        #expect(result.1 == expected)
-        #expect(result.0 == nil)
+        #expect(result.leadingAddress == recipient)
+        #expect(result.rest == nil)
+    }
+
+    @Test func leadingAddressWithNonZcashSchemeThrows() {
+        // `Parser.leadingAddress` has its own defensive `zcash:` prefix guard,
+        // reachable directly even though its only production caller
+        // (`ZIP321.parsePipeline`) is only ever invoked after `ZIP321.parse`
+        // has already verified the prefix.
+        #expect(throws: (any Error).self) {
+            try Parser.leadingAddress("http://example.com", network: .mainnet, validator: ReferenceAddressValidator.mainnet)
+        }
     }
 
     @Test func zcashParameterCreatesValidAddress() throws {
