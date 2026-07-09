@@ -4,6 +4,17 @@
 // Created by Pacu 2023-11-07
 import Foundation
 
+/// The main entry point for constructing, rendering, and parsing
+/// [ZIP-321](https://zips.z.cash/zip-0321) Zcash payment request URIs.
+///
+/// This is a caseless enum used purely as a namespace: see
+/// ``parse(_:expecting:validator:maxInputBytes:)`` to parse a URI, and
+/// ``uriString(from:formattingOptions:)`` (or the `request(_:formattingOptions:)`
+/// convenience overloads) to render one.
+///
+/// Parsing requires a caller-supplied ``AddressValidator``: this library
+/// implements the ZIP-321 URI grammar and delegates recipient-address validity
+/// and capability classification entirely to the caller.
 public enum ZIP321 {
     /// The default maximum accepted input size for ``parse(_:expecting:validator:maxInputBytes:)``.
     public static let defaultMaxInputBytes = 8 * 1024
@@ -27,7 +38,15 @@ public enum ZIP321 {
     ///
     /// The empty request renders as the bare `zcash:` scheme in either mode.
     public enum FormattingOptions {
+        /// A NORMALIZATION mode: discards stored paramindices and re-numbers payments
+        /// sequentially from `1` (`address.1=…&address.2=…`), always with explicit address
+        /// labels under `zcash:?`.
         case enumerateAllPayments
+        /// Renders each payment at its ACTUAL stored `paramindex` (the empty paramindex renders
+        /// with no `.n` suffix). This is the canonical reference form.
+        /// - parameter omitAddressLabel: when `true` and the request holds exactly one payment
+        /// at the empty paramindex, emits the canonical single-payment leading-address form
+        /// (`zcash:<addr>?amount=…`) instead of `zcash:?address=…&amount=…`.
         case useEmptyParamIndex(omitAddressLabel: Bool)
     }
 
@@ -127,6 +146,7 @@ public extension ZIP321 {
     /// Convenience function that allows to generate a [ZIP-321](https://zips.z.cash/zip-0321)
     /// payment URI for a single recipient with no amount
     ///  - parameter recipient: A recipient address
+    ///  - parameter formattingOptions: the rendered form; defaults to the canonical reference form.
     ///  - returns a URI string of the sort `zcash:{recipient_address_string}` if default formatting is specified, or `zcash:address={recipient_address_string}` otherwise
     static func request(_ recipient: RecipientAddress, formattingOptions: FormattingOptions = .useEmptyParamIndex(omitAddressLabel: true)) -> String {
         switch formattingOptions {

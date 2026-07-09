@@ -18,7 +18,7 @@
 /// amount for a given payment — that policy (e.g. rejecting a zero-valued transparent output)
 /// lives at the `Payment` level.
 ///
-/// - Note: this type supersedes ``Amount``. Unlike `Amount`, `NonNegativeAmount` parses ZEC decimal strings
+/// - Note: this type supersedes the v1 `Amount` type (removed in v2). Unlike `Amount`, `NonNegativeAmount` parses ZEC decimal strings
 /// using the **strict** ZIP-321 `amountparam` grammar:
 /// ```
 /// amountparam = 1*DIGIT [ "." 1*8DIGIT ]
@@ -53,6 +53,7 @@ public struct NonNegativeAmount: Equatable, Hashable, Sendable, Comparable {
         self.value = uncheckedValue
     }
 
+    /// Reasons a raw zatoshi count or a decimal ZEC string cannot be represented as a `NonNegativeAmount`.
     public enum AmountError: Error, Equatable {
         /// the decimal string carries a leading `-`, i.e. it denotes a negative amount.
         ///
@@ -186,6 +187,7 @@ public struct NonNegativeAmount: Equatable, Hashable, Sendable, Comparable {
         return "\(whole).\(fractionDigits)"
     }
 
+    /// `Comparable` conformance: orders `NonNegativeAmount` values by their raw zatoshi `value`.
     public static func < (lhs: NonNegativeAmount, rhs: NonNegativeAmount) -> Bool {
         lhs.value < rhs.value
     }
