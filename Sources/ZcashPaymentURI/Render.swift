@@ -139,7 +139,7 @@ enum Render {
         if (index == nil || index == 0) && omittingAddressLabel {
             // Leading-address form: `<addr>[?param&param…]`. No trailing `?`
             // when there are no query params (matching the reference).
-            let query = params.isEmpty ? "" : "?" + params.joined(separator: "&")
+            let query = params.isEmpty ? "" : "?\(params.joined(separator: "&"))"
             return payment.recipientAddress.value + query
         }
 
@@ -171,7 +171,7 @@ enum Render {
             let segments = indexed.enumerated().map { offset, pair in
                 payment(pair.payment, index: UInt(offset + 1), omittingAddressLabel: false)
             }
-            return "zcash:?" + segments.joined(separator: "&")
+            return "zcash:?\(segments.joined(separator: "&"))"
 
         case .useEmptyParamIndex(let omitAddressLabel):
             guard !indexed.isEmpty else { return "zcash:" }
@@ -180,13 +180,13 @@ enum Render {
             // payment at the empty paramindex, rendered as the leading-address
             // form when label omission is requested.
             if omitAddressLabel, indexed.count == 1, indexed[0].index == 0 {
-                return "zcash:" + payment(indexed[0].payment, index: nil, omittingAddressLabel: true)
+                return "zcash:\(payment(indexed[0].payment, index: nil, omittingAddressLabel: true))"
             }
 
             let segments = indexed.map { pair in
                 payment(pair.payment, index: pair.index, omittingAddressLabel: false)
             }
-            return "zcash:?" + segments.joined(separator: "&")
+            return "zcash:?\(segments.joined(separator: "&"))"
         }
     }
 }
