@@ -119,6 +119,9 @@ jobs:
             swift:6.2-noble \
             swift format lint --strict --recursive --configuration .swift-format Sources
 
+      - name: README snippets match DocC source
+        run: scripts/check-readme-snippets.sh
+
   docc:
     name: docc (xcodebuild docbuild, zero warnings)
     runs-on: macos-15
