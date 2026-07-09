@@ -249,7 +249,8 @@ public struct OtherParam: Equatable, Sendable {
     }
 
     static func isReservedKey(_ key: String) -> Bool {
-        key == "address" || key == "amount" || key == "label" || key == "memo" || key == "message" || key == "req-"
+        key == "address" || key == "amount" || key == "label" || key == "memo" || key == "message"
+            || key.hasPrefix("req-")
     }
 }
 

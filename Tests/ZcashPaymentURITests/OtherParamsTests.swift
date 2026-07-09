@@ -24,7 +24,10 @@ struct OtherParamsTests {
     }
 
     @Test func reservedKeywordKeyedParametersFail() throws {
-        for reserved in ["address", "amount", "label", "memo", "message"] {
+        // "req-" alone and ANY "req-"-prefixed name are reserved: a parser that
+        // does not recognize a required parameter must reject the whole URI, so
+        // programmatic construction of one as an "other" param is never valid.
+        for reserved in ["address", "amount", "label", "memo", "message", "req-", "req-future", "req-zip999"] {
             #expect {
                 try OtherParam(name: reserved, value: "asdf")
             } throws: { error in
