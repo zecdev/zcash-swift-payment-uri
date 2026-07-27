@@ -40,6 +40,33 @@ final class AmountTests: XCTestCase {
         XCTAssertThrowsError(try Amount(value: -1).toString())
     }
 
+    /// Negative amounts are not part of the ZIP-321 grammar and must be rejected
+    /// **eagerly** by every construction path, with `AmountError.negativeAmount`
+    /// for a leading `-` before any digit parsing happens.
+    func testNegativeAmountsAreRejectedEagerlyOnEveryPath() throws {
+        // string path: sign is rejected before digits, bounds, or precision are examined.
+        for negative in ["-1", "-0", "-0.5", "-21000001", "-0.123456789", "-", "-."] {
+            XCTAssertThrowsError(try Amount(string: negative), "expected rejection for \(negative)") { error in
+                XCTAssertEqual(error as? Amount.AmountError, Amount.AmountError.negativeAmount, "for input \(negative)")
+            }
+        }
+
+        // an explicit `+` sign is equally outside the grammar (but is not "negative").
+        XCTAssertThrowsError(try Amount(string: "+1")) { error in
+            XCTAssertEqual(error as? Amount.AmountError, Amount.AmountError.invalidTextInput)
+        }
+
+        // Double path.
+        XCTAssertThrowsError(try Amount(value: -0.00000001)) { error in
+            XCTAssertEqual(error as? Amount.AmountError, Amount.AmountError.negativeAmount)
+        }
+
+        // Decimal path.
+        XCTAssertThrowsError(try Amount(decimal: Decimal(-1))) { error in
+            XCTAssertEqual(error as? Amount.AmountError, Amount.AmountError.negativeAmount)
+        }
+    }
+
     // MARK: Text Conversion Tests
 
     func testAmountThrowsIfTooManyFractionalDigits() throws {

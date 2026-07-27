@@ -17,7 +17,7 @@ import Foundation
 /// values unrepresentable, and `maxSupply` (`MAX_MONEY` = 2_100_000_000_000_000
 /// zatoshi) is comfortably representable by `UInt64` (max ~1.8 * 10^19).
 public struct Amount: Equatable, Sendable {
-    public enum AmountError: Error {
+    public enum AmountError: Error, Equatable {
         case negativeAmount
         case greaterThanSupply
         case tooManyFractionalDigits
@@ -127,16 +127,24 @@ extension Amount {
     /// using only checked integer arithmetic (no floating point, no arbitrary-precision decimal type).
     ///
     /// Accepted grammar (intentionally lenient, matching v1 behavior):
-    /// `["-"] 1*DIGIT ["." *8DIGIT]` or `["-"] *DIGIT "." 1*8DIGIT`
+    /// `1*DIGIT ["." *8DIGIT]` or `*DIGIT "." 1*8DIGIT`
     /// i.e. at least one of the whole/fractional parts must be present, but either may be empty
     /// (`"123."` and `".5"` are both accepted) — ZIP-321 grammar tightening is deferred.
+    ///
+    /// Signs are rejected **eagerly**, before any other parsing work: ZIP-321 amounts are
+    /// non-negative by grammar, so a leading `-` fails immediately with
+    /// ``AmountError/negativeAmount`` (and `+`, which the grammar equally forbids, fails
+    /// with ``AmountError/invalidTextInput``).
     static func parseZatoshi(from string: String) throws -> UInt64 {
-        var text = Substring(string)
+        let text = Substring(string)
 
-        var isNegative = false
-        if text.first == "-" {
-            isNegative = true
-            text = text.dropFirst()
+        // eager rejection: a sign can never begin a valid ZIP-321 amount, so fail
+        // before parsing digits rather than deferring the check.
+        guard text.first != "-" else {
+            throw AmountError.negativeAmount
+        }
+        guard text.first != "+" else {
+            throw AmountError.invalidTextInput
         }
 
         let parts = text.split(separator: ".", omittingEmptySubsequences: false)
@@ -173,13 +181,7 @@ extension Amount {
         }
 
         guard let whole else {
-            throw isNegative ? AmountError.negativeAmount : AmountError.greaterThanSupply
-        }
-
-        // negative amounts are rejected before any other bounds/precision check,
-        // mirroring the original `decimal >= 0` guard's priority.
-        guard !isNegative else {
-            throw AmountError.negativeAmount
+            throw AmountError.greaterThanSupply
         }
 
         guard whole <= Self.maxSupplyZec else {
