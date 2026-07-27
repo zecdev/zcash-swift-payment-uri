@@ -19,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   parameter brackets, redundant type annotation; one justified
   `large_tuple` disable on the transitional parser tuple).
 
+### Changed
+- `NonNegativeAmount` is backed by `UInt64` (`value`, `maxMoney`), mirroring the
+  reference implementation's `u64`-backed `Zatoshis`: a ZIP-321 amount is
+  non-negative by grammar, so negative counts are now unrepresentable by
+  construction. `NonNegativeAmount.zatoshi(_:)` takes `UInt64`;
+  `AmountError.negativeAmount` remains only for the decimal-string path's
+  error taxonomy.
+
 ### Added
 - **Internal strict base64url codec** (`Sources/ZcashPaymentURI/parser/Base64URL.swift`):
   a pure-Swift, Foundation-free implementation of the unpadded

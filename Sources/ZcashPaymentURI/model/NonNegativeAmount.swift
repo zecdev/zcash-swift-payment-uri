@@ -9,7 +9,9 @@
 /// which every ZEC amount is represented on the Zcash ledger.
 ///
 /// The name states the invariant: a `NonNegativeAmount` is a non-negative amount bounded by
-/// `MAX_MONEY` (``maxMoney``), the only shape a ZIP-321 `amountparam` can take.
+/// `MAX_MONEY` (``maxMoney``), the only shape a ZIP-321 `amountparam` can take. It is backed by
+/// an unsigned `UInt64`, mirroring the reference implementation's `u64`-backed `Zatoshis`, so a
+/// negative amount is unrepresentable by construction rather than rejected at runtime.
 ///
 /// `NonNegativeAmount` is intentionally amount-agnostic: it only enforces the invariant that a value is
 /// representable on-chain (`0...maxMoney`). It has no opinion on whether zero is an acceptable
@@ -27,23 +29,29 @@
 /// such as `"123."` or `".5"` is rejected).
 public struct NonNegativeAmount: Equatable, Hashable, Sendable, Comparable {
     /// `MAX_MONEY`: the maximum number of zatoshi that can ever exist (21_000_000 ZEC).
-    public static let maxMoney: Int64 = 2_100_000_000_000_000
+    ///
+    /// - Note: the backing type is `UInt64`, mirroring the reference implementation's
+    /// `Zatoshis` (a `u64` newtype): a ZIP-321 amount is non-negative by grammar, so
+    /// negative values are unrepresentable by construction.
+    public static let maxMoney: UInt64 = 2_100_000_000_000_000
 
     /// number of zatoshi in 1 ZEC.
-    static let zatoshiPerZec: Int64 = 100_000_000
+    static let zatoshiPerZec: UInt64 = 100_000_000
 
     /// the maximum number of digits allowed after the decimal point in a ZEC decimal string.
     static let maxFractionalDigits: Int = 8
 
     /// this amount, represented as an integer count of zatoshi.
-    public let value: Int64
+    public let value: UInt64
 
-    private init(uncheckedValue: Int64) {
+    private init(uncheckedValue: UInt64) {
         self.value = uncheckedValue
     }
 
     public enum AmountError: Error, Equatable {
-        /// the provided value is negative.
+        /// the decimal string is negative. Unreachable from ``zatoshi(_:)``, whose
+        /// `UInt64` parameter cannot represent a negative count; ``zec(_:)`` reports
+        /// `invalidDecimalString` for a signed string since a sign fails the grammar.
         case negativeAmount
         /// the provided value is greater than ``NonNegativeAmount/maxMoney``.
         case exceededSupply
@@ -54,11 +62,11 @@ public struct NonNegativeAmount: Equatable, Hashable, Sendable, Comparable {
     }
 
     /// Creates a `NonNegativeAmount` from a raw zatoshi count.
-    /// - parameter value: an integer count of zatoshi.
-    /// - returns: `.success` wrapping the `NonNegativeAmount` if `value` is in `0...maxMoney`, otherwise
-    /// `.failure` with the specific `AmountError`.
-    public static func zatoshi(_ value: Int64) -> Result<NonNegativeAmount, AmountError> {
-        guard value >= 0 else { return .failure(.negativeAmount) }
+    /// - parameter value: an unsigned integer count of zatoshi (negative counts are
+    /// unrepresentable by construction).
+    /// - returns: `.success` wrapping the `NonNegativeAmount` if `value` is at most `maxMoney`,
+    /// otherwise `.failure(.exceededSupply)`.
+    public static func zatoshi(_ value: UInt64) -> Result<NonNegativeAmount, AmountError> {
         guard value <= Self.maxMoney else { return .failure(.exceededSupply) }
 
         return .success(NonNegativeAmount(uncheckedValue: value))
@@ -97,18 +105,18 @@ public struct NonNegativeAmount: Equatable, Hashable, Sendable, Comparable {
         // a sign, etc.) makes the whole string invalid: the grammar requires full consumption.
         guard remainder.isEmpty else { return .failure(.invalidDecimalString) }
 
-        guard let whole = Int64(wholeDigits) else {
-            // the whole part has more digits than fit in an `Int64` (or otherwise overflows) —
+        guard let whole = UInt64(wholeDigits) else {
+            // the whole part has more digits than fit in a `UInt64` (or otherwise overflows) —
             // this is necessarily greater than `maxMoney`.
             return .failure(.exceededSupply)
         }
 
         // bounding `whole` here (rather than after scaling) guarantees the multiplication below
-        // cannot overflow `Int64`.
+        // cannot overflow `UInt64`.
         guard whole <= Self.maxMoney / Self.zatoshiPerZec else { return .failure(.exceededSupply) }
 
         let paddedFraction = fractionDigits + String(repeating: "0", count: Self.maxFractionalDigits - fractionDigits.count)
-        let fraction = Int64(paddedFraction) ?? 0
+        let fraction = UInt64(paddedFraction) ?? 0
 
         let total = whole * Self.zatoshiPerZec + fraction
 

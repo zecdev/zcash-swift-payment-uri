@@ -16,7 +16,7 @@ struct NonNegativeAmountTests {
     // (zcash-zip321-test-vectors: vectors/valid/amounts.json), hardcoded here so
     // this unit suite needs no JSON loading. Each tuple is
     // (decimalString, expectedValue, corpusVectorOrRuleName).
-    static let validDecimalStrings: [(String, Int64, String)] = [
+    static let validDecimalStrings: [(String, UInt64, String)] = [
         ("20999999.99999999", 2_099_999_999_999_999, "amount_just_below_max_money"),
         ("21000000", 2_100_000_000_000_000, "amount_max_money"),
         ("050", 5_000_000_000, "amount_leading_zeros_050"),
@@ -34,7 +34,7 @@ struct NonNegativeAmountTests {
     ]
 
     @Test(arguments: validDecimalStrings)
-    func zecParsesValidDecimalString(_ testCase: (String, Int64, String)) throws {
+    func zecParsesValidDecimalString(_ testCase: (String, UInt64, String)) throws {
         let (string, expectedValue, comment) = testCase
         let parsed = try NonNegativeAmount.zec(string).get()
 
@@ -48,7 +48,7 @@ struct NonNegativeAmountTests {
     // strict-grammar probes. Each tuple is
     // (decimalString, expectedError, corpusVectorOrRuleName).
     static let invalidDecimalStrings: [(String, NonNegativeAmount.AmountError, String)] = [
-        // i64::MAX + 1: overflows Int64 during parsing; necessarily > MAX_MONEY.
+        // i64::MAX + 1: representable in UInt64 but > MAX_MONEY; u64-wrap values overflow UInt64 itself.
         ("9223372036854775808", .exceededSupply, "invalid_amount_exceeds_i64"),
         // u64 wrap-around probe: must NOT wrap into a small positive value.
         ("18446744073709551624", .exceededSupply, "invalid_amount_overflow_wraps_positive"),
@@ -94,9 +94,10 @@ struct NonNegativeAmountTests {
 
     @Test func zatoshiFactoryRejectsOutOfRange() {
         #expect(NonNegativeAmount.zatoshi(NonNegativeAmount.maxMoney + 1) == .failure(.exceededSupply))
-        #expect(NonNegativeAmount.zatoshi(Int64.max) == .failure(.exceededSupply))
-        #expect(NonNegativeAmount.zatoshi(-1) == .failure(.negativeAmount))
-        #expect(NonNegativeAmount.zatoshi(Int64.min) == .failure(.negativeAmount))
+        #expect(NonNegativeAmount.zatoshi(UInt64.max) == .failure(.exceededSupply))
+        // negative zatoshi counts are unrepresentable by construction: the factory takes
+        // `UInt64`, so `NonNegativeAmount.zatoshi(-1)` is a compile-time error rather than a runtime
+        // rejection. The decimal-string path rejects signed strings via the grammar.
     }
 
     // MARK: - decimalString() rendering
@@ -106,7 +107,7 @@ struct NonNegativeAmountTests {
     // zeros trimmed. Corpus `canonicalUri` amounts are covered by the pairs
     // whose input string differs from the canonical rendering ("050" -> "50",
     // "00.500" -> "0.5").
-    static let renderedDecimalStrings: [(Int64, String)] = [
+    static let renderedDecimalStrings: [(UInt64, String)] = [
         (0, "0"),
         (1, "0.00000001"),
         (1_000, "0.00001"),
@@ -121,7 +122,7 @@ struct NonNegativeAmountTests {
     ]
 
     @Test(arguments: renderedDecimalStrings)
-    func decimalStringRendersCanonically(_ testCase: (Int64, String)) throws {
+    func decimalStringRendersCanonically(_ testCase: (UInt64, String)) throws {
         let (zats, expected) = testCase
         let amount = try NonNegativeAmount.zatoshi(zats).get()
 
@@ -129,7 +130,7 @@ struct NonNegativeAmountTests {
     }
 
     @Test(arguments: renderedDecimalStrings)
-    func decimalStringRoundTrips(_ testCase: (Int64, String)) throws {
+    func decimalStringRoundTrips(_ testCase: (UInt64, String)) throws {
         let (zats, rendered) = testCase
         let reparsed = try NonNegativeAmount.zec(rendered).get()
 
