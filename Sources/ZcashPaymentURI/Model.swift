@@ -25,13 +25,13 @@ public struct PaymentRequest: Equatable, Sendable {
 
     /// The payments of this request, ordered by ascending `paramindex`.
     public var payments: [Payment] {
-        paymentsByIndex.keys.sorted().map { paymentsByIndex[$0]! }
+        paymentsByIndex.sorted { $0.key < $1.key }.map(\.value)
     }
 
     /// The payments of this request paired with their ZIP-321 `paramindex`,
     /// ordered by ascending index.
     public var indexedPayments: [(index: UInt, payment: Payment)] {
-        paymentsByIndex.keys.sorted().map { (index: $0, payment: paymentsByIndex[$0]!) }
+        paymentsByIndex.sorted { $0.key < $1.key }.map { (index: $0.key, payment: $0.value) }
     }
 
     /// Create a Payment Request from a sequence of payments, assigning
@@ -201,14 +201,15 @@ public struct Payment: Equatable, Sendable {
         message: String?,
         otherParams: [OtherParam] = []
     ) throws {
-        self = try Payment.create(
+        let result = Payment.create(
             recipientAddress: recipientAddress,
             amount: amount,
             memo: memo,
             label: label,
             message: message,
             otherParams: otherParams
-        ).get()
+        )
+        self = try result.get()
     }
 }
 

@@ -418,6 +418,9 @@ enum Parser {
 
 extension Payment {
     /// creates a Payment from parameters that are proven to be unique and non-duplicate
+    // The branching here is inherent to the per-parameter dispatch this function performs: one
+    // arm per ZIP-321 `paramname`, plus the index-tagging of each structural failure.
+    // swiftlint:disable:next cyclomatic_complexity
     static func uniqueIndexedParameters(
         index: UInt,
         parameters: [Param]
@@ -496,9 +499,6 @@ extension Param {
     /// Percent-decoding policy (matching the reference `to_indexed_param`): `label`, `message`
     /// and `other` values are percent-decoded via ``QcharCodec``; `address`, `amount` and `memo`
     /// values are handed to their own grammars verbatim (a `%` in them is therefore rejected).
-    // The branching here is inherent to the per-parameter dispatch this function performs:
-    // one arm per ZIP-321 `paramname`, each with its own grammar and error mapping.
-    // swiftlint:disable:next cyclomatic_complexity
     static func from(
         queryKey: String,
         value: String?,

@@ -111,7 +111,7 @@ extension ZIP321Error {
     /// Index convention: the v1 pipeline already uses `nil` for the empty
     /// paramindex; the few v1 cases that carry a raw `UInt` (`0` for the empty
     /// index) are normalized to `nil` here.
-    // swiftlint:disable:next cyclomatic_complexity function_body_length
+    // swiftlint:disable:next cyclomatic_complexity
     init(_ legacy: ZIP321.Errors) {
         // Normalizes the sentinel index `0` (the empty paramindex) to `nil`.
         func norm(_ i: UInt) -> UInt? { i == 0 ? nil : i }
