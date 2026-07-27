@@ -397,10 +397,9 @@ enum Parser {
 
         var payments: [(index: UInt, payment: Payment)] = []
 
-        for index in paramsByIndex.keys.sorted() {
-            // `index` is drawn directly from `paramsByIndex`'s own keys, so
-            // the subscript below always succeeds.
-            let params = paramsByIndex[index]!
+        // Sorting the elements (rather than the keys, then subscripting back) carries each
+        // parameter list along with its index, so no lookup — and no unwrap — is needed.
+        for (index, params) in paramsByIndex.sorted(by: { $0.key < $1.key }) {
             payments.append(
                 (index: index, payment: try Payment.uniqueIndexedParameters(index: index, parameters: params))
             )
