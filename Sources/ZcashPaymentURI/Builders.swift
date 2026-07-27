@@ -250,7 +250,7 @@ public extension PaymentRequest {
 /// sharing a name with a type in the same module. The `.build` factory
 /// preserves the Result-returning (`.get()`) totality contract.
 @resultBuilder
-public struct PaymentRequestBuilder {
+public enum PaymentRequestBuilder {
     /// Lifts a single ``Payment`` statement into the partial result.
     public static func buildExpression(_ payment: Payment) -> [Payment] { [payment] }
 
