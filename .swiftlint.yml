@@ -126,6 +126,16 @@ function_body_length:
 
 legacy_hashing: error
 
+# swift-format runs in the same `lint` job with
+# `multiElementCollectionTrailingCommas: true`, so it *adds* the trailing comma
+# that SwiftLint's default `trailing_comma` (mandatory_comma: false) then
+# *removes* — the two formatters would fight forever over the same character.
+# swift-format owns layout here, so SwiftLint is aligned to it rather than the
+# other way around. Note this only ever applies to MULTI-LINE collection
+# literals: SwiftLint skips single-line literals when mandatory_comma is true.
+trailing_comma:
+  mandatory_comma: true
+
 identifier_name:
   excluded:
     - i

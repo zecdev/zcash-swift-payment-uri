@@ -1,12 +1,13 @@
 # ``ZcashPaymentURI``
 
-Construct, render, and parse [ZIP-321](https://zips.z.cash/zip-0321) Zcash payment request URIs.
+Construct, render, and parse ZIP-321 Zcash payment request URIs.
 
 ## Overview
 
-ZIP-321 defines a standard `zcash:` URI format for payment requests, so that wallets can turn a
-link or a scanned QR code directly into a transaction the user only has to confirm. This library
-is a small, dependency-free, cross-platform (macOS / iOS) implementation of that specification:
+[ZIP-321](https://zips.z.cash/zip-0321) defines a standard `zcash:` URI format for payment
+requests, so that wallets can turn a link or a scanned QR code directly into a transaction the
+user only has to confirm. This library is a small, dependency-free, cross-platform (macOS / iOS)
+implementation of that specification:
 
 - **Construction**: fluent builders (``Payment/Builder-swift.struct`` and
   ``PaymentRequest/Builder-swift.struct``) and a `@resultBuilder` DSL
