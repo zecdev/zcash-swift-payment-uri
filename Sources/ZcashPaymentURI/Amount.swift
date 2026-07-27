@@ -193,8 +193,13 @@ extension Amount {
         }
 
         // `whole` is now bounded by `maxSupplyZec`, so this scaling cannot overflow `UInt64`.
+        // The fraction is accumulated digit-by-digit over scalars already verified to be ASCII
+        // digits, so no fallible conversion (and no untestable fallback branch) is involved.
         let paddedFraction = fractionPart + String(repeating: "0", count: Self.maxFractionalDecimalDigits - fractionPart.count)
-        let fraction: UInt64 = paddedFraction.isEmpty ? 0 : (UInt64(paddedFraction) ?? 0)
+        var fraction: UInt64 = 0
+        for scalar in paddedFraction.unicodeScalars {
+            fraction = fraction * 10 + UInt64(scalar.value - UnicodeScalar("0").value)
+        }
 
         let zatoshi = whole * Self.zatoshiPerZec + fraction
 

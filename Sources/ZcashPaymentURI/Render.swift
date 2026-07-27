@@ -93,7 +93,6 @@ enum Render {
             }
             result.append(parameter(amount, index: index))
         }
-        
 
         if let memo = payment.memo {
             if !result.hasSuffix("?") {

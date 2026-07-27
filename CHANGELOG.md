@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+- Signed amount strings are rejected eagerly: a leading `-` fails with
+  `negativeAmount` (and `+` with `invalidTextInput`) before any digit
+  parsing, per review. `Amount.AmountError` is now `Equatable`.
+- `Amount` is fully covered by tests (100% regions/functions/lines),
+  including the previously-untested malformed-shape, non-finite-double,
+  zero-constant, and eager-rounding paths.
+- SwiftLint warnings across `Sources/` resolved (whitespace, comma
+  spacing, TODO format now referencing the resolving PR, multiline
+  parameter brackets, redundant type annotation; one justified
+  `large_tuple` disable on the transitional parser tuple).
+
 ### Changed
 - **Breaking (toolchain):** `swift-tools-version` raised to `6.0`; minimum
   platforms raised to macOS 13 / iOS 16.

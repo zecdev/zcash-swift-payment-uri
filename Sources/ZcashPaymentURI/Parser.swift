@@ -103,7 +103,6 @@ public struct QcharString: Equatable {
     }
 }
 
-
 /// Represents a parameter that has an index.
 /// - important: The index value zero means that the parameter will have no index when represented in text form
 struct IndexedParameter: Equatable {
@@ -234,7 +233,7 @@ enum Parser {
     /// - Note: this is intentionally more permissive than `CharacterSet.paramname` (ASCII-only):
     /// a query key containing e.g. non-ASCII letters is accepted at this low-level tokenizing
     /// stage and rejected later by `ParamNameString`/`OtherParam` validation, matching v1 behavior.
-    static let parameterNameCharset: CharacterSet = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "+-"))
+    static let parameterNameCharset = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "+-"))
 
     static let parameterName: ZParser<Substring> = zCharacterSet(parameterNameCharset)
 
@@ -273,6 +272,7 @@ enum Parser {
 
     /// Parser for query key and value
     /// supports `otherParam` and `req-` params without validation logic
+    // swiftlint:disable:next large_tuple
     static let queryKeyAndValue: ZParser<(Substring, Int?, Substring?)> = ZParser { input in
         let (name, index) = try Parser.optionallyIndexedParameterName.run(&input)
         let value = try zOptionally(
@@ -523,7 +523,6 @@ extension Payment {
         } catch {
             throw error
         }
-
     }
 }
 
@@ -551,7 +550,6 @@ extension Param {
         validating: @escaping RecipientAddress.ValidatingClosure
     ) throws -> Param {
         if let paramName = ReservedParamName(rawValue: queryKey), let value = value {
-
             switch paramName {
             case .address:
                 guard let addr = RecipientAddress(
@@ -592,7 +590,6 @@ extension Param {
                 return .message(qcharDecoded)
             }
         } else {
-
             // this parser rejects any required parameters
             guard !queryKey.hasPrefix("req-") else {
                 throw ZIP321.Errors.unknownRequiredParameter(queryKey)

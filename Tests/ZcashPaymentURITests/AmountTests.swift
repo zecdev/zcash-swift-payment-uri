@@ -67,6 +67,41 @@ final class AmountTests: XCTestCase {
         }
     }
 
+    /// Malformed decimal shapes are rejected with `invalidTextInput`.
+    func testMalformedDecimalStringsAreRejected() throws {
+        for malformed in ["1.2.3", "..", ".", "", "1,5", "1e5", " 1", "0x1"] {
+            XCTAssertThrowsError(try Amount(string: malformed), "expected rejection for \(malformed)") { error in
+                XCTAssertEqual(error as? Amount.AmountError, Amount.AmountError.invalidTextInput, "for input \(malformed)")
+            }
+        }
+    }
+
+    /// Non-finite doubles cannot be amounts.
+    func testNonFiniteDoublesAreRejected() throws {
+        for nonFinite in [Double.infinity, -Double.infinity, Double.nan] {
+            XCTAssertThrowsError(try Amount(value: nonFinite)) { error in
+                XCTAssertEqual(error as? Amount.AmountError, Amount.AmountError.invalidTextInput)
+            }
+        }
+    }
+
+    /// The internal zero constant renders canonically and equals a parsed zero.
+    func testZeroAmount() throws {
+        XCTAssertEqual(Amount.zero.toString(), "0")
+        XCTAssertEqual(Amount.zero, try Amount(string: "0"))
+        XCTAssertEqual(Amount.zero, try Amount(string: "0.0"))
+    }
+
+    /// The `rounding:` parameter's eager-rounding arm. Note the fractional-digit
+    /// guard runs before normalization, so a >8-digit decimal is rejected whether
+    /// or not rounding was requested; for in-range inputs the rounding is a no-op.
+    func testDecimalInitWithEagerRounding() throws {
+        XCTAssertEqual(try Amount(decimal: Decimal(string: "0.12345678")!, rounding: true).toString(), "0.12345678")
+        XCTAssertThrowsError(try Amount(decimal: Decimal(string: "0.123456789")!, rounding: true)) { error in
+            XCTAssertEqual(error as? Amount.AmountError, Amount.AmountError.tooManyFractionalDigits)
+        }
+    }
+
     // MARK: Text Conversion Tests
 
     func testAmountThrowsIfTooManyFractionalDigits() throws {

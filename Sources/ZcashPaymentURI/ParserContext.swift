@@ -45,7 +45,6 @@ extension ParserContext {
     
     var unifiedPrefix: String {
         switch self {
-            
         case .mainnet:
             "u"
         case .testnet:
@@ -60,10 +59,10 @@ extension ParserContext {
         case .mainnet:
             "t3"
         case .testnet:
-            // TODO: Check whether there is a testnet prefix
+            // TODO: [#84] Check whether there is a testnet prefix
             "t2"
         case .regtest:
-            // TODO: Check whether there is a regtest prefix
+            // TODO: [#84] Check whether there is a regtest prefix
             "t3"
         }
     }
@@ -73,10 +72,10 @@ extension ParserContext {
         case .mainnet:
             "t1"
         case .testnet:
-            // TODO: Check whether there is a testnet prefix
+            // TODO: [#84] Check whether there is a testnet prefix
             "tm"
         case .regtest:
-            // TODO: Check whether there is a regtest prefix
+            // TODO: [#84] Check whether there is a regtest prefix
             "tm"
         }
     }
@@ -124,7 +123,6 @@ extension ParserContext: AddressValidator {
     /// Tentatively checks that the given `address` has the expected HRP prefix for the
     /// correposnding network
     public func isSprout(address: String) -> Bool {
-        
         // Naïve checking Testnet Sprout addresses makes 'zt' prefix collide with
         // 'ztestsapling'
         address.hasPrefix(self.sproutPrefix) && !address.hasPrefix("ztestsapling")
