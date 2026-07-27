@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Added
+- The shared ZIP-321 conformance vector corpus
+  ([zcash-zip321-test-vectors](https://github.com/zecdev/zcash-zip321-test-vectors),
+  oracle-verified against the librustzcash `zip321` reference implementation) is
+  now consumed as a test-only git submodule at `Tests/Vectors`. The `.gitmodules`
+  URL is a temporary local path until the corpus repository is published.
+- A conformance test runner (`Tests/ZcashPaymentURITests/Conformance/`) that
+  parses every corpus vector with `ZIP321.request(from:context:)`, asserts
+  field-level agreement (addresses, exact zatoshi amounts, memos, labels,
+  messages, other params) for valid vectors, rejection for invalid vectors, and
+  compares re-rendered URIs against the Rust reference `canonicalUri`.
+  Known divergences of the current implementation from the reference semantics
+  are enumerated in a strict expected-failure map
+  (`ConformanceExpectedFailures.swift`, checked via `XCTExpectFailure`), so the
+  suite is green today while every gap stays machine-checked: fixing a gap
+  without pruning its map entry turns the suite red. The map currently
+  documents 14 divergences (missing address checksum validation, lenient
+  amount grammar, missing zero-valued-transparent-output check, rejection of
+  empty `memo=`/`message=` values, rejection of regtest Sapling addresses,
+  rejection of empty requests, otherparam decoding/rendering issues, and
+  paramindex loss on re-render).
+
 ## 1.0.0
 This release contains several **API breaking changes**, but let not be discouraged to
 update! These changes are made to add several checks to the library to ensure that your payment
