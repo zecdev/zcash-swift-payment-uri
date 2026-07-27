@@ -134,7 +134,8 @@ public extension ZIP321 {
     static func request(
         from uriString: String,
         context: ParserContext,
-        validatingRecipients: RecipientAddress.ValidatingClosure? = nil) throws -> ParserResult {
+        validatingRecipients: RecipientAddress.ValidatingClosure? = nil
+    ) throws -> ParserResult {
         let partialResult = try Parser.leadingAddress(
             uriString,
             context: context,
@@ -148,7 +149,7 @@ public extension ZIP321 {
             return try Self.legacyURI(from: param)
         case let (.some(rest), optionalParam):
             return ParserResult.request(
-               try PaymentRequest(
+                try PaymentRequest(
                     payments: try Parser
                         .mapToPayments(
                             try Parser

@@ -6,7 +6,6 @@
 //
 
 import XCTest
-import BigDecimal
 @testable import ZcashPaymentURI
 final class AmountTests: XCTestCase {
     func testAmountStringDecimals() throws {
@@ -32,13 +31,75 @@ final class AmountTests: XCTestCase {
     }
 
     func testAmountThrowsIfMaxSupply() throws {
-        XCTAssertThrowsError(try Amount(decimal: BigDecimal(21_000_000.00000001)).toString())
+        XCTAssertThrowsError(try Amount(decimal: Decimal(21_000_000.00000001)).toString())
         XCTAssertThrowsError(try Amount(value: 21_000_000.00000001).toString())
         XCTAssertThrowsError(try Amount(string: "21_000_000.00000001").toString())
     }
 
     func testAmountThrowsIfNegativeAmount() throws {
         XCTAssertThrowsError(try Amount(value: -1).toString())
+    }
+
+    /// Negative amounts are not part of the ZIP-321 grammar and must be rejected
+    /// **eagerly** by every construction path, with `AmountError.negativeAmount`
+    /// for a leading `-` before any digit parsing happens.
+    func testNegativeAmountsAreRejectedEagerlyOnEveryPath() throws {
+        // string path: sign is rejected before digits, bounds, or precision are examined.
+        for negative in ["-1", "-0", "-0.5", "-21000001", "-0.123456789", "-", "-."] {
+            XCTAssertThrowsError(try Amount(string: negative), "expected rejection for \(negative)") { error in
+                XCTAssertEqual(error as? Amount.AmountError, Amount.AmountError.negativeAmount, "for input \(negative)")
+            }
+        }
+
+        // an explicit `+` sign is equally outside the grammar (but is not "negative").
+        XCTAssertThrowsError(try Amount(string: "+1")) { error in
+            XCTAssertEqual(error as? Amount.AmountError, Amount.AmountError.invalidTextInput)
+        }
+
+        // Double path.
+        XCTAssertThrowsError(try Amount(value: -0.00000001)) { error in
+            XCTAssertEqual(error as? Amount.AmountError, Amount.AmountError.negativeAmount)
+        }
+
+        // Decimal path.
+        XCTAssertThrowsError(try Amount(decimal: Decimal(-1))) { error in
+            XCTAssertEqual(error as? Amount.AmountError, Amount.AmountError.negativeAmount)
+        }
+    }
+
+    /// Malformed decimal shapes are rejected with `invalidTextInput`.
+    func testMalformedDecimalStringsAreRejected() throws {
+        for malformed in ["1.2.3", "..", ".", "", "1,5", "1e5", " 1", "0x1"] {
+            XCTAssertThrowsError(try Amount(string: malformed), "expected rejection for \(malformed)") { error in
+                XCTAssertEqual(error as? Amount.AmountError, Amount.AmountError.invalidTextInput, "for input \(malformed)")
+            }
+        }
+    }
+
+    /// Non-finite doubles cannot be amounts.
+    func testNonFiniteDoublesAreRejected() throws {
+        for nonFinite in [Double.infinity, -Double.infinity, Double.nan] {
+            XCTAssertThrowsError(try Amount(value: nonFinite)) { error in
+                XCTAssertEqual(error as? Amount.AmountError, Amount.AmountError.invalidTextInput)
+            }
+        }
+    }
+
+    /// The internal zero constant renders canonically and equals a parsed zero.
+    func testZeroAmount() throws {
+        XCTAssertEqual(Amount.zero.toString(), "0")
+        XCTAssertEqual(Amount.zero, try Amount(string: "0"))
+        XCTAssertEqual(Amount.zero, try Amount(string: "0.0"))
+    }
+
+    /// The `rounding:` parameter's eager-rounding arm. Note the fractional-digit
+    /// guard runs before normalization, so a >8-digit decimal is rejected whether
+    /// or not rounding was requested; for in-range inputs the rounding is a no-op.
+    func testDecimalInitWithEagerRounding() throws {
+        XCTAssertEqual(try Amount(decimal: Decimal(string: "0.12345678")!, rounding: true).toString(), "0.12345678")
+        XCTAssertThrowsError(try Amount(decimal: Decimal(string: "0.123456789")!, rounding: true)) { error in
+            XCTAssertEqual(error as? Amount.AmountError, Amount.AmountError.tooManyFractionalDigits)
+        }
     }
 
     // MARK: Text Conversion Tests

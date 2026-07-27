@@ -7,8 +7,6 @@
    
 
 import XCTest
-import Parsing
-import CustomDump
 @testable import ZcashPaymentURI
 
 final class PaymentTests: XCTestCase {
@@ -86,7 +84,7 @@ final class PaymentTests: XCTestCase {
 
         let payment = try Payment.uniqueIndexedParameters(index: 1, parameters: params)
 
-        XCTAssertNoDifference(try Payment(
+        XCTAssertEqual(try Payment(
             recipientAddress: recipient,
             amount: try Amount(value: 1),
             memo: nil,

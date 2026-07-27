@@ -10,7 +10,7 @@ import Foundation
 /// Represents a Zcash recipient address.
 public struct RecipientAddress: Equatable {
     public typealias Network = ParserContext
-    public typealias ValidatingClosure = ((String) -> Bool)
+    public typealias ValidatingClosure = @Sendable (String) -> Bool
     
     /// string-encoded value of the address
     public let value: String

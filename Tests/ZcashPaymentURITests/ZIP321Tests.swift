@@ -1,5 +1,4 @@
 import XCTest
-import CustomDump
 @testable import ZcashPaymentURI
 // swiftlint:disable line_length
 final class ZcashSwiftPaymentUriTests: XCTestCase {
@@ -12,7 +11,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             return
         }
 
-        XCTAssertNoDifference(
+        XCTAssertEqual(
             ZIP321.request(recipient),
             "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
         )
@@ -38,7 +37,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             otherParams: nil
         )
 
-        XCTAssertNoDifference(
+        XCTAssertEqual(
             ZIP321.uriString(
                 from: try PaymentRequest(payments: [payment]),
                 formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)
@@ -46,10 +45,10 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             expected
         )
 
-        XCTAssertNoDifference(ZIP321.request(payment, formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)), expected)
+        XCTAssertEqual(ZIP321.request(payment, formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)), expected)
 
         // Roundtrip test
-        XCTAssertNoDifference(
+        XCTAssertEqual(
             try ZIP321.request(from: expected, context: .testnet, validatingRecipients: nil),
             ParserResult.request(try PaymentRequest(payments: [payment]))
         )
@@ -92,7 +91,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let paymentRequest = try PaymentRequest(payments: [payment0, payment1])
 
-        XCTAssertNoDifference(ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false)), expected)
+        XCTAssertEqual(ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false)), expected)
     }
 
     func testParsingMultiplePaymentsRequestStartingWithNoParamIndex() throws {
@@ -134,7 +133,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let result = try ZIP321.request(from: uriString, context: .testnet)
 
-        XCTAssertNoDifference(result, ParserResult.request(paymentRequest))
+        XCTAssertEqual(result, ParserResult.request(paymentRequest))
     }
 
     func testURIRequestWithInvalidCharsFails() throws {
@@ -233,9 +232,9 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let result = try ZIP321.request(from: uriString, context: .testnet)
 
-        XCTAssertNoDifference(result, ParserResult.request(paymentRequest))
+        XCTAssertEqual(result, ParserResult.request(paymentRequest))
         
-        XCTAssertNoDifference(uriString, ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false)))
+        XCTAssertEqual(uriString, ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false)))
     }
     
     func testParsingMultiplePaymentsRequestStartingWithNoParamIndexIndexedParamHasNoAmount() throws {
@@ -277,8 +276,8 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
 
         let result = try ZIP321.request(from: uriString, context: .testnet)
 
-        XCTAssertNoDifference(result, ParserResult.request(paymentRequest))
-        XCTAssertNoDifference(uriString, ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false)))
+        XCTAssertEqual(result, ParserResult.request(paymentRequest))
+        XCTAssertEqual(uriString, ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false)))
     }
     
     func testSinglePaymentRequestAcceptsNoValueOtherParams() throws {
@@ -301,7 +300,7 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             otherParams: [OtherParam(key: "other", value: nil)]
         )
 
-        XCTAssertNoDifference(
+        XCTAssertEqual(
             ZIP321.uriString(
                 from: try PaymentRequest(payments: [payment]),
                 formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)
@@ -309,10 +308,10 @@ final class ZcashSwiftPaymentUriTests: XCTestCase {
             expected
         )
 
-        XCTAssertNoDifference(ZIP321.request(payment, formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)), expected)
+        XCTAssertEqual(ZIP321.request(payment, formattingOptions: .useEmptyParamIndex(omitAddressLabel: true)), expected)
 
         // Roundtrip test
-        XCTAssertNoDifference(
+        XCTAssertEqual(
             try ZIP321.request(from: expected, context: .testnet, validatingRecipients: nil),
             ParserResult.request(try PaymentRequest(payments: [payment]))
         )

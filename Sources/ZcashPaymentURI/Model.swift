@@ -352,7 +352,7 @@ extension CharacterSet {
     )
 
     ///  `paramname` character set according to [ZIP-321](https://zips.z.cash/zip-0321)
-    static let paramname = ASCIIAlpha.union(ASCIINum).union(CharacterSet(arrayLiteral: "+","-"))
+    static let paramname = ASCIIAlpha.union(ASCIINum).union(CharacterSet(arrayLiteral: "+", "-"))
 
     /// `paramindex` character set according to [ZIP-321](https://zips.z.cash/zip-0321)
     static let paramindex = ASCIINum.union(CharacterSet(arrayLiteral: "."))
@@ -412,7 +412,6 @@ extension CharacterSet {
     static let base64URL = ASCIINum
         .union(.ASCIIAlpha)
         .union(CharacterSet(arrayLiteral: "-", "_"))
-    
 }
 
 extension String {
@@ -426,7 +425,6 @@ extension String {
         return true
     }
 }
-
 
 extension Array where Element == Payment {
     func enforceNetworkCoherence() throws {

@@ -7,8 +7,6 @@
    
 
 import XCTest
-import Parsing
-import CustomDump
 @testable import ZcashPaymentURI
 
 final class ParsingAddressesTests: XCTestCase {
@@ -181,7 +179,7 @@ final class ParsingAddressesTests: XCTestCase {
 
         XCTAssertEqual(partial.0, "")
 
-        XCTAssertNoDifference(
+        XCTAssertEqual(
             partial.1,  "?address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=1.0001&message.1=lunch")
 
     }
@@ -248,7 +246,7 @@ final class ParsingAddressesTests: XCTestCase {
 
         let result = try Parser.leadingAddress(validAddressURI,context: .testnet, validating: Parser.onlyCharsetValidation)
 
-        XCTAssertNoDifference(result.1, expected)
+        XCTAssertEqual(result.1, expected)
         XCTAssertEqual(result.0, nil)
     }
 
@@ -261,7 +259,7 @@ final class ParsingAddressesTests: XCTestCase {
             return
         }
 
-        XCTAssertNoDifference(
+        XCTAssertEqual(
             IndexedParameter(index: 0, param: .address(recipient)),
             try Parser.zcashParameter(
                 (query, nil, value),

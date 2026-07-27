@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+- Signed amount strings are rejected eagerly: a leading `-` fails with
+  `negativeAmount` (and `+` with `invalidTextInput`) before any digit
+  parsing, per review. `Amount.AmountError` is now `Equatable`.
+- `Amount` is fully covered by tests (100% regions/functions/lines),
+  including the previously-untested malformed-shape, non-finite-double,
+  zero-constant, and eager-rounding paths.
+- SwiftLint warnings across `Sources/` resolved (whitespace, comma
+  spacing, TODO format now referencing the resolving PR, multiline
+  parameter brackets, redundant type annotation; one justified
+  `large_tuple` disable on the transitional parser tuple).
+
+### Changed
+- **Breaking (toolchain):** `swift-tools-version` raised to `6.0`; minimum
+  platforms raised to macOS 13 / iOS 16.
+- **Removed all runtime dependencies.** `zcash-swift-payment-uri` is now a
+  zero-dependency package: `swift-parsing`, `swift-case-paths`, `BigDecimal`,
+  `BigInt`, and `swift-custom-dump` have all been removed.
+  - `Amount` is now backed by a checked `UInt64` zatoshi (1 ZEC =
+    100_000_000 zatoshi) fixed-point representation instead of `BigDecimal`,
+    mirroring the reference implementation's `u64`-backed `Zatoshis`: a
+    ZIP-321 amount is non-negative by grammar, so the unsigned backing type
+    makes negative values unrepresentable.
+    `init(decimal:)` now takes a Foundation `Decimal` (the `BigDecimal`
+    overload is gone). All other `Amount` initializers keep their existing
+    signatures and v1 parsing leniency (e.g. `"123."` and `".5"` are still
+    accepted; grammar tightening is deferred to a later change).
+  - The ZIP-321 URI parser (`Parser.swift`) is now a small hand-rolled
+    substring-combinator implementation instead of `swift-parsing`, with
+    behavior verified to match v1 exactly against the full test suite and the
+    shared conformance corpus (the 14-entry expected-failure map is
+    unchanged).
+  - Test assertions using `swift-custom-dump`'s `expectNoDifference`/
+    `XCTAssertNoDifference` have been replaced with `XCTAssertEqual`.
+
 ### Added
 - The shared ZIP-321 conformance vector corpus
   ([zcash-zip321-test-vectors](https://github.com/zecdev/zcash-zip321-test-vectors),

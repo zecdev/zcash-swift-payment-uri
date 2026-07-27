@@ -12,10 +12,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14
-            swift: "5.10"
-            use-setup-swift: true
-          # Swift 6: use runner's native Xcode/Swift (properly matched)
+          # Swift 6: use runner's native Xcode/Swift (properly matched).
+          # The Swift 5.10 leg was removed with the move to swift-tools 6.0,
+          # which its SwiftPM cannot parse.
           - os: macos-15
             swift: "6.0"
             use-setup-swift: false
