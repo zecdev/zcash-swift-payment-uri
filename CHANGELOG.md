@@ -13,8 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Removed all runtime dependencies.** `zcash-swift-payment-uri` is now a
   zero-dependency package: `swift-parsing`, `swift-case-paths`, `BigDecimal`,
   `BigInt`, and `swift-custom-dump` have all been removed.
-  - `Amount` is now backed by a checked `Int64` zatoshi (1 ZEC =
-    100_000_000 zatoshi) fixed-point representation instead of `BigDecimal`.
+  - `Amount` is now backed by a checked `UInt64` zatoshi (1 ZEC =
+    100_000_000 zatoshi) fixed-point representation instead of `BigDecimal`,
+    mirroring the reference implementation's `u64`-backed `Zatoshis`: a
+    ZIP-321 amount is non-negative by grammar, so the unsigned backing type
+    makes negative values unrepresentable.
     `init(decimal:)` now takes a Foundation `Decimal` (the `BigDecimal`
     overload is gone). All other `Amount` initializers keep their existing
     signatures and v1 parsing leniency (e.g. `"123."` and `".5"` are still

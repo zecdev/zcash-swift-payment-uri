@@ -10,10 +10,12 @@ import Foundation
 /// An *non-negative* decimal ZEC amount represented as specified in ZIP-321.
 /// Amount can be from 1 zatoshi (0.00000001) to the `maxSupply` of 21M ZEC (`21_000_000`)
 ///
-/// - Note: internally this is represented as a checked `Int64` count of zatoshi
+/// - Note: internally this is represented as a checked `UInt64` count of zatoshi
 /// (1 ZEC == 100_000_000 zatoshi) fixed-point value rather than an arbitrary-precision
-/// decimal type. This is sufficient because `maxSupply` (`MAX_MONEY` = 2_100_000_000_000_000
-/// zatoshi) is comfortably representable by `Int64` (max ~9.2 * 10^18).
+/// decimal type, mirroring the reference implementation's `Zatoshis` (a `u64` newtype):
+/// a ZIP-321 amount is non-negative by grammar, so the unsigned type makes negative
+/// values unrepresentable, and `maxSupply` (`MAX_MONEY` = 2_100_000_000_000_000
+/// zatoshi) is comfortably representable by `UInt64` (max ~1.8 * 10^19).
 public struct Amount: Equatable, Sendable {
     public enum AmountError: Error {
         case negativeAmount
@@ -25,18 +27,18 @@ public struct Amount: Equatable, Sendable {
     static let maxFractionalDecimalDigits: Int = 8
 
     /// number of zatoshi in 1 ZEC
-    static let zatoshiPerZec: Int64 = 100_000_000
+    static let zatoshiPerZec: UInt64 = 100_000_000
 
     /// `MAX_MONEY` expressed in whole ZEC
-    static let maxSupplyZec: Int64 = 21_000_000
+    static let maxSupplyZec: UInt64 = 21_000_000
 
     /// `MAX_MONEY` expressed in zatoshi (2_100_000_000_000_000)
-    static let maxSupplyZatoshi: Int64 = maxSupplyZec * zatoshiPerZec
+    static let maxSupplyZatoshi: UInt64 = maxSupplyZec * zatoshiPerZec
 
     static let zero = Amount(unchecked: 0)
 
     /// this amount, represented as an integer count of zatoshi.
-    let zatoshi: Int64
+    let zatoshi: UInt64
 
     /// Initializes an Amount from a `Double` number
     /// - parameter value: double representation of the desired amount. **Important:** `Double` values with more than 8 fractional digits ** will be rounded** using bankers rounding.
@@ -84,7 +86,7 @@ public struct Amount: Equatable, Sendable {
         self.zatoshi = try Self.parseZatoshi(from: string)
     }
 
-    init(unchecked: Int64) {
+    init(unchecked: UInt64) {
         self.zatoshi = unchecked
     }
 
@@ -109,26 +111,26 @@ public struct Amount: Equatable, Sendable {
 
 extension Amount {
     /// Converts an already-range/precision-validated non-negative `Decimal` (`<= maxSupplyZec`,
-    /// at most 8 fractional digits) into its exact zatoshi `Int64` representation.
+    /// at most 8 fractional digits) into its exact zatoshi `UInt64` representation.
     /// - Important: callers must validate bounds and fractional digit count *before* calling this,
     /// since scaling by `zatoshiPerZec` assumes no overflow can occur.
-    static func zatoshi(fromValidatedDecimal decimal: Decimal) throws -> Int64 {
+    static func zatoshi(fromValidatedDecimal decimal: Decimal) throws -> UInt64 {
         let scaled = decimal * Decimal(Self.zatoshiPerZec)
         let number = NSDecimalNumber(decimal: scaled)
 
         // `scaled` is guaranteed to be a whole number in [0, maxSupplyZatoshi] given the
-        // preconditions above, so this conversion cannot overflow `Int64`.
-        return number.int64Value
+        // preconditions above, so this conversion cannot overflow `UInt64`.
+        return number.uint64Value
     }
 
-    /// Manually parses a plain decimal `String` into its exact zatoshi `Int64` representation,
+    /// Manually parses a plain decimal `String` into its exact zatoshi `UInt64` representation,
     /// using only checked integer arithmetic (no floating point, no arbitrary-precision decimal type).
     ///
     /// Accepted grammar (intentionally lenient, matching v1 behavior):
     /// `["-"] 1*DIGIT ["." *8DIGIT]` or `["-"] *DIGIT "." 1*8DIGIT`
     /// i.e. at least one of the whole/fractional parts must be present, but either may be empty
     /// (`"123."` and `".5"` are both accepted) — ZIP-321 grammar tightening is deferred.
-    static func parseZatoshi(from string: String) throws -> Int64 {
+    static func parseZatoshi(from string: String) throws -> UInt64 {
         var text = Substring(string)
 
         var isNegative = false
@@ -160,14 +162,14 @@ extension Amount {
             throw AmountError.invalidTextInput
         }
 
-        // `Int64(_:)` returns `nil` on overflow (e.g. a whole part with far more digits
-        // than fit in an `Int64`), which is mapped to `greaterThanSupply` below — matching
-        // the ZIP-321 conformance corpus's `amountInvalid`-but-throws contract for those vectors.
-        let whole: Int64?
+        // `UInt64(_:)` returns `nil` on overflow (e.g. a whole part with far more digits
+        // than fit in a `UInt64`), which is mapped to `greaterThanSupply` below — matching
+        // the ZIP-321 conformance corpus's contract for those vectors.
+        let whole: UInt64?
         if wholePart.isEmpty {
             whole = 0
         } else {
-            whole = Int64(wholePart)
+            whole = UInt64(wholePart)
         }
 
         guard let whole else {
@@ -188,9 +190,9 @@ extension Amount {
             throw AmountError.tooManyFractionalDigits
         }
 
-        // `whole` is now bounded by `maxSupplyZec`, so this scaling cannot overflow `Int64`.
+        // `whole` is now bounded by `maxSupplyZec`, so this scaling cannot overflow `UInt64`.
         let paddedFraction = fractionPart + String(repeating: "0", count: Self.maxFractionalDecimalDigits - fractionPart.count)
-        let fraction: Int64 = paddedFraction.isEmpty ? 0 : (Int64(paddedFraction) ?? 0)
+        let fraction: UInt64 = paddedFraction.isEmpty ? 0 : (UInt64(paddedFraction) ?? 0)
 
         let zatoshi = whole * Self.zatoshiPerZec + fraction
 
