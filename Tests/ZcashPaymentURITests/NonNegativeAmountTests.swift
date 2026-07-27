@@ -54,14 +54,18 @@ struct NonNegativeAmountTests {
         ("18446744073709551624", .exceededSupply, "invalid_amount_overflow_wraps_positive"),
         // one zatoshi over MAX_MONEY.
         ("21000000.00000001", .exceededSupply, "invalid_amount_exceeds_max_money"),
-        ("-1", .invalidDecimalString, "invalid_amount_negative"),
+        // a leading '-' is diagnosed as a negative amount, not as generic garbage.
+        ("-1", .negativeAmount, "invalid_amount_negative"),
         ("123.", .invalidDecimalString, "invalid_amount_trailing_decimal_point"),
         (".5", .invalidDecimalString, "invalid_amount_leading_decimal_point"),
         // strict ZIP-321 grammar probes beyond the corpus:
         ("", .invalidDecimalString, "empty string"),
-        ("-", .invalidDecimalString, "bare minus sign"),
+        ("-1.23", .negativeAmount, "negative amount with a fractional part"),
+        ("-0", .negativeAmount, "negative zero is still signed"),
+        ("-", .negativeAmount, "bare minus sign"),
         ("+", .invalidDecimalString, "bare plus sign"),
         ("+1", .invalidDecimalString, "explicit positive sign"),
+        ("+1.23", .invalidDecimalString, "explicit positive sign with a fractional part"),
         ("1,5", .invalidDecimalString, "comma is not a decimal separator"),
         ("1e5", .invalidDecimalString, "scientific notation"),
         (" 1", .invalidDecimalString, "leading whitespace"),

@@ -27,6 +27,13 @@ public typealias Amount = LegacyAmount
 ///
 /// - Important: prefer ``NonNegativeAmount``. This is the v1 amount type, kept working (under its
 /// deprecated public name ``Amount``) until the parser adopts ``NonNegativeAmount``.
+///
+/// **Lifespan — this type is transitional scaffolding, not a compatibility promise.** It exists
+/// only so that each step of the v2 rewrite stays individually reviewable: the parser still
+/// consumes `LegacyAmount`, so removing it here would mean folding the entire parser conversion
+/// into the change that introduces ``NonNegativeAmount``. `LegacyAmount` (and the deprecated
+/// ``Amount`` alias) is deleted outright later in the same v2 series, once the parser produces
+/// ``NonNegativeAmount`` directly. No v2.0.0 release ships this type.
 public struct LegacyAmount: Equatable, Sendable {
     public enum AmountError: Error, Equatable {
         case negativeAmount
@@ -164,7 +171,7 @@ extension LegacyAmount {
         let isASCIIDigits: (Substring) -> Bool = { $0.allSatisfy { $0.isASCII && $0.isNumber } }
 
         guard wholePart.isEmpty || isASCIIDigits(wholePart),
-              fractionPart.isEmpty || isASCIIDigits(fractionPart)
+            fractionPart.isEmpty || isASCIIDigits(fractionPart)
         else {
             throw AmountError.invalidTextInput
         }

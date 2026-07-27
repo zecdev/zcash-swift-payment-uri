@@ -38,6 +38,11 @@ public struct NonNegativeAmount: Equatable, Hashable, Sendable, Comparable {
     /// number of zatoshi in 1 ZEC.
     static let zatoshiPerZec: UInt64 = 100_000_000
 
+    /// `MAX_MONEY` expressed in whole ZEC: the largest whole-number part a ZEC decimal string
+    /// may carry before the fractional digits are added in.
+    // == maxMoney / zatoshiPerZec (2_100_000_000_000_000 / 100_000_000)
+    static let maxWholeZec: UInt64 = 21_000_000
+
     /// the maximum number of digits allowed after the decimal point in a ZEC decimal string.
     static let maxFractionalDigits: Int = 8
 
@@ -49,9 +54,12 @@ public struct NonNegativeAmount: Equatable, Hashable, Sendable, Comparable {
     }
 
     public enum AmountError: Error, Equatable {
-        /// the decimal string is negative. Unreachable from ``zatoshi(_:)``, whose
-        /// `UInt64` parameter cannot represent a negative count; ``zec(_:)`` reports
-        /// `invalidDecimalString` for a signed string since a sign fails the grammar.
+        /// the decimal string carries a leading `-`, i.e. it denotes a negative amount.
+        ///
+        /// Reported only by ``zec(_:)``, which inspects the sign before applying the
+        /// `amountparam` grammar so that a negative input is named as such instead of being
+        /// lumped in with arbitrary garbage. Unreachable from ``zatoshi(_:)``, whose `UInt64`
+        /// parameter cannot represent a negative count.
         case negativeAmount
         /// the provided value is greater than ``NonNegativeAmount/maxMoney``.
         case exceededSupply
@@ -78,8 +86,27 @@ public struct NonNegativeAmount: Equatable, Hashable, Sendable, Comparable {
     /// e.g. `"123.456"`, `"0.5"`, `"21000000"`.
     /// - returns: `.success` wrapping the parsed `NonNegativeAmount` or `.failure` with the specific
     /// `AmountError` describing why the string was rejected.
+    ///
+    /// ## Signed input
+    /// The `amountparam` grammar admits no sign, so any signed string is rejected — but the two
+    /// signs are distinguished, and the sign is inspected *before* the grammar is applied:
+    /// - a leading `-` (e.g. `"-1.23"`, `"-0"`) yields `.failure(.negativeAmount)`: the input is
+    /// well-formed enough to read as an amount, and it is a negative one.
+    /// - a leading `+` (e.g. `"+1.23"`) yields `.failure(.invalidDecimalString)`: an explicit
+    /// positive sign is simply not part of the grammar.
+    ///
+    /// This mirrors ``LegacyAmount``'s eager rejection of signed input and makes
+    /// ``AmountError/negativeAmount`` reachable from this entry point.
     public static func zec(_ decimalString: String) -> Result<NonNegativeAmount, AmountError> {
         var remainder = Substring(decimalString)
+
+        // the sign is handled first and explicitly: the grammar admits neither sign, but a
+        // negative amount deserves to be reported as one rather than as generic garbage.
+        switch remainder.first {
+        case "-": return .failure(.negativeAmount)
+        case "+": return .failure(.invalidDecimalString)
+        default: break
+        }
 
         let isASCIIDigit: (Character) -> Bool = { $0.isASCII && $0.isNumber }
 
@@ -102,7 +129,8 @@ public struct NonNegativeAmount: Equatable, Hashable, Sendable, Comparable {
         }
 
         // any leftover input (extra characters, whitespace, a second '.', scientific notation,
-        // a sign, etc.) makes the whole string invalid: the grammar requires full consumption.
+        // a trailing sign, etc.) makes the whole string invalid: the grammar requires full
+        // consumption. Leading signs were already dealt with above.
         guard remainder.isEmpty else { return .failure(.invalidDecimalString) }
 
         guard let whole = UInt64(wholeDigits) else {
@@ -113,7 +141,7 @@ public struct NonNegativeAmount: Equatable, Hashable, Sendable, Comparable {
 
         // bounding `whole` here (rather than after scaling) guarantees the multiplication below
         // cannot overflow `UInt64`.
-        guard whole <= Self.maxMoney / Self.zatoshiPerZec else { return .failure(.exceededSupply) }
+        guard whole <= Self.maxWholeZec else { return .failure(.exceededSupply) }
 
         let paddedFraction = fractionDigits + String(repeating: "0", count: Self.maxFractionalDigits - fractionDigits.count)
         let fraction = UInt64(paddedFraction) ?? 0
