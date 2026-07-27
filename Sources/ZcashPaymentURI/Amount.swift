@@ -123,23 +123,12 @@ extension Amount {
         return number.uint64Value
     }
 
-    /// Manually parses a plain decimal `String` into its exact zatoshi `UInt64` representation,
-    /// using only checked integer arithmetic (no floating point, no arbitrary-precision decimal type).
-    ///
-    /// Accepted grammar (intentionally lenient, matching v1 behavior):
-    /// `1*DIGIT ["." *8DIGIT]` or `*DIGIT "." 1*8DIGIT`
-    /// i.e. at least one of the whole/fractional parts must be present, but either may be empty
-    /// (`"123."` and `".5"` are both accepted) — ZIP-321 grammar tightening is deferred.
-    ///
-    /// Signs are rejected **eagerly**, before any other parsing work: ZIP-321 amounts are
+    /// Splits an amount string into its whole and fractional digit runs, validating shape and
+    /// charset. Signs are rejected **eagerly**, before any other work: ZIP-321 amounts are
     /// non-negative by grammar, so a leading `-` fails immediately with
     /// ``AmountError/negativeAmount`` (and `+`, which the grammar equally forbids, fails
     /// with ``AmountError/invalidTextInput``).
-    static func parseZatoshi(from string: String) throws -> UInt64 {
-        let text = Substring(string)
-
-        // eager rejection: a sign can never begin a valid ZIP-321 amount, so fail
-        // before parsing digits rather than deferring the check.
+    private static func splitValidatedParts(of text: Substring) throws -> (Substring, Substring) {
         guard text.first != "-" else {
             throw AmountError.negativeAmount
         }
@@ -163,12 +152,24 @@ extension Amount {
 
         let isASCIIDigits: (Substring) -> Bool = { $0.allSatisfy { $0.isASCII && $0.isNumber } }
 
-        guard
-            (wholePart.isEmpty || isASCIIDigits(wholePart)),
-            (fractionPart.isEmpty || isASCIIDigits(fractionPart))
+        guard wholePart.isEmpty || isASCIIDigits(wholePart),
+              fractionPart.isEmpty || isASCIIDigits(fractionPart)
         else {
             throw AmountError.invalidTextInput
         }
+
+        return (wholePart, fractionPart)
+    }
+
+    /// Manually parses a plain decimal `String` into its exact zatoshi `UInt64` representation,
+    /// using only checked integer arithmetic (no floating point, no arbitrary-precision decimal type).
+    ///
+    /// Accepted grammar (intentionally lenient, matching v1 behavior):
+    /// `1*DIGIT ["." *8DIGIT]` or `*DIGIT "." 1*8DIGIT`
+    /// i.e. at least one of the whole/fractional parts must be present, but either may be empty
+    /// (`"123."` and `".5"` are both accepted) — ZIP-321 grammar tightening is deferred.
+    static func parseZatoshi(from string: String) throws -> UInt64 {
+        let (wholePart, fractionPart) = try splitValidatedParts(of: Substring(string))
 
         // `UInt64(_:)` returns `nil` on overflow (e.g. a whole part with far more digits
         // than fit in a `UInt64`), which is mapped to `greaterThanSupply` below — matching

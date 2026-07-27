@@ -95,7 +95,8 @@ public struct QcharString: Equatable {
 
     /// the qchar-decoded value of this qchar String
     public var value: String {
-        storage.qcharDecode()! // this is fine because this value is already validated
+        // decoding cannot fail: `storage` was qchar-validated at construction.
+        storage.qcharDecode() ?? storage
     }
 
     public var qcharValue: String {
@@ -542,6 +543,9 @@ extension Param {
     /// Creates a `Param` enum from
     /// - parameter queryKey: `paramname` from ZIP-321
     /// - parameter value: the value fo the query key
+    // Transitional v1 dispatch replaced by the Scanner grammar rewrite (#87);
+    // its branching is inherent to the per-parameter dispatch it performs.
+    // swiftlint:disable:next cyclomatic_complexity
     static func from(
         queryKey: String,
         value: String?,
@@ -620,12 +624,12 @@ extension Parser {
 
         switch String(address.prefix(2)) {
         case "zc":
-           return false // sprout not allowed
+            return false // sprout not allowed
         case "zt", "zs":
             return (try? Parser.saplingEncodingCharsetParser.parse(address)) != nil
         case "u1", "ut":
             return (try? Parser.unifiedEncodingCharsetParser.parse(address)) != nil
-        case "t1","t2", "t3", "tm", "te":
+        case "t1", "t2", "t3", "tm", "te":
             return (try? Parser.transparentEncodingCharsetParser.parse(address)) != nil
         default:
             return false

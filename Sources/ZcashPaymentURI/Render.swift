@@ -77,6 +77,9 @@ enum Render {
     /// - parameter payment: a valid `Payment` struct
     /// - parameter index: the index of the `paramindex` as defined by [ZIP-321](https://zips.z.cash/zip-0321). note that passing `zero` will generate an invalid request.
     /// - parameter omittingAddressLabel: When `index` is `nil` and `omittingAddressLabel` the function will return the address without the leading `address=` query param. if index is not nil this parameter will be ignored.
+    // Transitional v1 renderer replaced by the canonical indexed renderer (#89);
+    // the per-field branching is inherent to parameter presence checks.
+    // swiftlint:disable:next cyclomatic_complexity
     static func payment(_ payment: Payment, index: UInt?, omittingAddressLabel: Bool = false) -> String {
         var result = ""
 
