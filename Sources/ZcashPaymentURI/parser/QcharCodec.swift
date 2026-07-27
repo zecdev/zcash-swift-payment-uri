@@ -76,6 +76,11 @@ enum QcharCodec {
             }
         }
 
+        // Every byte appended above is either a `qchar` byte or one of `%` and `hexDigits`, all
+        // of which are ASCII, so this decoding is total: the failable `String(bytes:encoding:)`
+        // would add a `nil` branch no input can reach (and that the 100% region-coverage gate
+        // could not cover).
+        // swiftlint:disable:next optional_data_string_conversion
         return String(decoding: out, as: UTF8.self)
     }
 
