@@ -4,26 +4,27 @@
 //
 //  Created by Pacu in 2025-04-09.
 //
-   
 
-import XCTest
+import Testing
 import ZcashPaymentURI
-final class ParamNameStringTests: XCTestCase {
-    func testValidParamNameStringIsInitialized() {
-        XCTAssertNotNil(ParamNameString(value: "address"))
+
+@Suite("ParamNameString")
+struct ParamNameStringTests {
+    @Test func validParamNameStringIsInitialized() {
+        #expect(ParamNameString(value: "address") != nil)
     }
 
-    func testInvalidLeadingCharacterParamNameStringIsNotInitialized() {
-        XCTAssertNil(ParamNameString(value: "1address"))
-        XCTAssertNil(ParamNameString(value: "+address"))
-        XCTAssertNil(ParamNameString(value: "-address"))
+    @Test func invalidLeadingCharacterParamNameStringIsNotInitialized() {
+        #expect(ParamNameString(value: "1address") == nil)
+        #expect(ParamNameString(value: "+address") == nil)
+        #expect(ParamNameString(value: "-address") == nil)
     }
 
-    func testInvalidCharacterFailsToInitialize() {
-        XCTAssertNil(ParamNameString(value: "addre*ss"))
+    @Test func invalidCharacterFailsToInitialize() {
+        #expect(ParamNameString(value: "addre*ss") == nil)
     }
 
-    func testEmptyStringFailstoInitialize() {
-        XCTAssertNil(ParamNameString(value: ""))
+    @Test func emptyStringFailstoInitialize() {
+        #expect(ParamNameString(value: "") == nil)
     }
 }

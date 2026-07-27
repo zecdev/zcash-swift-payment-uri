@@ -20,46 +20,38 @@
 //  included in the failure message.
 //
 //  Vectors named in `conformanceExpectedFailures` are asserted to CURRENTLY
-//  FAIL via strict `XCTExpectFailure`: fixing the library without pruning the
+//  FAIL via a strict `withKnownIssue`: fixing the library without pruning the
 //  map turns the suite red, so the gap inventory can never silently go stale.
 //
 //  The suite is fully deterministic: no network, no clocks, JSON loaded from
 //  the submodule via `#filePath`.
 //
 
-import XCTest
+import Testing
 @testable import ZcashPaymentURI
 
-// swiftlint:disable file_length type_body_length
-final class Zip321ConformanceTests: XCTestCase {
+@Suite("Zip321Conformance")
+struct Zip321ConformanceTests {
     // MARK: - Suite
 
-    func testValidVectors() throws {
-        let vectors = try ConformanceCorpus.validVectors()
-        XCTAssertFalse(vectors.isEmpty, "no valid vectors loaded — is the Tests/Vectors submodule initialized?")
-
-        for vector in vectors {
-            runVector(named: vector.name) { self.check(valid: vector) }
-        }
+    @Test(arguments: try ConformanceCorpus.validVectors())
+    func validVectors(_ vector: ConformanceValidVector) throws {
+        runVector(named: vector.name) { Self.check(valid: vector) }
     }
 
-    func testInvalidVectors() throws {
-        let vectors = try ConformanceCorpus.invalidVectors()
-        XCTAssertFalse(vectors.isEmpty, "no invalid vectors loaded — is the Tests/Vectors submodule initialized?")
-
-        for vector in vectors {
-            runVector(named: vector.name) { self.check(invalid: vector) }
-        }
+    @Test(arguments: try ConformanceCorpus.invalidVectors())
+    func invalidVectors(_ vector: ConformanceInvalidVector) throws {
+        runVector(named: vector.name) { Self.check(invalid: vector) }
     }
 
     /// Guards the expected-failure map against typos and against corpus bumps
     /// that rename or remove a vector: every key must name a corpus vector.
-    func testExpectedFailureEntriesExistInCorpus() throws {
+    @Test func expectedFailureEntriesExistInCorpus() throws {
         let knownNames = Set(try ConformanceCorpus.validVectors().map(\.name))
             .union(try ConformanceCorpus.invalidVectors().map(\.name))
 
         for name in conformanceExpectedFailures.keys.sorted() {
-            XCTAssertTrue(
+            #expect(
                 knownNames.contains(name),
                 "expectedFailures entry '\(name)' does not match any corpus vector name"
             )
@@ -68,23 +60,20 @@ final class Zip321ConformanceTests: XCTestCase {
 
     // MARK: - Expected-failure wrapper
 
-    /// Runs a single vector's checks, wrapped in a strict `XCTExpectFailure`
+    /// Runs a single vector's checks, wrapped in a strict `withKnownIssue`
     /// when the vector is listed in `conformanceExpectedFailures`.
-    private func runVector(named name: String, _ body: @escaping () -> Void) {
+    private func runVector(named name: String, _ body: () -> Void) {
         guard let reason = conformanceExpectedFailures[name] else {
             body()
             return
         }
 
-        #if canImport(ObjectiveC)
         // Strict (the default): if the vector unexpectedly passes, the stale
-        // xfail entry itself is reported as a failure.
-        XCTExpectFailure("\(name): \(reason)", failingBlock: body)
-        #else
-        // swift-corelibs-xctest (Linux) has no XCTExpectFailure; skip the
-        // vector visibly rather than silently passing or hard-failing.
-        print("[conformance] SKIPPED xfail vector '\(name)' — \(reason)")
-        #endif
+        // xfail entry itself is reported as a failure (`withKnownIssue` fails
+        // when its body does NOT record an issue).
+        withKnownIssue("\(name): \(reason)") {
+            body()
+        }
     }
 
     // MARK: - Valid vector checks
@@ -101,7 +90,7 @@ final class Zip321ConformanceTests: XCTestCase {
         let other: [(name: String, value: String?)]
     }
 
-    private func normalize(_ result: ParserResult) -> [NormalizedPayment] {
+    private static func normalize(_ result: ParserResult) -> [NormalizedPayment] {
         switch result {
         case .legacy(let recipient):
             return [
@@ -128,21 +117,21 @@ final class Zip321ConformanceTests: XCTestCase {
         }
     }
 
-    private func check(valid vector: ConformanceValidVector) {
+    private static func check(valid vector: ConformanceValidVector) {
         guard let context = parserContext(for: vector.network, vectorName: vector.name) else { return }
 
         let result: ParserResult
         do {
             result = try ZIP321.request(from: vector.uri, context: context)
         } catch {
-            XCTFail("\(vector.name): expected successful parse but threw \(error)")
+            Issue.record("\(vector.name): expected successful parse but threw \(error)")
             return
         }
 
         let parsed = normalize(result)
 
         guard parsed.count == vector.payments.count else {
-            XCTFail(
+            Issue.record(
                 "\(vector.name): payment count mismatch — expected \(vector.payments.count), got \(parsed.count)"
             )
             return
@@ -154,18 +143,17 @@ final class Zip321ConformanceTests: XCTestCase {
         for (expected, actual) in zip(vector.payments, parsed) {
             let subject = "\(vector.name) payment[\(expected.index)]"
 
-            XCTAssertEqual(actual.address, expected.address, "\(subject): address mismatch")
+            #expect(actual.address == expected.address, "\(subject): address mismatch")
 
             checkAmount(expected: expected.amountZat, actual: actual.amount, subject: subject)
 
-            XCTAssertEqual(
-                actual.memoBase64,
-                expected.memoBase64,
+            #expect(
+                actual.memoBase64 == expected.memoBase64,
                 "\(subject): memo mismatch (comparing base64url re-encoding of parsed bytes)"
             )
 
-            XCTAssertEqual(actual.label, expected.label, "\(subject): label mismatch")
-            XCTAssertEqual(actual.message, expected.message, "\(subject): message mismatch")
+            #expect(actual.label == expected.label, "\(subject): label mismatch")
+            #expect(actual.message == expected.message, "\(subject): message mismatch")
 
             checkOtherParams(expected: expected.other, actual: actual.other, subject: subject)
         }
@@ -176,28 +164,28 @@ final class Zip321ConformanceTests: XCTestCase {
     /// Compares the vector's exact zatoshi amount against v1's decimal-ZEC
     /// `Amount`.
     ///
-    /// Precision note: v1 stores amounts as `BigDecimal` limited to 8
-    /// fractional digits, and `Amount.toString()` renders a plain (non-
+    /// Precision note: v1 stores amounts as a checked `Int64` zatoshi
+    /// fixed-point value, and `Amount.toString()` renders a plain (non-
     /// scientific) decimal string, so scaling that string by 10^8 with exact
     /// integer string arithmetic is lossless — no floating point, no rounding.
     /// If a future `Amount` ever rendered scientific notation or more than 8
     /// fractional digits, the conversion returns `nil` and the test fails
     /// loudly instead of rounding silently.
-    private func checkAmount(expected: Int64?, actual: Amount?, subject: String) {
+    private static func checkAmount(expected: Int64?, actual: Amount?, subject: String) {
         switch (expected, actual) {
         case (.none, .none):
             return
         case (.some(let zat), .none):
-            XCTFail("\(subject): expected amount of \(zat) zatoshis but v1 parsed no amount")
+            Issue.record("\(subject): expected amount of \(zat) zatoshis but v1 parsed no amount")
         case (.none, .some(let amount)):
-            XCTFail("\(subject): expected no amount but v1 parsed \(amount.toString())")
+            Issue.record("\(subject): expected no amount but v1 parsed \(amount.toString())")
         case (.some(let zat), .some(let amount)):
             let rendered = amount.toString()
             guard let actualZat = Self.zatoshis(fromDecimalZecString: rendered) else {
-                XCTFail("\(subject): could not losslessly convert v1 amount '\(rendered)' to zatoshis")
+                Issue.record("\(subject): could not losslessly convert v1 amount '\(rendered)' to zatoshis")
                 return
             }
-            XCTAssertEqual(actualZat, zat, "\(subject): amount mismatch (v1 rendered '\(rendered)')")
+            #expect(actualZat == zat, "\(subject): amount mismatch (v1 rendered '\(rendered)')")
         }
     }
 
@@ -225,13 +213,13 @@ final class Zip321ConformanceTests: XCTestCase {
         return whole * 100_000_000 + fraction
     }
 
-    private func checkOtherParams(
+    private static func checkOtherParams(
         expected: [[String?]],
         actual: [(name: String, value: String?)],
         subject: String
     ) {
         guard expected.count == actual.count else {
-            XCTFail(
+            Issue.record(
                 "\(subject): otherparam count mismatch — expected \(expected.count) (\(expected)), got \(actual.count) (\(actual))"
             )
             return
@@ -241,8 +229,8 @@ final class Zip321ConformanceTests: XCTestCase {
             let expectedName = expectedPair.first ?? nil
             let expectedValue = expectedPair.count > 1 ? expectedPair[1] : nil
 
-            XCTAssertEqual(actualPair.name, expectedName, "\(subject): otherparam[\(index)] name mismatch")
-            XCTAssertEqual(actualPair.value, expectedValue, "\(subject): otherparam[\(index)] value mismatch")
+            #expect(actualPair.name == expectedName, "\(subject): otherparam[\(index)] name mismatch")
+            #expect(actualPair.value == expectedValue, "\(subject): otherparam[\(index)] value mismatch")
         }
     }
 
@@ -257,7 +245,7 @@ final class Zip321ConformanceTests: XCTestCase {
     /// and multi-payment requests as `zcash:?address=...&address.1=...`, so
     /// the closest v1 options are `.useEmptyParamIndex(omitAddressLabel:
     /// count == 1)`.
-    private func checkRender(vector: ConformanceValidVector, result: ParserResult) {
+    private static func checkRender(vector: ConformanceValidVector, result: ParserResult) {
         guard let canonical = vector.canonicalUri else { return }
 
         let rendered: String
@@ -271,24 +259,22 @@ final class Zip321ConformanceTests: XCTestCase {
             )
         }
 
-        XCTAssertEqual(
-            rendered,
-            canonical,
+        #expect(
+            rendered == canonical,
             "\(vector.name): renderMismatch — v1 re-render differs from reference canonical URI"
         )
     }
 
     // MARK: - Invalid vector checks
 
-    private func check(invalid vector: ConformanceInvalidVector) {
+    private static func check(invalid vector: ConformanceInvalidVector) {
         guard let context = parserContext(for: vector.network, vectorName: vector.name) else { return }
 
         do {
             let result = try ZIP321.request(from: vector.uri, context: context)
-            XCTFail(
-                "\(vector.name): expected rejection (corpus discriminant: \(vector.error)) "
+            let message: String = "\(vector.name): expected rejection (corpus discriminant: \(vector.error)) "
                 + "but parsing succeeded with \(describe(result))"
-            )
+            Issue.record("\(message)")
         } catch {
             // Pass. Any thrown error counts as rejection: v1's error taxonomy
             // does not map 1:1 onto the corpus discriminants, so the exact
@@ -296,7 +282,7 @@ final class Zip321ConformanceTests: XCTestCase {
         }
     }
 
-    private func describe(_ result: ParserResult) -> String {
+    private static func describe(_ result: ParserResult) -> String {
         switch result {
         case .legacy(let recipient):
             return "legacy(\(recipient.value))"
@@ -310,15 +296,14 @@ final class Zip321ConformanceTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func parserContext(for network: String, vectorName: String) -> ParserContext? {
+    private static func parserContext(for network: String, vectorName: String) -> ParserContext? {
         switch network {
         case "main": return .mainnet
         case "test": return .testnet
         case "regtest": return .regtest
         default:
-            XCTFail("\(vectorName): unknown network '\(network)' in corpus vector")
+            Issue.record("\(vectorName): unknown network '\(network)' in corpus vector")
             return nil
         }
     }
 }
-// swiftlint:enable file_length type_body_length

@@ -1,55 +1,57 @@
 //
 //  EncodingTests.swift
-//  
+//
 //
 //  Created by Francisco Gindre on 2023-11-13
 //
 
-import XCTest
+import Testing
 @testable import ZcashPaymentURI
-final class EncodingTests: XCTestCase {
-    func test_qcharEncodedStringContainsAllowedCharactersOnly() {
+
+@Suite("Encoding")
+struct EncodingTests {
+    @Test func qcharEncodedStringContainsAllowedCharactersOnly() {
         let message = "sk8:forever@!"
 
-        XCTAssertEqual(message, message.qcharEncoded())
+        #expect(message == message.qcharEncoded())
     }
 
-    func test_qcharEncodedStringHasPercentEncodedDisallowedCharecters() throws {
-        XCTAssertEqual(
-            "Thank you for your purchase".qcharEncoded(),
-            "Thank%20you%20for%20your%20purchase"
+    @Test func qcharEncodedStringHasPercentEncodedDisallowedCharecters() throws {
+        #expect(
+            "Thank you for your purchase".qcharEncoded()
+            == "Thank%20you%20for%20your%20purchase"
         )
 
-        XCTAssertEqual(
-            "Use Coupon [ZEC4LIFE] to get a 20% discount on your next purchase!!".qcharEncoded(),
-            "Use%20Coupon%20%5BZEC4LIFE%5D%20to%20get%20a%2020%25%20discount%20on%20your%20next%20purchase!!"
+        #expect(
+            "Use Coupon [ZEC4LIFE] to get a 20% discount on your next purchase!!".qcharEncoded()
+            == "Use%20Coupon%20%5BZEC4LIFE%5D%20to%20get%20a%2020%25%20discount%20on%20your%20next%20purchase!!"
         )
 
-        XCTAssertEqual("Order #321".qcharEncoded(), "Order%20%23321")
+        #expect("Order #321".qcharEncoded() == "Order%20%23321")
 
-        XCTAssertEqual("Your Ben & Jerry's Order".qcharEncoded(), "Your%20Ben%20%26%20Jerry's%20Order")
+        #expect("Your Ben & Jerry's Order".qcharEncoded() == "Your%20Ben%20%26%20Jerry's%20Order")
 
-        XCTAssertEqual(" ".qcharEncoded(), "%20")
-        XCTAssertEqual("\"".qcharEncoded(), "%22")
-        XCTAssertEqual("#".qcharEncoded(), "%23")
-        XCTAssertEqual("%".qcharEncoded(), "%25")
-        XCTAssertEqual("&".qcharEncoded(), "%26")
-        XCTAssertEqual("/".qcharEncoded(), "%2F")
-        XCTAssertEqual("<".qcharEncoded(), "%3C")
-        XCTAssertEqual("=".qcharEncoded(), "%3D")
-        XCTAssertEqual(">".qcharEncoded(), "%3E")
-        XCTAssertEqual("?".qcharEncoded(), "%3F")
-        XCTAssertEqual("[".qcharEncoded(), "%5B")
-        XCTAssertEqual("\\".qcharEncoded(), "%5C")
-        XCTAssertEqual("]".qcharEncoded(), "%5D")
-        XCTAssertEqual("^".qcharEncoded(), "%5E")
-        XCTAssertEqual("`".qcharEncoded(), "%60")
-        XCTAssertEqual("{".qcharEncoded(), "%7B")
-        XCTAssertEqual("|".qcharEncoded(), "%7C")
-        XCTAssertEqual("}".qcharEncoded(), "%7D")
+        #expect(" ".qcharEncoded() == "%20")
+        #expect("\"".qcharEncoded() == "%22")
+        #expect("#".qcharEncoded() == "%23")
+        #expect("%".qcharEncoded() == "%25")
+        #expect("&".qcharEncoded() == "%26")
+        #expect("/".qcharEncoded() == "%2F")
+        #expect("<".qcharEncoded() == "%3C")
+        #expect("=".qcharEncoded() == "%3D")
+        #expect(">".qcharEncoded() == "%3E")
+        #expect("?".qcharEncoded() == "%3F")
+        #expect("[".qcharEncoded() == "%5B")
+        #expect("\\".qcharEncoded() == "%5C")
+        #expect("]".qcharEncoded() == "%5D")
+        #expect("^".qcharEncoded() == "%5E")
+        #expect("`".qcharEncoded() == "%60")
+        #expect("{".qcharEncoded() == "%7B")
+        #expect("|".qcharEncoded() == "%7C")
+        #expect("}".qcharEncoded() == "%7D")
     }
 
-    func test_thatUnallowedCharactersAreEscaped() {
+    @Test func thatUnallowedCharactersAreEscaped() {
         let unallowedCharacters = [
             " ",    /// "0x20"
             "\"",   /// "0x22"
@@ -71,35 +73,35 @@ final class EncodingTests: XCTestCase {
             "}"     /// "0x7D"
         ]
 
-        unallowedCharacters.forEach { unallowed in
+        for unallowed in unallowedCharacters {
             guard let qcharEncoded = unallowed.qcharEncoded() else {
-                XCTFail("Character '\(unallowed)' should have been qchar-encoded but returned `nil`.")
-                return
+                Issue.record("Character '\(unallowed)' should have been qchar-encoded but returned `nil`.")
+                continue
             }
 
-            XCTAssert(qcharEncoded.contains(where: { $0 == "%" }), "Character '\(unallowed) should have been percent-encoded but it was not.")
+            #expect(
+                qcharEncoded.contains(where: { $0 == "%" }),
+                "Character '\(unallowed) should have been percent-encoded but it was not."
+            )
         }
 
-        (0x00...0x1F)
-            .map { UnicodeScalar($0) }
-            .map { String($0) }
-            .forEach { controlChar in
-                guard let qcharEncoded = controlChar.qcharEncoded() else {
-                    XCTFail("Control character '\(controlChar)' should have been qchar-encoded but returned `nil`.")
-                    return
-                }
-
-                XCTAssert(
-                    qcharEncoded.contains(where: { $0 == "%" }),
-                    "Control character '\(controlChar) should have been percent-encoded but it was not."
-                )
+        for controlChar in (0x00...0x1F).map({ UnicodeScalar($0) }).map({ String($0) }) {
+            guard let qcharEncoded = controlChar.qcharEncoded() else {
+                Issue.record("Control character '\(controlChar)' should have been qchar-encoded but returned `nil`.")
+                continue
             }
+
+            #expect(
+                qcharEncoded.contains(where: { $0 == "%" }),
+                "Control character '\(controlChar) should have been percent-encoded but it was not."
+            )
+        }
     }
-    
-    func testThatCharacterEnsuringFunctionWorks() {
-        XCTAssertTrue("asdfghjklqwrtyuiopzxcvbnm1234567890QWERTYUIOPLKJHGFDSAZXCVBNM".conformsToCharacterSet(.ASCIIAlphaNum))
-        XCTAssertFalse("asd fghjklqwrtyuiopzxcvbnm1234567890QWERTYUIOPLKJHGFDSAZXCVBNM".conformsToCharacterSet(.ASCIIAlphaNum))
-        XCTAssertTrue("1234567890".conformsToCharacterSet(.ASCIINum))
-        XCTAssertFalse("1234a567890".conformsToCharacterSet(.ASCIINum))
+
+    @Test func thatCharacterEnsuringFunctionWorks() {
+        #expect("asdfghjklqwrtyuiopzxcvbnm1234567890QWERTYUIOPLKJHGFDSAZXCVBNM".conformsToCharacterSet(.ASCIIAlphaNum))
+        #expect(!"asd fghjklqwrtyuiopzxcvbnm1234567890QWERTYUIOPLKJHGFDSAZXCVBNM".conformsToCharacterSet(.ASCIIAlphaNum))
+        #expect("1234567890".conformsToCharacterSet(.ASCIINum))
+        #expect(!"1234a567890".conformsToCharacterSet(.ASCIINum))
     }
 }

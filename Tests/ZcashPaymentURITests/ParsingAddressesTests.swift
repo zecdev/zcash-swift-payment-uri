@@ -3,47 +3,38 @@
 //  zcash-swift-payment-uri
 //
 //  Created by Pacu in  2025.
-//    
-   
+//
 
-import XCTest
+import Testing
 @testable import ZcashPaymentURI
 
-final class ParsingAddressesTests: XCTestCase {
-    func testParsesLegacySingleRecipient() throws {
-        guard let recipient = RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet) else {
-            XCTFail("failed to create valid recipient")
-            return
-        }
+@Suite("ParsingAddresses")
+struct ParsingAddressesTests {
+    @Test func parsesLegacySingleRecipient() throws {
+        let recipient = try #require(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet))
 
         let validURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
         let expected = ParserResult.legacy(recipient)
 
-        XCTAssertEqual(
-            try ZIP321.request(from: validURI, context: .testnet),
-            expected
-        )
+        #expect(try ZIP321.request(from: validURI, context: .testnet) == expected)
     }
 
-    func testNoLeadingAddressURIParses() throws {
-        guard let recipient = RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet) else {
-            XCTFail("unable to create Recipient")
-            return
-        }
+    @Test func noLeadingAddressURIParses() throws {
+        let recipient = try #require(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet))
 
         let validURI = "zcash:?address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=1.0001&message.1=lunch"
 
         let result = try ZIP321.request(from: validURI, context: .testnet)
 
-        XCTAssertEqual(
-            result,
-            ParserResult.request(
+        #expect(
+            result
+            == ParserResult.request(
                 try PaymentRequest(
                     payments: [
                         try Payment(
                             recipientAddress: recipient,
-                            amount: try Amount(string:"1.0001"),
+                            amount: try Amount(string: "1.0001"),
                             memo: nil,
                             label: nil,
                             message: "lunch",
@@ -56,150 +47,96 @@ final class ParsingAddressesTests: XCTestCase {
     }
 
     // MARK: Invalid URIs
-    func testThrowsWhenParsingSproutAddressesOnIndexedParameter() throws {
+    @Test func throwsWhenParsingSproutAddressesOnIndexedParameter() throws {
         let invalidURI = "zcash:?address.1=zc8E5gYid86n4bo2Usdq1cpr7PpfoJGzttwBHEEgGhGkLUg7SPPVFNB2AkRFXZ7usfphup5426dt1buMmY3fkYeRrQGLa8y&amount.1=1.0001&message.1=lunch"
-        XCTAssertThrowsError(
-            try ZIP321
-                .request(from: invalidURI, context: .mainnet, validatingRecipients: ParserContext.mainnet.isValid),
-            "should have thrown \(String(describing: ZIP321.Errors.sproutRecipientsNotAllowed)) but none was"
-        ) { err in
-            switch err {
-            case ZIP321.Errors.sproutRecipientsNotAllowed:
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.sproutRecipientsNotAllowed))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try ZIP321.request(from: invalidURI, context: .mainnet, validatingRecipients: ParserContext.mainnet.isValid)
+        } throws: { error in
+            guard case ZIP321.Errors.sproutRecipientsNotAllowed = error else { return false }
+            return true
         }
     }
 
-    func testThrowsWhenParsingSproutAddressesOnNonIndexedParameter() throws {
+    @Test func throwsWhenParsingSproutAddressesOnNonIndexedParameter() throws {
         let invalidURI = "zcash:zc8E5gYid86n4bo2Usdq1cpr7PpfoJGzttwBHEEgGhGkLUg7SPPVFNB2AkRFXZ7usfphup5426dt1buMmY3fkYeRrQGLa8y?amount.1=1.0001&message.1=lunch"
-        XCTAssertThrowsError(
-            try ZIP321
-                .request(from: invalidURI, context: .mainnet, validatingRecipients: ParserContext.mainnet.isValid),
-            "should have thrown \(String(describing: ZIP321.Errors.sproutRecipientsNotAllowed)) but none was"
-        ) { err in
-            switch err {
-            case ZIP321.Errors.sproutRecipientsNotAllowed:
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.sproutRecipientsNotAllowed))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try ZIP321.request(from: invalidURI, context: .mainnet, validatingRecipients: ParserContext.mainnet.isValid)
+        } throws: { error in
+            guard case ZIP321.Errors.sproutRecipientsNotAllowed = error else { return false }
+            return true
         }
     }
 
-    func testThrowsWhenParsingInvalidBase64() throws {
+    @Test func throwsWhenParsingInvalidBase64() throws {
         let invalidURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=1&memo=a$bcdefg&message=Thank%20you%20for%20your%20purchase"
 
-        XCTAssertThrowsError(
-            try ZIP321.request(from: invalidURI, context: .testnet),
-            "should have thrown \(String(describing: ZIP321.Errors.invalidBase64)) but none was"
-        ) { err in
-            switch err {
-            case ZIP321.Errors.invalidBase64:
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.invalidBase64))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try ZIP321.request(from: invalidURI, context: .testnet)
+        } throws: { error in
+            guard case ZIP321.Errors.invalidBase64 = error else { return false }
+            return true
         }
     }
 
     /// invalid; missing `address=`/
-    func testThrowsWhenRecipientIsMissingNoParamIndex() {
+    @Test func throwsWhenRecipientIsMissingNoParamIndex() {
         let invalidURI = "zcash:?amount=3491405.05201255&address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=5740296.87793245"
 
-        XCTAssertThrowsError(
-            try ZIP321.request(from: invalidURI, context: .testnet),
-            "should have thrown \(String(describing: ZIP321.Errors.recipientMissing(nil))) but none was"
-        ) { err in
-            switch err {
-            case ZIP321.Errors.recipientMissing(nil):
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.recipientMissing(nil)))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try ZIP321.request(from: invalidURI, context: .testnet)
+        } throws: { error in
+            guard case ZIP321.Errors.recipientMissing(nil) = error else { return false }
+            return true
         }
     }
 
     /// invalid; missing `address.1=`/
-    func testThrowsWhenRecipientIsMissingWithParamIndex() {
+    @Test func throwsWhenRecipientIsMissingWithParamIndex() {
         let invalidURI = "zcash:?address=tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU&amount=1&amount.1=2&address.2=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        XCTAssertThrowsError(
-            try ZIP321.request(from: invalidURI, context: .testnet),
-            "should have thrown \(String(describing: ZIP321.Errors.recipientMissing(1))) but none was"
-        ) { err in
-            switch err {
-            case ZIP321.Errors.recipientMissing(1):
-                XCTAssert(true)
-            default:
-                XCTFail(
-                        """
-                        Expected \(String(describing: ZIP321.Errors.recipientMissing(1)))
-                        but \(err) was thrown instead
-                        """
-                )
-            }
+        #expect {
+            try ZIP321.request(from: invalidURI, context: .testnet)
+        } throws: { error in
+            guard case ZIP321.Errors.recipientMissing(1) = error else { return false }
+            return true
         }
     }
 
     // MARK: Partial Parser - Leading Address
 
-    func testMaybeLeadingAddress() throws {
+    @Test func maybeLeadingAddress() throws {
         let validURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=1.0001&message=lunch"
 
         let result = try Parser.maybeLeadingAddress.parse(validURI)
 
-        XCTAssertEqual(result.0, "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez")
-        XCTAssertEqual(result.1, "?amount=1.0001&message=lunch")
+        #expect(result.0 == "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez")
+        #expect(result.1 == "?amount=1.0001&message=lunch")
 
         let noLeadingAddressValidURI = "zcash:?address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=1.0001&message.1=lunch"
 
         let partial = try Parser.maybeLeadingAddress.parse(noLeadingAddressValidURI[...])
 
-        XCTAssertEqual(partial.0, "")
+        #expect(partial.0 == "")
 
-        XCTAssertEqual(
-            partial.1,  "?address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=1.0001&message.1=lunch")
-
+        #expect(
+            partial.1
+            == "?address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=1.0001&message.1=lunch"
+        )
     }
 
-    func testNoLeadingAddressParsesPastPrefix() throws {
+    @Test func noLeadingAddressParsesPastPrefix() throws {
         let validURI = "zcash:?address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=1.0001&message.1=lunch"
 
         let result = try Parser.maybeLeadingAddress.parse(validURI)
 
-        XCTAssertEqual(result.0, "")
-        XCTAssertEqual(result.1, "?address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=1.0001&message.1=lunch")
+        #expect(result.0 == "")
+        #expect(result.1 == "?address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=1.0001&message.1=lunch")
     }
 
-    func testThatValidLeadingAddressesAreParsed() throws {
+    @Test func thatValidLeadingAddressesAreParsed() throws {
         let validAddressURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        guard let recipient = RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet) else {
-            XCTFail("Failed to create valid recipient")
-            return
-        }
+        let recipient = try #require(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet))
 
         let expected = IndexedParameter(index: 0, param: .address(recipient))
 
@@ -209,64 +146,56 @@ final class ParsingAddressesTests: XCTestCase {
             validating: Parser.onlyCharsetValidation
         )
 
-        XCTAssertEqual(result.1, expected)
+        #expect(result.1 == expected)
     }
 
-    func testThatValidLeadingAddressesAreParsedWithAdditionalParams() throws {
+    @Test func thatValidLeadingAddressesAreParsedWithAdditionalParams() throws {
         let validAddressURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=1&memo=VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg&message=Thank%20you%20for%20your%20purchase"
 
-        guard let recipient = RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet) else {
-            XCTFail("Failed to create valid recipient")
-            return
-        }
+        let recipient = try #require(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet))
 
         let expected = IndexedParameter(index: 0, param: .address(recipient))
         let rest = "?amount=1&memo=VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg&message=Thank%20you%20for%20your%20purchase"
         let result = try Parser.leadingAddress(validAddressURI, context: .testnet, validating: Parser.onlyCharsetValidation)
 
-        XCTAssertEqual(result.1, expected)
-        XCTAssertEqual(result.0, rest[...])
+        #expect(result.1 == expected)
+        #expect(result.0 == rest[...])
     }
 
-    func testThatInvalidLeadingAddressesThrowError() throws {
+    @Test func thatInvalidLeadingAddressesThrowError() throws {
         let invalidAddrURI = "zcash:tm000HTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        XCTAssertThrowsError(try Parser.leadingAddress(invalidAddrURI, context: .testnet, validating: Parser.onlyCharsetValidation))
+        #expect(throws: (any Error).self) {
+            try Parser.leadingAddress(invalidAddrURI, context: .testnet, validating: Parser.onlyCharsetValidation)
+        }
     }
 
-    func testThatLeadingAddressFunctionParserLegacyURI() throws {
+    @Test func thatLeadingAddressFunctionParserLegacyURI() throws {
         let validAddressURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        guard let recipient = RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet) else {
-            XCTFail("Failed to create valid recipient")
-            return
-        }
+        let recipient = try #require(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet))
 
         let expected = IndexedParameter(index: 0, param: .address(recipient))
 
-        let result = try Parser.leadingAddress(validAddressURI,context: .testnet, validating: Parser.onlyCharsetValidation)
+        let result = try Parser.leadingAddress(validAddressURI, context: .testnet, validating: Parser.onlyCharsetValidation)
 
-        XCTAssertEqual(result.1, expected)
-        XCTAssertEqual(result.0, nil)
+        #expect(result.1 == expected)
+        #expect(result.0 == nil)
     }
 
-    func testZcashParameterCreatesValidAddress() throws {
+    @Test func zcashParameterCreatesValidAddress() throws {
         let query = "address"[...]
         let value = "u1fl5mprj0t9p4jg92hjjy8q5myvwc60c9wv0xachauqpn3c3k4xwzlaueafq27dcg7tzzzaz5jl8tyj93wgs983y0jq0qfhzu6n4r8rakpv5f4gg2lrw4z6pyqqcrcqx04d38yunc6je"[...]
 
-        guard let recipient = RecipientAddress(value: String(value), context: .mainnet, validating: nil) else {
-            XCTFail("could not create recipient address")
-            return
-        }
+        let recipient = try #require(RecipientAddress(value: String(value), context: .mainnet, validating: nil))
 
-        XCTAssertEqual(
-            IndexedParameter(index: 0, param: .address(recipient)),
-            try Parser.zcashParameter(
+        #expect(
+            IndexedParameter(index: 0, param: .address(recipient))
+            == (try Parser.zcashParameter(
                 (query, nil, value),
                 context: .mainnet,
                 validating: Parser.onlyCharsetValidation
-            )
+            ))
         )
     }
-
 }
