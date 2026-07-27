@@ -198,6 +198,9 @@ enum Parser {
         var bytes: [UInt8] = [first]
         bytes.append(contentsOf: scanner.takeWhile(isNameChar))
 
+        // `bytes` is an `ALPHA` followed by `isNameChar` bytes, all ASCII, so this decoding is
+        // total; the failable `String(bytes:encoding:)` would add an unreachable `nil` branch.
+        // swiftlint:disable:next optional_data_string_conversion
         return String(decoding: bytes, as: UTF8.self)
     }
 
@@ -206,6 +209,9 @@ enum Parser {
     /// leading zero, or more than four digits.
     private static func scanIndexDigits(_ scanner: inout Scanner) throws -> UInt {
         let digits = scanner.takeWhile(isDigit)
+        // `digits` holds only `isDigit` bytes, all ASCII, so this decoding is total; the failable
+        // `String(bytes:encoding:)` would add an unreachable `nil` branch.
+        // swiftlint:disable:next optional_data_string_conversion
         let text = String(decoding: digits, as: UTF8.self)
 
         guard !digits.isEmpty, digits.count <= 4, digits[0] != zeroDigit, let value = UInt(text) else {
@@ -235,6 +241,9 @@ enum Parser {
     /// interpretation (percent-decoding vs. sub-grammar parsing) happens later in ``Param/from``.
     /// Throws ``ZIP321/Errors/parseError(_:)`` if the name is missing/invalid (e.g. empty, or
     /// containing a percent-escape) or if any byte in the segment is left unconsumed.
+    // The `(name, index, value)` triple is exactly the ZIP-321 `otherparam` production this
+    // scans; splitting it into a named type would add a model shape the grammar does not have.
+    // swiftlint:disable:next large_tuple
     static func parseQueryToken(_ token: Substring) throws -> (name: String, index: UInt?, value: String?) {
         var scanner = Scanner(token)
 
@@ -247,6 +256,9 @@ enum Parser {
         var value: String?
         if scanner.expect(ascii: equals) {
             let valueBytes = scanner.takeWhile(QcharCodec.isValueByte)
+            // `valueBytes` holds only `QcharCodec.isValueByte` bytes, all ASCII, so this decoding
+            // is total; the failable `String(bytes:encoding:)` would add an unreachable branch.
+            // swiftlint:disable:next optional_data_string_conversion
             value = String(decoding: valueBytes, as: UTF8.self)
         }
 
