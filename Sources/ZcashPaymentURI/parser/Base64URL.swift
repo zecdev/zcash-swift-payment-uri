@@ -59,6 +59,10 @@ enum Base64URL {
             break
         }
 
+        // `output` only ever holds bytes drawn from `alphabet`, which is pure ASCII, so this
+        // decoding is total: the failable `String(bytes:encoding:)` would add a `nil` branch
+        // that no input can reach (and that the 100% region-coverage gate could not cover).
+        // swiftlint:disable:next optional_data_string_conversion
         return String(decoding: output, as: UTF8.self)
     }
 
