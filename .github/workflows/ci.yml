@@ -14,10 +14,14 @@ name: CI
 #   (`actions/runner-images` also preinstalls older Xcode 16.0-16.3 / 26.0-26.3
 #   side-by-side on these images, but the point of this matrix is to track
 #   whatever each image ships as its DEFAULT, so we deliberately do not pin.)
-# - `test-linux` uses the official `swift:6.2-noble` image
-#   (hub.docker.com/_/swift, Docker Official Image). The package is
-#   zero-dependency and swift-testing ships bundled with the Swift 6.x
-#   toolchain (no separate package/dependency needed) on Linux.
+# - There is deliberately no Linux test job. The LIBRARY target is
+#   platform-neutral Swift, but the TEST target is not: the reference
+#   address-encoding checkers under `Tests/ZcashPaymentURITests/Support/`
+#   verify Base58Check checksums with Apple's CryptoKit, which does not exist
+#   on Linux, so `swift test` cannot succeed there. Linux was never a declared
+#   platform of this package (see `Package.swift`, which declares macOS 13 /
+#   iOS 16 only), so nothing is lost. The `lint` job below still runs on
+#   `ubuntu-latest`, but only inside containers — it never builds for Linux.
 # - `lint` runs SwiftLint from the official `ghcr.io/realm/swiftlint` image
 #   (pinned) and the toolchain-bundled `swift format` (from the `swift:6.2-noble`
 #   image) via plain `docker run`, so the job itself needs no toolchain
@@ -70,25 +74,6 @@ jobs:
           echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
           xcode-select -p
           xcrun swift --version
-
-      - name: Build
-        run: swift build
-
-      - name: Test
-        run: swift test
-
-  test-linux:
-    name: test (ubuntu-latest, swift:6.2-noble)
-    runs-on: ubuntu-latest
-    container: swift:6.2-noble
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Swift version
-        run: swift --version
 
       - name: Build
         run: swift build

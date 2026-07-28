@@ -84,18 +84,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added — CI, lint/format, and DocC (S17)
 
-- **`.github/workflows/ci.yml`** replaces `swift.yml` + `swiftlint.yml` with five jobs, all
+- **`.github/workflows/ci.yml`** replaces `swift.yml` + `swiftlint.yml` with four jobs, all
   required on `main` and on every PR: `test-macos` (matrix: macos-15 / Xcode 16.4 / Swift 6.1, and
   macos-26 / Xcode 26.5 / Swift 6.2 — both using each runner's ambient default Xcode via
-  `xcode-select -p`, with no `setup-swift` action or explicit `xcode-select -s`), `test-linux`
-  (the official `swift:6.2-noble` Docker image), `coverage` (macos-15, runs
+  `xcode-select -p`, with no `setup-swift` action or explicit `xcode-select -s`), `coverage` (macos-15, runs
   `scripts/coverage-gate.sh`, the 100% region-coverage gate from S16), `lint` (SwiftLint via the
   official `ghcr.io/realm/swiftlint:0.65.0` image and the toolchain-bundled `swift format lint
   --strict`, both invoked via plain `docker run` on `ubuntu-latest` — no toolchain installed on
   the runner itself), and `docc` (macos-15, `xcodebuild docbuild`, fails the build if the log
   contains any `warning:` line). The old macos-14 / Swift 5.10 leg (via
   `swift-actions/setup-swift`) is removed outright: Xcode 15.4 cannot build a
-  `swift-tools-version: 6.0` manifest at all. `Tests/Vectors` is checked out via
+  `swift-tools-version: 6.0` manifest at all. There is deliberately **no Linux test job**: the library
+  target is platform-neutral Swift, but the TEST target's reference address-encoding checkers
+  verify Base58Check checksums with Apple's CryptoKit, which does not exist on Linux, so
+  `swift test` cannot run there. Linux was never a declared platform of this package
+  (`Package.swift` declares macOS 13 / iOS 16 only). The `lint` job still runs on
+  `ubuntu-latest`, but only inside containers — it never builds for Linux.
+  `Tests/Vectors` is checked out via
   `submodules: recursive`; this workflow (and every job that runs the test suite) only goes green
   in CI once the corpus repository is published and `.gitmodules` is re-pointed at it.
   `release.yml`'s toolchain setup was updated to match (`macos-15`, ambient default Xcode,
@@ -112,8 +117,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   SwiftLint's `operator_usage_whitespace`). Several default-on rules are deliberately disabled to
   keep the one-time reformat diff reviewable and avoid semantic/structural churn: acronym-style
   identifier renaming (`AlwaysUseLowerCamelCase`, which would rename e.g. `ASCIIAlphaNum`),
-  hex-literal digit grouping (`GroupNumericLiterals`, which would rewrite the SHA-256 constant
-  tables), moving `let` inside `case` patterns (`UseLetInEveryBoundCaseVariable`, which would
+  hex-literal digit grouping (`GroupNumericLiterals`, which would rewrite the Bech32/Base58
+  constant tables), moving `let` inside `case` patterns (`UseLetInEveryBoundCaseVariable`, which would
   rewrite ~20 existing `case let .foo(...)` sites against the codebase's prevailing idiom),
   `public extension` restructuring (`NoAccessLevelOnExtensionDeclaration`), import reordering
   (`OrderedImports`), and synthesized-initializer/`forEach`-rewriting rules that could change
