@@ -45,9 +45,9 @@ struct ParsingTests {
     }
 
     @Test func paramNameWithoutIndexIsParsed() throws {
-        let result = try Parser.parseNameAndIndex("asset-id")
+        let result = try Parser.parseNameAndIndex("loyalty-id")
 
-        #expect(result.name == "asset-id")
+        #expect(result.name == "loyalty-id")
         #expect(result.index == nil)
     }
 
@@ -61,15 +61,15 @@ struct ParsingTests {
     // MARK: Partial parsers - full query segment
 
     @Test func anySeeminglySoundParameterIsParsed() throws {
-        let otherNoIndex = try Parser.parseQueryToken("asset-id=zPOAP")
-        #expect(otherNoIndex.name == "asset-id")
+        let otherNoIndex = try Parser.parseQueryToken("loyalty-id=gold-tier")
+        #expect(otherNoIndex.name == "loyalty-id")
         #expect(otherNoIndex.index == nil)
-        #expect(otherNoIndex.value == "zPOAP")
+        #expect(otherNoIndex.value == "gold-tier")
 
-        let otherIndexed = try Parser.parseQueryToken("asset-id.1=zPOAP")
-        #expect(otherIndexed.name == "asset-id")
+        let otherIndexed = try Parser.parseQueryToken("loyalty-id.1=gold-tier")
+        #expect(otherIndexed.name == "loyalty-id")
         #expect(otherIndexed.index == 1)
-        #expect(otherIndexed.value == "zPOAP")
+        #expect(otherIndexed.value == "gold-tier")
 
         let amountIndexed = try Parser.parseQueryToken("amount.1=0.0001")
         #expect(amountIndexed.name == "amount")
