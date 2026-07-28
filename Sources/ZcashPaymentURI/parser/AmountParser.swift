@@ -15,8 +15,8 @@
 /// escape (amount values are never percent-decoded), matching the reference `parse_amount`.
 ///
 /// Signed input is rejected but named: a leading `-` surfaces as ``ZIP321/Errors/amountTooSmall(_:)``
-/// (the same mapping `LegacyAmount`'s `.negativeAmount` gets), while a leading `+` — like any other
-/// grammar-shape failure — surfaces as ``ZIP321/Errors/invalidParamValue(param:index:)``.
+/// (the same mapping the v1 amount type gave its own negative-amount error), while a leading `+` —
+/// like any other grammar-shape failure — surfaces as ``ZIP321/Errors/invalidParamValue(param:index:)``.
 enum AmountParser {
     /// Parses `string` into a ``NonNegativeAmount``.
     /// - parameter string: the raw `amount` parameter value.
