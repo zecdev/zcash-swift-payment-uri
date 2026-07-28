@@ -56,10 +56,11 @@ public struct NonNegativeAmount: Equatable, Hashable, Sendable, Comparable {
     public enum AmountError: Error, Equatable {
         /// the decimal string carries a leading `-`, i.e. it denotes a negative amount.
         ///
-        /// Reported only by ``zec(_:)``, which inspects the sign before applying the
-        /// `amountparam` grammar so that a negative input is named as such instead of being
-        /// lumped in with arbitrary garbage. Unreachable from ``zatoshi(_:)``, whose `UInt64`
-        /// parameter cannot represent a negative count.
+        /// Reported only by ``zec(_:)``: the `amountparam` grammar requires a non-empty
+        /// whole-number part, and when that part is empty ``zec(_:)`` distinguishes a leading
+        /// `-` from every other malformed shape, so a negative input is named as such instead
+        /// of being lumped in with arbitrary garbage. Unreachable from ``zatoshi(_:)``, whose
+        /// `UInt64` parameter cannot represent a negative count.
         case negativeAmount
         /// the provided value is greater than ``NonNegativeAmount/maxMoney``.
         case exceededSupply
@@ -89,29 +90,25 @@ public struct NonNegativeAmount: Equatable, Hashable, Sendable, Comparable {
     ///
     /// ## Signed input
     /// The `amountparam` grammar admits no sign, so any signed string is rejected — but the two
-    /// signs are distinguished, and the sign is inspected *before* the grammar is applied:
-    /// - a leading `-` (e.g. `"-1.23"`, `"-0"`) yields `.failure(.negativeAmount)`: the input is
-    /// well-formed enough to read as an amount, and it is a negative one.
+    /// signs are distinguished rather than lumped together:
+    /// - a leading `-` (e.g. `"-1.23"`, `"-0"`, `"-"`) yields `.failure(.negativeAmount)`: the
+    /// input reads as an amount, and it is a negative one.
     /// - a leading `+` (e.g. `"+1.23"`) yields `.failure(.invalidDecimalString)`: an explicit
     /// positive sign is simply not part of the grammar.
     ///
-    /// This mirrors ``LegacyAmount``'s eager rejection of signed input and makes
+    /// This mirrors the v1 amount type's eager rejection of signed input and makes
     /// ``AmountError/negativeAmount`` reachable from this entry point.
     public static func zec(_ decimalString: String) -> Result<NonNegativeAmount, AmountError> {
         var remainder = Substring(decimalString)
 
-        // the sign is handled first and explicitly: the grammar admits neither sign, but a
-        // negative amount deserves to be reported as one rather than as generic garbage.
-        switch remainder.first {
-        case "-": return .failure(.negativeAmount)
-        case "+": return .failure(.invalidDecimalString)
-        default: break
-        }
-
         let isASCIIDigit: (Character) -> Bool = { $0.isASCII && $0.isNumber }
 
+        // an empty whole-number part means the string did not begin with a digit; the leading
+        // character decides whether that is a negative amount or plain malformed input.
         let wholeDigits = remainder.prefix(while: isASCIIDigit)
-        guard !wholeDigits.isEmpty else { return .failure(.invalidDecimalString) }
+        guard !wholeDigits.isEmpty else {
+            return .failure(Self.emptyWholePartError(leading: remainder.first))
+        }
         remainder.removeFirst(wholeDigits.count)
 
         var fractionDigits = Substring()
@@ -130,7 +127,8 @@ public struct NonNegativeAmount: Equatable, Hashable, Sendable, Comparable {
 
         // any leftover input (extra characters, whitespace, a second '.', scientific notation,
         // a trailing sign, etc.) makes the whole string invalid: the grammar requires full
-        // consumption. Leading signs were already dealt with above.
+        // consumption. A leading sign cannot reach here — it leaves the whole-digit run empty
+        // and is rejected by the guard above.
         guard remainder.isEmpty else { return .failure(.invalidDecimalString) }
 
         guard let whole = UInt64(wholeDigits) else {
@@ -151,6 +149,15 @@ public struct NonNegativeAmount: Equatable, Hashable, Sendable, Comparable {
         guard total <= Self.maxMoney else { return .failure(.exceededSupply) }
 
         return .success(NonNegativeAmount(uncheckedValue: total))
+    }
+
+    /// The rejection reason for a decimal string whose whole-number part is empty.
+    ///
+    /// A leading `-` is reported as ``AmountError/negativeAmount`` so that a negative amount is
+    /// named as such; every other shape (`+`, `.5`, the empty string, stray characters) is a
+    /// plain ``AmountError/invalidDecimalString``.
+    private static func emptyWholePartError(leading: Character?) -> AmountError {
+        leading == "-" ? .negativeAmount : .invalidDecimalString
     }
 
     /// Renders this amount as a plain decimal ZEC string, matching the reference `amount_str`
