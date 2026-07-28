@@ -44,8 +44,10 @@ extension ZIP321.Errors {
     ///     (the grammar-shape failure — empty whole/fraction part, sign, stray characters —
     ///     matching v1's `.invalidTextInput` mapping)
     ///   - `.tooManyFractionalDigits` → `.amountTooSmall(index)` (v1 parity)
-    ///   - `.negativeAmount`          → `.amountTooSmall(index)` (v1 parity; not reachable via
-    ///     `NonNegativeAmount.zec`, whose grammar has no sign, but mapped for totality)
+    ///   - `.negativeAmount`          → `.amountTooSmall(index)` (v1 parity: `LegacyAmount` maps its
+    ///     own `.negativeAmount` the same way). Reachable: `NonNegativeAmount.zec` inspects the sign
+    ///     before applying the grammar, so a leading `-` reports `.negativeAmount` rather than
+    ///     `.invalidDecimalString`.
     static func mapFrom(_ amountError: NonNegativeAmount.AmountError, index: UInt) -> ZIP321.Errors {
         switch amountError {
         case .exceededSupply:

@@ -57,8 +57,28 @@ struct AmountParserTests {
     }
 
     @Test func rejectsNegativeAmount() {
-        // invalid_amount_negative: "-1" is not representable by the amountparam grammar
-        #expect(throwsAmountError { try AmountParser.parse("-1", index: 0) })
+        // invalid_amount_negative: "-1" is not representable by the amountparam grammar.
+        // The sign is diagnosed before the grammar, so this maps through
+        // NonNegativeAmount.AmountError.negativeAmount to v1's .amountTooSmall.
+        #expect {
+            try AmountParser.parse("-1", index: 0)
+        } throws: { error in
+            guard case ZIP321.Errors.amountTooSmall(0) = error else { return false }
+            return true
+        }
+
+        #expect(throwsAmountError { try AmountParser.parse("-1.23", index: 0) })
+    }
+
+    @Test func rejectsExplicitPositiveSign() {
+        // '+' is equally absent from the grammar, but it is not a negative amount:
+        // it surfaces as a plain shape failure.
+        #expect {
+            try AmountParser.parse("+1", index: 0)
+        } throws: { error in
+            guard case ZIP321.Errors.invalidParamValue(param: "amount", index: nil) = error else { return false }
+            return true
+        }
     }
 
     @Test func rejectsTrailingDecimalPoint() throws {
