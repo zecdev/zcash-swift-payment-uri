@@ -58,9 +58,6 @@ let conformanceExpectedFailures: [String: String] = [
     "amount_parse_simple_large_decimal":
         "v1 rejects: same empty-'message=' limitation as amount_one_with_empty_message "
         + "(QcharString disallows empty strings)",
-    "structure_empty_memo_on_sapling":
-        "v1 rejects: 'memo=' (0-byte memo) throws memoBytesError(memoEmpty); reference "
-        + "accepts a zero-length memo as valid",
 
     // MARK: Regtest Sapling addresses — dead branch in the charset validator
     "spec_valid_regtest_example":

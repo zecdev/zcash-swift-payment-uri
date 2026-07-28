@@ -65,31 +65,82 @@ struct MemoBytesTests {
         #expect(memo.toBase64URL() == expectedBase64)
     }
 
-    @Test func initWithStringThrows() {
-        #expect(throws: (any Error).self) {
-            try MemoBytes(utf8String: "")
+    @Test func utf8StringRoundTrip() throws {
+        let memo = try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉")
+        let decoded = try MemoBytes(base64URL: memo.toBase64URL())
+
+        #expect(decoded == memo)
+        #expect(String(decoding: decoded.memoData, as: UTF8.self) == "This is a unicode memo ✨🦄🏆🎉")
+    }
+
+    @Test func rawBytesRoundTrip() throws {
+        let bytes: [UInt8] = [0x00, 0xFF, 0x10, 0x80, 0x7F]
+
+        let memo = try MemoBytes(bytes: bytes)
+        let decoded = try MemoBytes(base64URL: memo.toBase64URL())
+
+        #expect(decoded == memo)
+        #expect([UInt8](decoded.memoData) == bytes)
+    }
+
+    // MARK: - length boundaries: 0...512 bytes are valid, 513 is not.
+
+    @Test func emptyMemoIsValidAndRoundTrips() throws {
+        // consensus zero-pads memos to 512 bytes, so a zero-length memo is a
+        // well-defined empty memo (`memo=` in a ZIP-321 URI).
+        let fromBytes = try MemoBytes(bytes: [])
+        let fromString = try MemoBytes(utf8String: "")
+        let fromBase64 = try MemoBytes(base64URL: "")
+
+        #expect(fromBytes == fromString)
+        #expect(fromBytes == fromBase64)
+        #expect(fromBytes.toBase64URL() == "")
+        #expect(fromBytes.memoData.isEmpty)
+    }
+
+    @Test func lengthBoundaries() throws {
+        #expect(try MemoBytes(bytes: []).memoData.count == 0)
+        #expect(try MemoBytes(bytes: [0x61]).memoData.count == 1)
+        #expect(try MemoBytes(bytes: [UInt8](repeating: 0x61, count: 512)).memoData.count == 512)
+
+        #expect(throws: MemoBytes.MemoError.memoTooLong) {
+            try MemoBytes(bytes: [UInt8](repeating: 0x61, count: 513))
         }
 
-        #expect(throws: (any Error).self) {
+        #expect(try MemoBytes(utf8String: String(repeating: "a", count: 512)).memoData.count == 512)
+
+        #expect(throws: MemoBytes.MemoError.memoTooLong) {
             try MemoBytes(utf8String: String(repeating: "a", count: 513))
         }
-    }
 
-    @Test func initWithBytesThrows() {
-        #expect(throws: (any Error).self) {
-            try MemoBytes(bytes: [])
-        }
-
-        #expect(throws: (any Error).self) {
-            try MemoBytes(bytes: [UInt8](repeating: 0xf4, count: 513))
+        // 513 bytes of valid base64url decode fine but exceed the memo limit.
+        let oversized = Base64URL.encode([UInt8](repeating: 0x61, count: 513))
+        #expect(throws: MemoBytes.MemoError.memoTooLong) {
+            try MemoBytes(base64URL: oversized)
         }
     }
 
-    @Test func initWithInvalidTextFails() throws {
-        let invalidCharactersMemo = "QTw+Qg"
+    // MARK: - base64url rejections (strict unpadded RFC 4648 §5 decoding)
 
-        #expect(throws: (any Error).self) {
-            try MemoBytes(base64URL: invalidCharactersMemo)
+    static let rejectedBase64URLStrings: [(String, String)] = [
+        ("QTw+Qg", "'+' belongs to classic base64, not base64url"),
+        ("QTw/Qg", "'/' belongs to classic base64, not base64url"),
+        ("Zg==", "'=' padding is forbidden"),
+        ("AB=", "'=' padding is forbidden"),
+        ("A===", "'=' padding is forbidden"),
+        ("A", "length % 4 == 1 is impossible"),
+        ("Zg Zg", "whitespace is rejected"),
+        ("Zg\n", "whitespace is rejected"),
+        ("QR", "nonzero trailing bits (non-canonical encoding)"),
+        ("····", "non-ASCII characters are rejected")
+    ]
+
+    @Test(arguments: rejectedBase64URLStrings)
+    func initWithInvalidBase64URLFails(_ testCase: (String, String)) {
+        let (input, reason) = testCase
+
+        #expect(throws: MemoBytes.MemoError.invalidBase64URL, "\(reason)") {
+            try MemoBytes(base64URL: input)
         }
     }
 }

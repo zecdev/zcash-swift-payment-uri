@@ -7,6 +7,14 @@
 
 import Foundation
 
+/// The deprecated public name of ``LegacyAmount``: any code that spells `Amount` gets a
+/// deprecation warning pointing at ``NonNegativeAmount``, while the underlying type (and its whole v1
+/// API) keeps working unchanged. The library itself refers to the type by its non-deprecated
+/// `LegacyAmount` name so it builds warning-free until the parser moves to ``NonNegativeAmount``
+/// (planned for a later change in the v2 rewrite).
+@available(*, deprecated, message: "Use NonNegativeAmount")
+public typealias Amount = LegacyAmount
+
 /// An *non-negative* decimal ZEC amount represented as specified in ZIP-321.
 /// Amount can be from 1 zatoshi (0.00000001) to the `maxSupply` of 21M ZEC (`21_000_000`)
 ///
@@ -16,7 +24,17 @@ import Foundation
 /// a ZIP-321 amount is non-negative by grammar, so the unsigned type makes negative
 /// values unrepresentable, and `maxSupply` (`MAX_MONEY` = 2_100_000_000_000_000
 /// zatoshi) is comfortably representable by `UInt64` (max ~1.8 * 10^19).
-public struct Amount: Equatable, Sendable {
+///
+/// - Important: prefer ``NonNegativeAmount``. This is the v1 amount type, kept working (under its
+/// deprecated public name ``Amount``) until the parser adopts ``NonNegativeAmount``.
+///
+/// **Lifespan — this type is transitional scaffolding, not a compatibility promise.** It exists
+/// only so that each step of the v2 rewrite stays individually reviewable: the parser still
+/// consumes `LegacyAmount`, so removing it here would mean folding the entire parser conversion
+/// into the change that introduces ``NonNegativeAmount``. `LegacyAmount` (and the deprecated
+/// ``Amount`` alias) is deleted outright later in the same v2 series, once the parser produces
+/// ``NonNegativeAmount`` directly. No v2.0.0 release ships this type.
+public struct LegacyAmount: Equatable, Sendable {
     public enum AmountError: Error, Equatable {
         case negativeAmount
         case greaterThanSupply
@@ -33,9 +51,9 @@ public struct Amount: Equatable, Sendable {
     static let maxSupplyZec: UInt64 = 21_000_000
 
     /// `MAX_MONEY` expressed in zatoshi (2_100_000_000_000_000)
-    static let maxSupplyZatoshi: UInt64 = maxSupplyZec * zatoshiPerZec
+    static let maxSupplyNonNegativeAmount: UInt64 = maxSupplyZec * zatoshiPerZec
 
-    static let zero = Amount(unchecked: 0)
+    static let zero = LegacyAmount(unchecked: 0)
 
     /// this amount, represented as an integer count of zatoshi.
     let zatoshi: UInt64
@@ -83,7 +101,7 @@ public struct Amount: Equatable, Sendable {
     /// - Note: this preserves v1 leniency: a leading or trailing decimal point (e.g. `"123."`, `".5"`) is
     /// accepted. Grammar tightening to reject those forms is deferred to a later parser revision.
     public init(string: String) throws {
-        self.zatoshi = try Self.parseZatoshi(from: string)
+        self.zatoshi = try Self.parseNonNegativeAmount(from: string)
     }
 
     init(unchecked: UInt64) {
@@ -109,7 +127,7 @@ public struct Amount: Equatable, Sendable {
     }
 }
 
-extension Amount {
+extension LegacyAmount {
     /// Converts an already-range/precision-validated non-negative `Decimal` (`<= maxSupplyZec`,
     /// at most 8 fractional digits) into its exact zatoshi `UInt64` representation.
     /// - Important: callers must validate bounds and fractional digit count *before* calling this,
@@ -118,7 +136,7 @@ extension Amount {
         let scaled = decimal * Decimal(Self.zatoshiPerZec)
         let number = NSDecimalNumber(decimal: scaled)
 
-        // `scaled` is guaranteed to be a whole number in [0, maxSupplyZatoshi] given the
+        // `scaled` is guaranteed to be a whole number in [0, maxSupplyNonNegativeAmount] given the
         // preconditions above, so this conversion cannot overflow `UInt64`.
         return number.uint64Value
     }
@@ -153,7 +171,7 @@ extension Amount {
         let isASCIIDigits: (Substring) -> Bool = { $0.allSatisfy { $0.isASCII && $0.isNumber } }
 
         guard wholePart.isEmpty || isASCIIDigits(wholePart),
-              fractionPart.isEmpty || isASCIIDigits(fractionPart)
+            fractionPart.isEmpty || isASCIIDigits(fractionPart)
         else {
             throw AmountError.invalidTextInput
         }
@@ -168,7 +186,7 @@ extension Amount {
     /// `1*DIGIT ["." *8DIGIT]` or `*DIGIT "." 1*8DIGIT`
     /// i.e. at least one of the whole/fractional parts must be present, but either may be empty
     /// (`"123."` and `".5"` are both accepted) — ZIP-321 grammar tightening is deferred.
-    static func parseZatoshi(from string: String) throws -> UInt64 {
+    static func parseNonNegativeAmount(from string: String) throws -> UInt64 {
         let (wholePart, fractionPart) = try splitValidatedParts(of: Substring(string))
 
         // `UInt64(_:)` returns `nil` on overflow (e.g. a whole part with far more digits
@@ -204,7 +222,7 @@ extension Amount {
 
         let zatoshi = whole * Self.zatoshiPerZec + fraction
 
-        guard zatoshi <= Self.maxSupplyZatoshi else {
+        guard zatoshi <= Self.maxSupplyNonNegativeAmount else {
             throw AmountError.greaterThanSupply
         }
 
@@ -221,7 +239,7 @@ extension Decimal {
         var result = Decimal()
         var number = self
 
-        NSDecimalRound(&result, &number, Amount.maxFractionalDecimalDigits, .bankers)
+        NSDecimalRound(&result, &number, LegacyAmount.maxFractionalDecimalDigits, .bankers)
         return result
     }
 }

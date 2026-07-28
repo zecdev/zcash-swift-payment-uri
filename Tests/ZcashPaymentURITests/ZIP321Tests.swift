@@ -25,7 +25,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let payment = try Payment(
             recipientAddress: recipient,
-            amount: try Amount(value: 1),
+            amount: try LegacyAmount(value: 1),
             memo: try MemoBytes(utf8String: "This is a simple memo."),
             label: nil,
             message: "Thank you for your purchase",
@@ -58,7 +58,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
-            amount: try Amount(value: 123.456),
+            amount: try LegacyAmount(value: 123.456),
             memo: nil,
             label: nil,
             message: nil,
@@ -71,7 +71,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
-            amount: try Amount(value: 0.789),
+            amount: try LegacyAmount(value: 0.789),
             memo: try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"),
             label: nil,
             message: nil,
@@ -92,7 +92,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
-            amount: try Amount(value: 123.456),
+            amount: try LegacyAmount(value: 123.456),
             memo: nil,
             label: nil,
             message: nil,
@@ -105,7 +105,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
-            amount: try Amount(value: 0.789),
+            amount: try LegacyAmount(value: 0.789),
             memo: try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"),
             label: nil,
             message: nil,
@@ -134,7 +134,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
-            amount: try Amount(value: 123.456),
+            amount: try LegacyAmount(value: 123.456),
             memo: nil,
             label: nil,
             message: nil,
@@ -147,7 +147,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
-            amount: try Amount(value: 0.789),
+            amount: try LegacyAmount(value: 0.789),
             memo: try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"),
             label: nil,
             message: nil,
@@ -184,7 +184,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
-            amount: try Amount(value: 0.789),
+            amount: try LegacyAmount(value: 0.789),
             memo: try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"),
             label: nil,
             message: nil,
@@ -209,7 +209,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
-            amount: try Amount(value: 123.456),
+            amount: try LegacyAmount(value: 123.456),
             memo: nil,
             label: nil,
             message: nil,
@@ -247,7 +247,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let payment = try Payment(
             recipientAddress: recipient,
-            amount: try Amount(value: 1),
+            amount: try LegacyAmount(value: 1),
             memo: try MemoBytes(utf8String: "This is a simple memo."),
             label: nil,
             message: "Thank you for your purchase",

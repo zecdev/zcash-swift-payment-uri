@@ -87,7 +87,7 @@ struct ParsingTests {
         let value = "1.00020112"[...]
 
         #expect(
-            IndexedParameter(index: 0, param: .amount(try Amount(string: String(value))))
+            IndexedParameter(index: 0, param: .amount(try LegacyAmount(string: String(value))))
             == (try Parser.zcashParameter(
                 (query, nil, value),
                 context: .testnet,
@@ -188,7 +188,7 @@ struct ParsingTests {
 
         let expected = [
             IndexedParameter(index: 0, param: .address(recipient)),
-            IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
+            IndexedParameter(index: 0, param: .amount(try LegacyAmount(value: 1))),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
             IndexedParameter(index: 0, param: .message(QcharString(value: "Thank you for your purchase")!))
         ]
@@ -210,7 +210,7 @@ struct ParsingTests {
 
         let expected = [
             IndexedParameter(index: 0, param: .address(recipient)),
-            IndexedParameter(index: 0, param: .amount(try Amount(value: 1))),
+            IndexedParameter(index: 0, param: .amount(try LegacyAmount(value: 1))),
             IndexedParameter(index: 0, param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg"))),
             IndexedParameter(index: 0, param: .message(QcharString(value: "Thank you for your purchase")!))
         ]

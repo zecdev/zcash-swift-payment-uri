@@ -30,7 +30,7 @@ enum Render {
         return "\(label)\(parameterIndex(index))=\(value.qcharValue)"
     }
 
-    static func parameter(_ amount: Amount, index: UInt?) -> String {
+    static func parameter(_ amount: LegacyAmount, index: UInt?) -> String {
         "\(ReservedParamName.amount.rawValue)\(parameterIndex(index))=\(amount)"
     }
 

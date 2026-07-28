@@ -21,12 +21,12 @@ extension ZIP321.Errors {
         switch memoError {
         case .invalidBase64URL:
             return ZIP321.Errors.invalidBase64
-        case .memoTooLong, .memoEmpty, .notUTF8String:
+        case .memoTooLong, .notUTF8String:
             return ZIP321.Errors.memoBytesError(memoError, index == 0 ? nil : index)
         }
     }
 
-    static func mapFrom(_ amountError: Amount.AmountError, index: UInt) -> ZIP321.Errors {
+    static func mapFrom(_ amountError: LegacyAmount.AmountError, index: UInt) -> ZIP321.Errors {
         switch amountError {
         case .greaterThanSupply:
             return .amountExceededSupply(index)

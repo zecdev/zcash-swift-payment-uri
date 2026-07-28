@@ -13,7 +13,7 @@ struct RendererTests {
     @Test func amountRendersNoParamIndex() throws {
         let expected = "amount=123.456"
 
-        let amount = try Amount(string: "123.456")
+        let amount = try LegacyAmount(string: "123.456")
 
         #expect(Render.parameter(amount, index: nil) == expected)
         #expect(Render.parameter(amount, index: nil) == expected)
@@ -22,7 +22,7 @@ struct RendererTests {
     @Test func amountRendersWithParamIndex() throws {
         let expected = "amount.1=123.456"
 
-        let amount = try Amount(string: "123.456")
+        let amount = try LegacyAmount(string: "123.456")
 
         #expect(Render.parameter(amount, index: 1) == expected)
     }
@@ -106,7 +106,7 @@ struct RendererTests {
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
-            amount: try Amount(value: 123.456),
+            amount: try LegacyAmount(value: 123.456),
             memo: nil,
             label: nil,
             message: nil,
@@ -126,7 +126,7 @@ struct RendererTests {
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
-            amount: try Amount(value: 0.789),
+            amount: try LegacyAmount(value: 0.789),
             memo: try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"),
             label: nil,
             message: nil,
@@ -145,7 +145,7 @@ struct RendererTests {
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
-            amount: try Amount(value: 123.456),
+            amount: try LegacyAmount(value: 123.456),
             memo: nil,
             label: nil,
             message: nil,
@@ -165,7 +165,7 @@ struct RendererTests {
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
-            amount: try Amount(value: 0.789),
+            amount: try LegacyAmount(value: 0.789),
             memo: try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"),
             label: nil,
             message: nil,

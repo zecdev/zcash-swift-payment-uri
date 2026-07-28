@@ -20,6 +20,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `large_tuple` disable on the transitional parser tuple).
 
 ### Changed
+- `NonNegativeAmount` is backed by `UInt64` (`value`, `maxMoney`), mirroring the
+  reference implementation's `u64`-backed `Zatoshis`: a ZIP-321 amount is
+  non-negative by grammar, so negative counts are now unrepresentable by
+  construction. `NonNegativeAmount.zatoshi(_:)` takes `UInt64`;
+  `AmountError.negativeAmount` remains only for the decimal-string path's
+  error taxonomy.
+
+### Added
+- **Internal strict base64url codec** (`Sources/ZcashPaymentURI/parser/Base64URL.swift`):
+  a pure-Swift, Foundation-free implementation of the unpadded
+  [RFC 4648 §5](https://www.rfc-editor.org/rfc/rfc4648.html#section-5)
+  base64url encoding used by ZIP-321 `memo` values (matching the reference
+  implementation's `BASE64_URL_SAFE_NO_PAD`). `decode` strictly rejects `+`,
+  `/`, `=` padding, whitespace, any character outside the base64url
+  alphabet, impossible lengths (`length % 4 == 1`), and non-canonical
+  encodings with nonzero trailing bits. This will replace the
+  Foundation-based translate-and-pad decode path inside `MemoBytes`.
+- **New public `NonNegativeAmount` value type** (`Sources/ZcashPaymentURI/model/NonNegativeAmount.swift`):
+  an `Equatable`, `Hashable`, `Sendable`, `Comparable` wrapper around an
+  `Int64` count of zatoshi with `NonNegativeAmount.maxMoney` (`2_100_000_000_000_000`)
+  as the upper bound. `Result`-based factories `NonNegativeAmount.zatoshi(_:)` (raw
+  zatoshi) and `NonNegativeAmount.zec(_:)` (decimal ZEC string) enforce the **strict**
+  ZIP-321 `amountparam` grammar (`1*DIGIT [ "." 1*8DIGIT ]`): leading zeros
+  in the whole part are accepted, while `"123."`, `".5"`, empty strings,
+  signs, whitespace, and scientific notation are rejected, using checked
+  integer arithmetic only. `decimalString()` renders exactly like the
+  reference `amount_str` (whole part always, fraction only when nonzero,
+  trailing zeros trimmed). `NonNegativeAmount` is amount-agnostic: zero is
+  representable; zero-amount policy (e.g. zero-valued transparent outputs)
+  belongs to `Payment`-level validation.
+
+### Fixed
+- **Zero-length memos are now valid** (conformance fix): `MemoBytes` accepts
+  0 to 512 bytes, matching the reference implementation (consensus zero-pads
+  memos to 512 bytes, so an empty memo is well-defined). A URI containing
+  `memo=` now parses to a payment with an empty (not absent) memo instead of
+  being rejected, and the conformance vector `structure_empty_memo_on_sapling`
+  now passes — its entry has been removed from the expected-failure map.
+  The `MemoBytes.MemoError.memoEmpty` case has been removed accordingly.
+
+### Changed
+- **`MemoBytes` rewritten on the strict base64url codec** (and moved to
+  `Sources/ZcashPaymentURI/model/MemoBytes.swift`): `init(base64URL:)` and
+  `toBase64URL()` now use the internal RFC 4648 §5 `Base64URL` codec instead
+  of Foundation's padded base64 with character translation. Decoding is
+  stricter than before: `=` padding, impossible lengths (`length % 4 == 1`),
+  and non-canonical encodings with nonzero trailing bits are now rejected
+  (previously Foundation silently accepted some of these). No other parser
+  behavior changes; the remaining expected-failure entries are unchanged.
+- **`Amount` is deprecated in favor of `NonNegativeAmount`.** The v1 type keeps working
+  unchanged: the struct is now declared as `LegacyAmount` and `Amount` is a
+  deprecated public typealias for it, so external code that spells `Amount`
+  (or any of its members through that name) gets a deprecation warning while
+  remaining 100% source-compatible. The library refers to the type by its
+  non-deprecated `LegacyAmount` name internally (the parser's switch to
+  `NonNegativeAmount` lands with the v2 parser rewrite), keeping the build warning-free.
 - **Breaking (toolchain):** `swift-tools-version` raised to `6.0`; minimum
   platforms raised to macOS 13 / iOS 16.
 - **Removed all runtime dependencies.** `zcash-swift-payment-uri` is now a

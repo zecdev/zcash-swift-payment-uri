@@ -83,7 +83,7 @@ struct Zip321ConformanceTests {
     /// only an address, mirroring the reference's single-payment request.
     private struct NormalizedPayment {
         let address: String
-        let amount: Amount?
+        let amount: LegacyAmount?
         let memoBase64: String?
         let label: String?
         let message: String?
@@ -162,16 +162,16 @@ struct Zip321ConformanceTests {
     }
 
     /// Compares the vector's exact zatoshi amount against v1's decimal-ZEC
-    /// `Amount`.
+    /// `LegacyAmount`.
     ///
     /// Precision note: v1 stores amounts as a checked `Int64` zatoshi
-    /// fixed-point value, and `Amount.toString()` renders a plain (non-
+    /// fixed-point value, and `LegacyAmount.toString()` renders a plain (non-
     /// scientific) decimal string, so scaling that string by 10^8 with exact
     /// integer string arithmetic is lossless — no floating point, no rounding.
-    /// If a future `Amount` ever rendered scientific notation or more than 8
+    /// If a future `LegacyAmount` ever rendered scientific notation or more than 8
     /// fractional digits, the conversion returns `nil` and the test fails
     /// loudly instead of rounding silently.
-    private static func checkAmount(expected: Int64?, actual: Amount?, subject: String) {
+    private static func checkAmount(expected: Int64?, actual: LegacyAmount?, subject: String) {
         switch (expected, actual) {
         case (.none, .none):
             return

@@ -30,7 +30,7 @@ public struct Payment: Equatable {
     /// Recipient of the payment.
     public let recipientAddress: RecipientAddress
     /// The amount of the payment expressed in decimal ZEC
-    public let amount: Amount?
+    public let amount: LegacyAmount?
     /// bytes of the ZIP-302 Memo if present. Payments to addresses that are not shielded should be reported as erroneous by wallets.
     public let memo: MemoBytes?
     /// A human-readable label for this payment within the larger structure of the transaction request.
@@ -43,7 +43,7 @@ public struct Payment: Equatable {
 
     /// Initializes a Payment struct. validation of the whole payment is deferred to the ZIP-321 serializer.
     /// - parameter recipientAddress: a valid Zcash recipient address
-    /// - parameter amount: a valid `Amount` or `nil`i
+    /// - parameter amount: a valid `LegacyAmount` or `nil`i
     /// - parameter memo: valid `MemoBytes` or `nil`
     /// - parameter label: a label that wallets might show to their users as a way to label this payment.
     /// Will not be included in the blockchain
@@ -53,7 +53,7 @@ public struct Payment: Equatable {
     /// information about these parameters.
     public init(
         recipientAddress: RecipientAddress,
-        amount: Amount?,
+        amount: LegacyAmount?,
         memo: MemoBytes?,
         qcharLabel: QcharString?,
         qcharMessage: QcharString?,
@@ -72,7 +72,7 @@ public struct Payment: Equatable {
 
     /// Initializes a Payment struct. validation of the whole payment is deferred to the ZIP-321 serializer.
     /// - parameter recipientAddress: a valid Zcash recipient address
-    /// - parameter amount: a valid `Amount` or `nil`i
+    /// - parameter amount: a valid `LegacyAmount` or `nil`i
     /// - parameter memo: valid `MemoBytes` or `nil`
     /// - parameter label: a label that wallets might show to their users as a way to label this payment.
     /// Will not be included in the blockchain
@@ -82,7 +82,7 @@ public struct Payment: Equatable {
     /// information about these parameters.
     public init(
         recipientAddress: RecipientAddress,
-        amount: Amount?,
+        amount: LegacyAmount?,
         memo: MemoBytes?,
         label: String?,
         message: String?,
@@ -177,87 +177,6 @@ public struct OtherParam: Equatable {
     }
 }
 
-public struct MemoBytes: Equatable {
-    public enum MemoError: Error {
-        case memoTooLong
-        case memoEmpty
-        case notUTF8String
-        case invalidBase64URL
-    }
-    
-    public let maxLength = 512
-    let data: Data
-    
-    public init(bytes: [UInt8]) throws {
-        guard !bytes.isEmpty else {
-            throw MemoError.memoEmpty
-        }
-        guard bytes.count <= maxLength else {
-            throw MemoError.memoTooLong
-        }
-        
-        self.data = Data(bytes)
-    }
-    /// Initializes a Memo from a UTF8 String.
-    /// - Important: use [`MemoBytes.init(base64URL:)`] to initialize a memo from base64URL
-    public init(utf8String: String) throws {
-        guard !utf8String.isEmpty else {
-            throw MemoError.memoEmpty
-        }
-        
-        guard let memoStringData = utf8String.data(using: .utf8) else {
-            throw MemoError.notUTF8String
-        }
-        
-        guard memoStringData.count <= maxLength else {
-            throw MemoError.memoTooLong
-        }
-        
-        self.data = memoStringData
-    }
-
-    /// Initializes a [`MemoBytes`] from an [RFC-4648 Base64URL](https://datatracker.ietf.org/doc/html/rfc4648#section-5)
-    /// string.
-    /// - parameter base64URL: a String confirming to the Base64URL specification
-    /// - throws [`MemoBytes.MemoError.invalidBase64URL`] if an invalid string is found.
-    public init(base64URL: String) throws {
-        guard base64URL.unicodeScalars.allSatisfy({ character in
-            CharacterSet.base64URL.contains(character)
-        }) else {
-            throw MemoBytes.MemoError.invalidBase64URL
-        }
-
-        var base64 = base64URL.replacingOccurrences(of: "_", with: "/")
-            .replacingOccurrences(of: "-", with: "+")
-        
-        if base64.utf8.count % 4 != 0 {
-            base64.append(
-                String(repeating: "=", count: 4 - base64.utf8.count % 4)
-            )
-        }
-        guard let data = Data(base64Encoded: base64) else {
-            throw MemoBytes.MemoError.invalidBase64URL
-        }
-
-        try self.init(bytes: [UInt8](data))
-    }
-
-    /// Conversion of the present bytes to Base64URL
-    /// - Notes: According to https://en.wikipedia.org/wiki/Base64#Variants_summary_table
-    public func toBase64URL() -> String {
-        self.data.base64EncodedString()
-            .replacingOccurrences(of: "/", with: "_")
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "=", with: "")
-    }
-}
-
-public extension MemoBytes {
-    var memoData: Data {
-        self.data
-    }
-}
-
 extension NumberFormatter {
     static let zcashNumberFormatter: NumberFormatter = {
         var formatter = NumberFormatter()
@@ -273,7 +192,7 @@ extension NumberFormatter {
 }
 
 extension String.StringInterpolation {
-    mutating func appendInterpolation(_ value: Amount) {
+    mutating func appendInterpolation(_ value: LegacyAmount) {
         appendLiteral(value.toString())
     }
 }
