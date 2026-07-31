@@ -39,6 +39,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     decoding.
   - `ZIP321.Errors.sproutRecipientsNotAllowed` is deleted. Sprout rejection is
     a validator policy; the library reports `invalidAddress`.
+- **The expected network is enforced at the parse boundary.** A request is
+  parsed against exactly one `Network` (`expecting:`); when the validator
+  accepts an address but reports a DIFFERENT `AddressDescriptor.network`, the
+  request is rejected with `invalidAddress` (carrying the payment's
+  `paramindex`). This is a comparison, not a validation: the library still
+  learns the address's network only from the validator. ZIP-321 itself is
+  network-agnostic — the librustzcash reference parses addresses without a
+  network — so this is a consumer-library requirement, made explicit rather
+  than implicit.
 
 ### Testing
 - The Bech32/Bech32m, Base58Check and SHA-256 reference checkers now live in

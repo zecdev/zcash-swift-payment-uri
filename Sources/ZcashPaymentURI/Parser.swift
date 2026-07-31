@@ -586,11 +586,23 @@ extension Parser {
     /// The validator is AUTHORITATIVE: this library performs no address
     /// validation of its own, so a `nil` return here means the caller rejected
     /// the address and the request is invalid.
+    ///
+    /// The one rule the library applies on top of the validator's verdict is a
+    /// comparison, not a validation: the accepted address must belong to the
+    /// network the request is being parsed FOR. A request is parsed against one
+    /// expected network, so a recipient the validator places on another network
+    /// makes the request invalid — reported as `invalidAddress`, since from the
+    /// caller's point of view that address cannot be paid in this context.
+    /// ZIP-321 itself is network-agnostic (the librustzcash reference parses
+    /// addresses without a network), so this enforcement is a consumer-library
+    /// requirement, deliberately made explicit through `expecting:`.
     /// - parameter value: the raw address string as it appeared in the URI.
     /// - parameter network: the network the request is being parsed for.
     /// - parameter validator: the caller-supplied authority on addresses.
     static func recipient(_ value: String, network: Network, validator: any AddressValidator) -> RecipientAddress? {
         guard let descriptor = validator.validate(value) else { return nil }
+
+        guard descriptor.network == network else { return nil }
 
         return RecipientAddress(value: value, descriptor: descriptor)
     }

@@ -163,6 +163,60 @@ struct AddressValidationTests {
         func record(_ address: String) { addresses.append(address) }
     }
 
+    // MARK: - The expected network
+
+    /// The library asks for ONE expected network. A validator that accepts an
+    /// address but places it on another network makes the request invalid: the
+    /// library compares `descriptor.network` against `expecting:` and reports
+    /// `invalidAddress`.
+    @Test func addressOnAnotherNetworkIsRejected() throws {
+        // The validator accepts and reports testnet; the request expects mainnet.
+        let testnetSayingValidator = ClosureAddressValidator { _ in
+            AddressDescriptor(network: .testnet, isTransparent: false, canReceiveMemos: true)
+        }
+
+        #expect {
+            try ZIP321.request(
+                from: "zcash:\(Self.saplingTestnet)?amount=1",
+                expecting: .mainnet,
+                validator: testnetSayingValidator
+            )
+        } throws: { error in
+            guard case ZIP321.Errors.invalidAddress = error else { return false }
+            return true
+        }
+
+        // The same URI and validator against the matching network parses.
+        #expect(throws: Never.self) {
+            try ZIP321.request(
+                from: "zcash:\(Self.saplingTestnet)?amount=1",
+                expecting: .testnet,
+                validator: testnetSayingValidator
+            )
+        }
+    }
+
+    /// The mismatch is reported for indexed recipients too, carrying the index.
+    @Test func addressOnAnotherNetworkIsRejectedAtItsParamIndex() throws {
+        let mixedNetworkValidator = ClosureAddressValidator { address in
+            AddressDescriptor(
+                network: address == Self.saplingTestnet ? .testnet : .mainnet,
+                isTransparent: false,
+                canReceiveMemos: true
+            )
+        }
+
+        let uri = "zcash:?address=\(Self.saplingTestnet)&amount=1"
+            + "&address.1=\(Self.saplingMainnet)&amount.1=2"
+
+        #expect {
+            try ZIP321.request(from: uri, expecting: .testnet, validator: mixedNetworkValidator)
+        } throws: { error in
+            guard case ZIP321.Errors.invalidAddress(.some(1)) = error else { return false }
+            return true
+        }
+    }
+
     // MARK: - The reference (test-only) validator: valid matrix
 
     /// Every checksum-valid address of the matrix, the ONLY network on which it
