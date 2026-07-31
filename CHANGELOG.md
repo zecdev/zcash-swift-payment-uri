@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+- **Recipient-address validation is FULLY DELEGATED to the caller.** This
+  library implements the [ZIP-321](https://zips.z.cash/zip-0321) URI grammar
+  and nothing else: it no longer contains Bech32/Bech32m or Base58Check
+  decoding, SHA-256, human-readable-part tables, version-byte tables, or any
+  address prefix classification.
+  - New `public protocol AddressValidator { func validate(_ address: String) -> AddressDescriptor? }`.
+    It is the AUTHORITY: `nil` rejects the address; a returned descriptor is
+    trusted verbatim. There is no built-in check to compose with and no
+    "defense in depth" AND-composition — that framing is gone.
+  - New `public struct AddressDescriptor` carrying the three facts ZIP-321
+    semantics need: `network`, `isTransparent`, `canReceiveMemos`. The
+    transparent-memo and zero-valued-transparent-output rules are driven by
+    these, not by inspecting the address string.
+  - New `public struct ClosureAddressValidator` adapts a closure to the
+    protocol.
+  - New `public enum Network { case mainnet, testnet, regtest }` replaces
+    `ParserContext` as the public network selector. **`ParserContext` is
+    deleted**, along with `RecipientAddress.ValidatingClosure` and the old
+    four-method `AddressValidator` protocol (`isValid`/`isTransparent`/
+    `isSprout`/`isShielded`).
+  - `RecipientAddress` now carries `value` + `descriptor`; its capability
+    accessors read the descriptor. `init?(value:context:validating:)` is
+    replaced by `init?(value:validator:)` and `init(value:descriptor:)`.
+  - Parsing entry points take a REQUIRED validator:
+    `ZIP321.request(from:expecting:validator:)`. Wallets should delegate to
+    their SDK's own address support (librustzcash `ZcashAddress` via the
+    mobile SDKs' FFI/JNI bindings), which is the only component that can
+    answer these questions correctly — including Unified Address receiver
+    decoding.
+  - `ZIP321.Errors.sproutRecipientsNotAllowed` is deleted. Sprout rejection is
+    a validator policy; the library reports `invalidAddress`.
+- **The expected network is enforced at the parse boundary.** A request is
+  parsed against exactly one `Network` (`expecting:`); when the validator
+  accepts an address but reports a DIFFERENT `AddressDescriptor.network`, the
+  request is rejected with `invalidAddress` (carrying the payment's
+  `paramindex`). This is a comparison, not a validation: the library still
+  learns the address's network only from the validator. ZIP-321 itself is
+  network-agnostic — the librustzcash reference parses addresses without a
+  network — so this is a consumer-library requirement, made explicit rather
+  than implicit.
+
+### Testing
+- The Bech32/Bech32m, Base58Check and SHA-256 reference checkers now live in
+  `Tests/ZcashPaymentURITests/Support/` and ship with **no** library target.
+  They exist so the shared conformance corpus's deliberately
+  checksum-corrupted, mixed-case, wrong-network and Sprout address vectors
+  stay executable: the suite injects a `ReferenceAddressValidator` built on
+  them, and those vectors are now rejected BY THE VALIDATOR — which is
+  precisely the boundary this design draws.
+- Conformance xfail burn-down: `invalid_address_sapling_bad_checksum`,
+  `invalid_address_unified_mainnet_bad_checksum`,
+  `invalid_address_transparent_bad_checksum` and `spec_valid_regtest_example`
+  now pass and their expected-failure entries are removed.
+
 ### Fixed
 - Signed amount strings are rejected eagerly: a leading `-` fails with
   `negativeAmount` (and `+` with `invalidTextInput`) before any digit

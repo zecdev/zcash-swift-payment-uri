@@ -5,7 +5,9 @@
 //  (`Tests/Vectors` submodule, oracle-verified against librustzcash `zip321`).
 //
 //  For every vector in `vectors/valid/*.json` the runner asserts that
-//  `ZIP321.request(from:context:)` succeeds and that the parsed model matches
+//  `ZIP321.request(from:expecting:validator:)` succeeds — with the test-only
+//  `ReferenceAddressValidator` supplying recipient-address validity and
+//  capabilities — and that the parsed model matches
 //  the vector's per-payment expectations (address, zatoshi amount, memo,
 //  label, message, other params), then re-renders the request and compares it
 //  against the Rust-reference `canonicalUri` as a *documented expectation*
@@ -118,11 +120,11 @@ struct Zip321ConformanceTests {
     }
 
     private static func check(valid vector: ConformanceValidVector) {
-        guard let context = parserContext(for: vector.network, vectorName: vector.name) else { return }
+        guard let network = network(for: vector.network, vectorName: vector.name) else { return }
 
         let result: ParserResult
         do {
-            result = try ZIP321.request(from: vector.uri, context: context)
+            result = try ZIP321.request(from: vector.uri, expecting: network, validator: ReferenceAddressValidator.of(network))
         } catch {
             Issue.record("\(vector.name): expected successful parse but threw \(error)")
             return
@@ -268,10 +270,10 @@ struct Zip321ConformanceTests {
     // MARK: - Invalid vector checks
 
     private static func check(invalid vector: ConformanceInvalidVector) {
-        guard let context = parserContext(for: vector.network, vectorName: vector.name) else { return }
+        guard let network = network(for: vector.network, vectorName: vector.name) else { return }
 
         do {
-            let result = try ZIP321.request(from: vector.uri, context: context)
+            let result = try ZIP321.request(from: vector.uri, expecting: network, validator: ReferenceAddressValidator.of(network))
             let message: String = "\(vector.name): expected rejection (corpus discriminant: \(vector.error)) "
                 + "but parsing succeeded with \(describe(result))"
             Issue.record("\(message)")
@@ -296,7 +298,9 @@ struct Zip321ConformanceTests {
 
     // MARK: - Helpers
 
-    private static func parserContext(for network: String, vectorName: String) -> ParserContext? {
+    /// Maps the corpus vector's `network` field onto the `expecting:` argument
+    /// of the parser.
+    private static func network(for network: String, vectorName: String) -> Network? {
         switch network {
         case "main": return .mainnet
         case "test": return .testnet

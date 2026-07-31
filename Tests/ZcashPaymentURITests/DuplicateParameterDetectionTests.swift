@@ -14,7 +14,7 @@ struct DuplicateParameterDetectionTests {
     @Test func throwsWhenThereAreDuplicateParameters() {
         let invalidURI = "zcash:?amount=1.234&amount=2.345&address=tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
         #expect {
-            try ZIP321.request(from: invalidURI, context: .testnet)
+            try ZIP321.request(from: invalidURI, expecting: .testnet, validator: ReferenceAddressValidator.testnet)
         } throws: { error in
             guard case ZIP321.Errors.duplicateParameter("amount", nil) = error else { return false }
             return true
@@ -26,7 +26,7 @@ struct DuplicateParameterDetectionTests {
         let invalidURI = "zcash:?amount.1=1.234&amount.1=2.345&address.1=tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
         #expect {
-            try ZIP321.request(from: invalidURI, context: .testnet)
+            try ZIP321.request(from: invalidURI, expecting: .testnet, validator: ReferenceAddressValidator.testnet)
         } throws: { error in
             guard case ZIP321.Errors.duplicateParameter("amount", 1) = error else { return false }
             return true
@@ -36,7 +36,7 @@ struct DuplicateParameterDetectionTests {
     @Test func thatDuplicateParametersAreDetected() throws {
         let shieldedRecipient = try #require(RecipientAddress(
             value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
-            context: .testnet
+            validator: ReferenceAddressValidator.testnet
         ))
 
         let duplicateAddressParams: [IndexedParameter] = [
@@ -231,7 +231,7 @@ struct DuplicateParameterDetectionTests {
             .address(
                 RecipientAddress(
                     value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
-                    context: .testnet
+                    validator: ReferenceAddressValidator.testnet
                 )!
             ),
             .amount(try LegacyAmount(value: 1)),
@@ -249,7 +249,7 @@ struct DuplicateParameterDetectionTests {
             )
         ]
 
-        #expect(params.hasDuplicateParam(.address(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet)!)))
+        #expect(params.hasDuplicateParam(.address(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", validator: ReferenceAddressValidator.testnet)!)))
     }
 
     @Test func duplicateParameterIsFalseWhenNoDuplication() throws {
@@ -269,7 +269,7 @@ struct DuplicateParameterDetectionTests {
             )
         ]
 
-        #expect(!params.hasDuplicateParam(.address(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet)!)))
+        #expect(!params.hasDuplicateParam(.address(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", validator: ReferenceAddressValidator.testnet)!)))
     }
 
     @Test func duplicateOtherParamsAreDetected() throws {
@@ -277,7 +277,7 @@ struct DuplicateParameterDetectionTests {
             .address(
                 RecipientAddress(
                     value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
-                    context: .testnet
+                    validator: ReferenceAddressValidator.testnet
                 )!
             ),
             .amount(try LegacyAmount(value: 1)),

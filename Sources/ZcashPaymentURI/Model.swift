@@ -347,7 +347,7 @@ extension String {
 
 extension Array where Element == Payment {
     func enforceNetworkCoherence() throws {
-        var networkSet = Set<RecipientAddress.Network>()
+        var networkSet = Set<Network>()
         
         for payment in self {
             networkSet.insert(payment.recipientAddress.network)

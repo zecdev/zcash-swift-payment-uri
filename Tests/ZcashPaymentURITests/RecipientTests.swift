@@ -10,58 +10,88 @@ import Testing
 
 @Suite("RecipientAddress")
 struct RecipientTests {
-    @Test func recipientInitNilWhenValidationFails() {
-        #expect(RecipientAddress(value: "asdf", context: .mainnet, validating: { _ in false }) == nil)
-        #expect(RecipientAddress(value: "asdf", context: .testnet, validating: { _ in false }) == nil)
-        #expect(RecipientAddress(value: "asdf", context: .regtest, validating: { _ in false }) == nil)
+    // MARK: The validator is the sole authority
+
+    @Test func recipientInitIsNilWhenTheValidatorRejects() {
+        let rejectEverything = ClosureAddressValidator { _ in nil }
+
+        #expect(RecipientAddress(value: "asdf", validator: rejectEverything) == nil)
+        #expect(
+            RecipientAddress(
+                value: "zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya",
+                validator: rejectEverything
+            ) == nil,
+            "a validator's rejection is final even for a well-formed address"
+        )
     }
 
-    @Test func recipientInitNilWhenContextValidationFailsAndCustomValidationDoesNot() {
-        let expected = "asdf"
-        let recipient = RecipientAddress(value: expected, context: .mainnet, validating: { _ in true })
+    @Test func recipientTakesTheDescriptorFromTheValidatorVerbatim() throws {
+        // Deliberately nonsensical: 'asdf' is not a Zcash address at all, and
+        // the descriptor claims memo capability for a transparent recipient.
+        // The library has no opinion — the validator is authoritative.
+        let descriptor = AddressDescriptor(network: .regtest, isTransparent: true, canReceiveMemos: true)
+        let recipient = try #require(
+            RecipientAddress(value: "asdf", validator: ClosureAddressValidator { _ in descriptor })
+        )
 
-        #expect(recipient == nil)
+        #expect(recipient.value == "asdf")
+        #expect(recipient.descriptor == descriptor)
+        #expect(recipient.network == .regtest)
+        #expect(recipient.isTransparent)
+        #expect(recipient.canReceiveMemos)
     }
 
-    @Test func recipientInitNilWhenNoCustomValidationProvidedWithInvalidAddress() {
-        let expected = "asdf"
-        let recipient = RecipientAddress(value: expected, context: .mainnet)
+    @Test func recipientCanBeBuiltFromAnAlreadyValidatedAddress() {
+        let descriptor = AddressDescriptor(network: .mainnet, isTransparent: false, canReceiveMemos: true)
+        let recipient = RecipientAddress(value: "u1abc", descriptor: descriptor)
 
-        #expect(recipient == nil)
+        #expect(recipient.value == "u1abc")
+        #expect(recipient.network == .mainnet)
+        #expect(!recipient.isTransparent)
+        #expect(recipient.canReceiveMemos)
     }
 
-    @Test func prefixValidationRejectsSproutAddresses() {
-        #expect(!ParserContext.mainnet.isValid(address: "zc8E5gYid86n4bo2Usdq1cpr7PpfoJGzttwBHEEgGhGkLUg7SPPVFNB2AkRFXZ7usfphup5426dt1buMmY3fkYeRrQGLa8y"))
-        #expect(!ParserContext.testnet.isValid(address: "ztJ1EWLKcGwF2S4NA17pAJVdco8Sdkz4AQPxt1cLTEfNuyNswJJc2BbBqYrsRZsp31xbVZwhF7c7a2L9jsF3p3ZwRWpqqyS"))
-        #expect(!ParserContext.regtest.isValid(address: "ztJ1EWLKcGwF2S4NA17pAJVdco8Sdkz4AQPxt1cLTEfNuyNswJJc2BbBqYrsRZsp31xbVZwhF7c7a2L9jsF3p3ZwRWpqqyS"))
+    @Test func recipientsAreEqualWhenValueAndDescriptorAgree() {
+        let descriptor = AddressDescriptor(network: .mainnet, isTransparent: true, canReceiveMemos: false)
+        let other = AddressDescriptor(network: .testnet, isTransparent: true, canReceiveMemos: false)
+
+        #expect(RecipientAddress(value: "t1a", descriptor: descriptor) == RecipientAddress(value: "t1a", descriptor: descriptor))
+        #expect(RecipientAddress(value: "t1a", descriptor: descriptor) != RecipientAddress(value: "t1b", descriptor: descriptor))
+        #expect(RecipientAddress(value: "t1a", descriptor: descriptor) != RecipientAddress(value: "t1a", descriptor: other))
     }
 
-    @Test func detectsPossibleTransparentRecipientEncoding() {
-        #expect(!ParserContext.mainnet.isTransparent(address: "zs1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpq6d8g"))
-        #expect(!ParserContext.testnet.isTransparent(address: "ztestsapling1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqfhgwqu"))
-        #expect(!ParserContext.testnet.isTransparent(address: "zregtestsapling1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqknpr3m"))
+    // MARK: Sanity checks against the reference (test-only) validator
 
-        #expect(ParserContext.mainnet.isTransparent(address: "t1Hsc1LR8yKnbbe3twRp88p6vFfC5t7DLbs"))
-        #expect(ParserContext.testnet.isTransparent(address: "t26YoyZ1iPgiMEWL4zGUm74eVWfhyDMXzY2"))
-        #expect(ParserContext.mainnet.isTransparent(address: "t3JZcvsuaXE6ygokL4XUiZSTrQBUoPYFnXJ"))
-        #expect(ParserContext.mainnet.isTransparent(address: "tex1s2rt77ggv6q989lr49rkgzmh5slsksa9khdgte"))
-        #expect(ParserContext.testnet.isTransparent(address: "textest1qyqszqgpqyqszqgpqyqszqgpqyqszqgpfcjgfy"))
+    @Test func recipientInitIsNilWhenTheReferenceValidatorRejectsGarbage() {
+        #expect(RecipientAddress(value: "asdf", validator: ReferenceAddressValidator.mainnet) == nil)
     }
 
     @Test func recipientAddressDetectsInvalidCharacters() throws {
-        #expect(RecipientAddress(value: "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpUʔamount 1ꓸ234", context: .testnet) == nil)
+        #expect(
+            RecipientAddress(
+                value: "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpUʔamount 1ꓸ234",
+                validator: ReferenceAddressValidator.testnet
+            ) == nil
+        )
     }
 
     @Test func recipientAddressDetectsOrchardOnlyAddresses() throws {
-        #expect(RecipientAddress(value: "u1ddnjsdcpm36r6aq79n3s68shjweksnmwtdltrh046s8m6xcws9ygyawalxx8n6hg6vegk0wh8zjnafxgh6msppjsljvyt0ynece3lvm0", context: .mainnet) != nil)
+        let orchardOnly = "u1ddnjsdcpm36r6aq79n3s68shjweksnmwtdltrh046s8m6xcws9ygyawalxx8n6hg6vegk0wh8zjnafxgh6msppjsljvyt0ynece3lvm0"
+
+        #expect(RecipientAddress(value: orchardOnly, validator: ReferenceAddressValidator.mainnet) != nil)
     }
 
     @Test(arguments: TestVectors.unifiedAddresses)
     func recipientAddressWithUnifiedTestVector(_ ua: String) throws {
-        #expect(RecipientAddress(value: ua, context: .mainnet) != nil, "Failed to create RecipientAddress for \(ua)")
+        #expect(
+            RecipientAddress(value: ua, validator: ReferenceAddressValidator.mainnet) != nil,
+            "Failed to create RecipientAddress for \(ua)"
+        )
     }
 
     @Test func recipientAddressWithSaplingMainnet() throws {
-        #expect(RecipientAddress(value: "zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya", context: .mainnet) != nil)
+        let sapling = "zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya"
+
+        #expect(RecipientAddress(value: sapling, validator: ReferenceAddressValidator.mainnet) != nil)
     }
 }
