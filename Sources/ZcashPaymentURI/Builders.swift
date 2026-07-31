@@ -219,6 +219,10 @@ public extension PaymentRequest {
             } catch let error as ZIP321Error {
                 return .failure(error)
             } catch {
+                // `PaymentRequest.init(indexedPayments:)` is declared as
+                // untyped `throws` but only ever throws `ZIP321Error` (caught
+                // above); Swift requires this exhaustive catch-all anyway.
+                // COVERAGE-EXEMPT: unreachable unless that initializer starts throwing some other error type.
                 return .failure(.parseError(reason: .malformedURI))
             }
         }

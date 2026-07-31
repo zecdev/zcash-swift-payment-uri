@@ -250,20 +250,6 @@ public struct OtherParam: Equatable, Sendable {
     }
 }
 
-extension NumberFormatter {
-    static let zcashNumberFormatter: NumberFormatter = {
-        var formatter = NumberFormatter()
-        formatter.maximumFractionDigits = 8
-        formatter.maximumIntegerDigits = 8
-        formatter.numberStyle = .decimal
-        formatter.usesGroupingSeparator = false
-        formatter.decimalSeparator = "."
-        formatter.roundingMode = .halfUp
-
-        return formatter
-    }()
-}
-
 extension String {
     /// Encode this string as qchar.
     /// As defined on ZIP-321
@@ -284,10 +270,6 @@ extension String {
     /// Returns `nil` for malformed `%XX` escapes, non-`qchar` raw bytes, or invalid UTF-8.
     func qcharDecode() -> String? {
         QcharCodec.decode(self)
-    }
-
-    var asQcharString: QcharString? {
-        QcharString(value: self)
     }
 
     var asParamNameString: ParamNameString? {

@@ -207,6 +207,12 @@ public extension ZIP321 {
         } catch let error as ZIP321.Errors {
             return .failure(ZIP321Error(error))
         } catch {
+            // `parse` is a non-throwing `Result`-returning wrapper around
+            // `parsePipeline`, which is declared as untyped `throws`; Swift
+            // requires this exhaustive catch-all even though every path
+            // `parsePipeline` can actually take only ever throws
+            // `ZIP321Error` or `ZIP321.Errors` (both already caught above).
+            // COVERAGE-EXEMPT: unreachable without a future change that throws a third error type from the parse pipeline.
             return .failure(.parseError(reason: .malformedURI))
         }
     }
@@ -228,15 +234,20 @@ extension ZIP321 {
             // Bare `zcash:` — a valid empty request.
             return try PaymentRequest(payments: [])
 
-        case let (.none, .some(param)):
+        case let (.none, .some(recipient)):
             // Bare `zcash:<address>`. This is the leading-address SPELLING of a
             // one-payment request, not a distinct kind of result: it goes
             // through exactly the same construction as `zcash:?address=<addr>`,
             // so both produce an EQUAL `PaymentRequest` (ZIP-321 URI Semantics;
             // matches the reference implementation).
-            return try PaymentRequest(indexedPayments: Parser.mapToIndexedPayments([param]))
+            return try PaymentRequest(
+                indexedPayments: Parser.mapToIndexedPayments(
+                    [IndexedParameter(index: 0, param: .address(recipient))]
+                )
+            )
 
-        case let (.some(rest), leadingParam):
+        case let (.some(rest), addressMaybe):
+            let leadingParam = addressMaybe.map { IndexedParameter(index: 0, param: .address($0)) }
             let indexedParameters = try Parser.parseParameters(
                 rest,
                 leadingAddress: leadingParam,
