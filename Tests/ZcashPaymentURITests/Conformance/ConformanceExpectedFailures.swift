@@ -46,8 +46,8 @@ let conformanceExpectedFailures: [String: String] = [
         + "request whose only payment sits at paramindex 5 re-renders at the empty index "
         + "(zcash:{addr}?amount=1) where the reference preserves address.5/amount.5",
     "structure_unknown_param_preserved":
-        "fieldMismatch + renderMismatch: v1 does not percent-decode otherparam values on "
-        + "parse (exposes 'hello%20world' where reference decodes 'hello world'), and "
-        + "Render.parameter(other:) drops the '=' separator and re-encodes the raw value, "
-        + "rendering 'future-paramhello%2520world' instead of 'future-param=hello%20world'"
+        "renderMismatch: otherparam values now percent-decode correctly on parse, but "
+        + "Render.parameter(other:) still drops the '=' separator, rendering "
+        + "'future-paramhello%20world' instead of 'future-param=hello%20world'. The render "
+        + "fix belongs to the S12 Render/model restructure"
 ]
