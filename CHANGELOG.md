@@ -5,564 +5,276 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased
+## [2.0.0] - Unreleased
 
-### Changed
-- **Recipient-address validation is FULLY DELEGATED to the caller.** This
-  library implements the [ZIP-321](https://zips.z.cash/zip-0321) URI grammar
-  and nothing else: it no longer contains Bech32/Bech32m or Base58Check
-  decoding, SHA-256, human-readable-part tables, version-byte tables, or any
-  address prefix classification.
-  - New `public protocol AddressValidator { func validate(_ address: String) -> AddressDescriptor? }`.
-    It is the AUTHORITY: `nil` rejects the address; a returned descriptor is
-    trusted verbatim. There is no built-in check to compose with and no
-    "defense in depth" AND-composition — that framing is gone.
-  - New `public struct AddressDescriptor` carrying the three facts ZIP-321
-    semantics need: `network`, `isTransparent`, `canReceiveMemos`. The
-    transparent-memo and zero-valued-transparent-output rules are driven by
-    these, not by inspecting the address string.
-  - New `public struct ClosureAddressValidator` adapts a closure to the
-    protocol.
-  - New `public enum Network { case mainnet, testnet, regtest }` replaces
-    `ParserContext` as the public network selector. **`ParserContext` is
-    deleted**, along with `RecipientAddress.ValidatingClosure` and the old
-    four-method `AddressValidator` protocol (`isValid`/`isTransparent`/
-    `isSprout`/`isShielded`).
-  - `RecipientAddress` now carries `value` + `descriptor`; its capability
-    accessors read the descriptor. `init?(value:context:validating:)` is
-    replaced by `init?(value:validator:)` and `init(value:descriptor:)`.
-  - Parsing entry points take a REQUIRED validator:
-    `ZIP321.request(from:expecting:validator:)`. Wallets should delegate to
-    their SDK's own address support (librustzcash `ZcashAddress` via the
-    mobile SDKs' FFI/JNI bindings), which is the only component that can
-    answer these questions correctly — including Unified Address receiver
-    decoding.
-  - `ZIP321.Errors.sproutRecipientsNotAllowed` is deleted. Sprout rejection is
-    a validator policy; the library reports `invalidAddress`.
-- **The expected network is enforced at the parse boundary.** A request is
-  parsed against exactly one `Network` (`expecting:`); when the validator
-  accepts an address but reports a DIFFERENT `AddressDescriptor.network`, the
-  request is rejected with `invalidAddress` (carrying the payment's
-  `paramindex`). This is a comparison, not a validation: the library still
-  learns the address's network only from the validator. ZIP-321 itself is
-  network-agnostic — the librustzcash reference parses addresses without a
-  network — so this is a consumer-library requirement, made explicit rather
-  than implicit.
+A deliberate breaking-change release: the public API was reshaped to match the cross-language v2
+contract shared with the companion [Kotlin library](https://github.com/zecdev/zcash-kotlin-payment-uri),
+parsing became a total (non-throwing) operation, every runtime dependency was removed, and
+**recipient-address validation was fully delegated to the caller** — this library now implements
+the ZIP-321 URI grammar and nothing else. See
+`Sources/ZcashPaymentURI/Documentation.docc/MigratingFromV1.md` for a caller-focused migration
+guide.
 
-### Testing
-- The Bech32/Bech32m, Base58Check and SHA-256 reference checkers now live in
-  `Tests/ZcashPaymentURITests/Support/` and ship with **no** library target.
-  They exist so the shared conformance corpus's deliberately
-  checksum-corrupted, mixed-case, wrong-network and Sprout address vectors
-  stay executable: the suite injects a `ReferenceAddressValidator` built on
-  them, and those vectors are now rejected BY THE VALIDATOR — which is
-  precisely the boundary this design draws.
-- Conformance xfail burn-down: `invalid_address_sapling_bad_checksum`,
-  `invalid_address_unified_mainnet_bad_checksum`,
-  `invalid_address_transparent_bad_checksum` and `spec_valid_regtest_example`
-  now pass and their expected-failure entries are removed.
+### Added
 
-### Fixed
-- Signed amount strings are rejected eagerly: a leading `-` fails with
-  `negativeAmount` (and `+` with `invalidTextInput`) before any digit
-  parsing, per review. `Amount.AmountError` is now `Equatable`.
-- `Amount` is fully covered by tests (100% regions/functions/lines),
-  including the previously-untested malformed-shape, non-finite-double,
-  zero-constant, and eager-rounding paths.
-- SwiftLint warnings across `Sources/` resolved (whitespace, comma
-  spacing, TODO format now referencing the resolving PR, multiline
-  parameter brackets, redundant type annotation; one justified
-  `large_tuple` disable on the transitional parser tuple).
-
-### Changed
-- `NonNegativeAmount` is backed by `UInt64` (`value`, `maxMoney`), mirroring the
-  reference implementation's `u64`-backed `Zatoshis`: a ZIP-321 amount is
-  non-negative by grammar, so negative counts are now unrepresentable by
-  construction. `NonNegativeAmount.zatoshi(_:)` takes `UInt64`;
-  `AmountError.negativeAmount` remains only for the decimal-string path's
-  error taxonomy.
-
-### Added — CI, lint/format, and DocC (S17)
-
-- **`.github/workflows/ci.yml`** replaces `swift.yml` + `swiftlint.yml` with four jobs, all
-  required on `main` and on every PR: `test-macos` (matrix: macos-15 / Xcode 16.4 / Swift 6.1, and
-  macos-26 / Xcode 26.5 / Swift 6.2 — both using each runner's ambient default Xcode via
-  `xcode-select -p`, with no `setup-swift` action or explicit `xcode-select -s`), `coverage` (macos-15, runs
-  `scripts/coverage-gate.sh`, the 100% region-coverage gate from S16), `lint` (SwiftLint via the
-  official `ghcr.io/realm/swiftlint:0.65.0` image and the toolchain-bundled `swift format lint
-  --strict`, both invoked via plain `docker run` on `ubuntu-latest` — no toolchain installed on
-  the runner itself), and `docc` (macos-15, `xcodebuild docbuild`, fails the build if the log
-  contains any `warning:` line). The old macos-14 / Swift 5.10 leg (via
-  `swift-actions/setup-swift`) is removed outright: Xcode 15.4 cannot build a
-  `swift-tools-version: 6.0` manifest at all. There is deliberately **no Linux test job**: the library
-  target is platform-neutral Swift, but the TEST target's reference address-encoding checkers
-  verify Base58Check checksums with Apple's CryptoKit, which does not exist on Linux, so
-  `swift test` cannot run there. Linux was never a declared platform of this package
-  (`Package.swift` declares macOS 13 / iOS 16 only). The `lint` job still runs on
-  `ubuntu-latest`, but only inside containers — it never builds for Linux.
-  `Tests/Vectors` is checked out via
-  `submodules: recursive`; this workflow (and every job that runs the test suite) only goes green
-  in CI once the corpus repository is published and `.gitmodules` is re-pointed at it.
-  `release.yml`'s toolchain setup was updated to match (`macos-15`, ambient default Xcode,
-  `submodules: recursive`).
-- **`.swiftlint.yml`**: removed the stale `unused_capture_list` entry from `disabled_rules` — the
-  rule was fully removed from SwiftLint (after a 2-year deprecation in favor of the Swift
-  compiler's own unused-capture-list warning) and no longer exists as of the pinned `0.65.0`.
-  Every other rule name and configuration key in the file was checked against the SwiftLint
-  `0.65.0` source and is still current; no other drift was found. All existing rules are
-  unchanged — `swiftlint lint --strict` was not weakened.
-- **`.swift-format`**: a new Apple `swift-format` (toolchain-bundled `swift format`) configuration
-  matching the project's existing style — 4-space indentation, 150-column lines, `... `/`...`
-  range operators kept spaced (`spacesAroundRangeFormationOperators: true`, to avoid fighting
-  SwiftLint's `operator_usage_whitespace`). Several default-on rules are deliberately disabled to
-  keep the one-time reformat diff reviewable and avoid semantic/structural churn: acronym-style
-  identifier renaming (`AlwaysUseLowerCamelCase`, which would rename e.g. `ASCIIAlphaNum`),
-  hex-literal digit grouping (`GroupNumericLiterals`, which would rewrite the Bech32/Base58
-  constant tables), moving `let` inside `case` patterns (`UseLetInEveryBoundCaseVariable`, which would
-  rewrite ~20 existing `case let .foo(...)` sites against the codebase's prevailing idiom),
-  `public extension` restructuring (`NoAccessLevelOnExtensionDeclaration`), import reordering
-  (`OrderedImports`), and synthesized-initializer/`forEach`-rewriting rules that could change
-  code structure (and, with it, LLVM coverage region shape) without a matching behavior change.
-  Sources/ (Tests/ is out of scope, matching `.swiftlint.yml`'s own `excluded:`) was reformatted
-  once under this configuration: 13 files, 119 insertions / 80 deletions, entirely spacing,
-  trailing-comma, and blank-line fixes — no code-behavior change. `scripts/format.sh` applies the
-  same configuration; CI's `lint` job runs `swift format lint --strict` (fails on any finding).
-- **DocC documentation catalog** (`Sources/ZcashPaymentURI/Documentation.docc/`): a landing page
-  (`ZcashPaymentURI.md`) covering the four canonical usage scenarios (a single address with no
-  amount; an amount + memo + other parameters; multiple recipients via the fluent/DSL builders;
-  parsing a URI), each wiring up a caller-supplied `AddressValidator` first, since URI parsing
-  requires caller-provided Zcash address validation and capability classification. Its security
-  section states that boundary explicitly — the injected validator is the sole authority on
-  address validity, its `AddressDescriptor` drives the payment rules, and nothing in the library
-  re-checks an address — alongside the data-leakage-free `ZIP321Error` taxonomy and the bounded
-  `maxInputBytes` input cap. A migration article (`MigratingFromV1.md`, sourced from this
-  changelog's v2.0.0 "Breaking changes" entries) leads with the validator requirement and the
-  `ParserContext` → `Network` rename. Filled in every public-symbol documentation gap
-  this surfaced (via `xcodebuild docbuild`, which warns on undocumented parameters and on
-  `` ``symbol`` `` doc-links that don't resolve): missing doc comments on `OtherParam.name` /
-  `.value`, the `Network` cases, the `ZIP321` enum and `FormattingOptions` cases, `NonNegativeAmount.AmountError`
-  and its `<` operator, `MemoBytes.MemoError` (and its cases) and `.maxLength`/`.memoData`, and
-  several missing `- parameter` entries on `Payment.create` and one `request(_:formattingOptions:)`
-  overload; fixed doc-links to internal (non-public) symbols (`withIndex(_:)`,
-  `PaymentRequest.maxPaymentCount`), an ambiguous overloaded-function link, and a link to the
-  removed v1 `Amount` type. `xcodebuild docbuild` now completes with **zero warnings**. Considered
-  and rejected adding `swift-docc-plugin` as a Package.swift dependency: SwiftPM resolves a
-  manifest's entire `dependencies:` array regardless of which products/plugins a consumer actually
-  uses, so it would appear in every consumer's resolved graph and violate the zero-runtime-dependency
-  guarantee; `xcodebuild docbuild` needs no manifest change.
-- Filled the same public-API documentation gaps independently of the DocC catalog (see above) —
-  every public symbol in `Sources/ZcashPaymentURI` now has a doc comment.
-
-### Added — 100% region coverage + machine-checkable gate (S16)
-
-- `scripts/coverage-gate.sh` + `scripts/coverage-gate.py`: runs the full test
-  suite with `swift test --enable-code-coverage`, exports the LLVM coverage
-  report via `xcrun llvm-cov export -format=text`, and computes *region*
-  coverage restricted to `Sources/ZcashPaymentURI/**` (excluding `Tests/`),
-  failing (exit 1) with every file and uncovered line range listed when
-  coverage is below 100.00%. Supports a small, explicit `// COVERAGE-EXEMPT:
-  <reason>` source annotation (max 3 sites) for genuinely unreachable
-  defensive invariant guards; the script fails outright if that budget is
-  exceeded. Usage: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-  scripts/coverage-gate.sh`.
-- Drove region coverage to **100.00% (562/562)** — the denominator shrank
-  when the address-encoding primitives left the library target for the test
-  support layer — via:
-  - Targeted tests for previously-unexercised code: `Payment.Builder`'s
-    `amount(_:NonNegativeAmount)` / `memo(_:MemoBytes)` / `label(_:)` overloads and the
-    `otherParam` success path; the `PaymentRequestBuilder` `for`-loop
-    (`buildArray`) and `if`-without-`else` (`buildOptional`) DSL forms;
-    `PaymentRequest(indexedPayments:)`'s direct duplicate-index throw; the
-    deprecated `Payment.init(...)` throwing shim (silenced via
-    `@available(*, deprecated)` on the test function, matching the existing
-    `ZIP321.request(from:...)` shim test); `ZIP321Error.withIndex(_:)` and
-    `ZIP321Error.init(_:ZIP321.Errors)` exhaustively over every case (the
-    parser's only production call sites each reach a small subset);
-    `ZIP321.Errors.mapFrom` exhaustively over every `MemoBytes.MemoError` /
-    `NonNegativeAmount.AmountError` case; `Render.request(_:.enumerateAllPayments)`'s
-    non-empty-request branch; `ZIP321.request(_:formattingOptions:)`'s
-    non-default-option branch; indexed (`paramindex > 0`) invalid-address
-    query parameters;
-    `otherparam`/`label`/`message` values with malformed percent-escapes;
-    `NonNegativeAmount.zec`'s whole-part-exceeds-`maxMoney` bound (no fractional part
-    involved, distinct from the already-covered overflow paths); several
-    `Parser`-internal helpers (`leadingAddress`, `parseParamIndex`,
-    `parseNameAndIndex`, `parseParameters`, `mapToIndexedPayments`,
-    `mapToPayments`) exercised directly via their own documented contracts
-    rather than only through the public parse path; and the generic
-    `mapToErrorOrRethrow` rethrow branch, exercised directly with a
-    non-matching error type.
-  - Dead-code removal: an always-succeeding `qcharEncoded()` guard in
-    `QcharString.init` (replaced with a direct `QcharCodec.encode` call); a
-    redundant `req-` prefix guard inside `Param.from` (already rejected by
-    its only caller, `zcashParameter`, before `Param.from` is ever reached);
-    an unreachable dictionary-subscript guard in `Parser.mapToIndexedPayments`
-    (the key is always drawn from the same dictionary); a redundant
-    double-guard in `Payment.uniqueIndexedParameters` collapsed into a single
-    `compactMap`-based extraction; an unreachable `byte < 128` guard in
-    `Bech32.decode` (every byte is already known-ASCII by that point); the
-    entirely-unused `NumberFormatter.zcashNumberFormatter` and
-    `String.asQcharString` (dead since the v1→v2 `Amount` removal).
-  - Restructuring for testability: `Parser.leadingAddress` now returns
-    `(rest: Substring?, leadingAddress: RecipientAddress?)` instead of
-    wrapping the address in an `IndexedParameter`, eliminating an
-    unreachable `guard case .address(...)` in `ZIP321.parsePipeline` (the
-    value was always `.address` by construction) rather than papering over
-    it with an exemption.
-  - Two `// COVERAGE-EXEMPT` sites remain (of the 3 allowed), both the same
-    shape: a `catch { ... }` clause in a non-throwing `Result`-returning
-    wrapper (`ZIP321.parse`, `PaymentRequest.Builder.build()`) around an
-    untyped-`throws` call whose every actual path already throws a caught,
-    specific error type — Swift requires the exhaustive catch-all anyway,
-    but reaching it would need a future change to throw some third,
-    untranslated error type from within the wrapped call.
-
-### Added — deterministic property-style round-trip tests (S16)
-
-- `Tests/ZcashPaymentURITests/PropertyGenerators.swift`: a tiny inline
-  `SplitMix64` seeded PRNG plus generator functions mirroring the reference
-  librustzcash `zip321::testing` proptest strategies — arbitrary valid memo
-  bytes (0..512), arbitrary `NonNegativeAmount` (biased to also hit `0`/`1`/`maxMoney`
-  boundaries), arbitrary unicode label/message/otherParam-value strings
-  (including emoji and characters that require percent-encoding), arbitrary
-  non-reserved `otherParam` names, arbitrary payments drawn from a fixed pool
-  of known-checksum-valid addresses per network/kind (transparent P2PKH/P2SH,
-  Sapling, Unified, TEX), and arbitrary indexed payment requests (0..20
-  payments at sparse `paramindex` values 0..9999).
-- `Tests/ZcashPaymentURITests/PropertyTests.swift`: five deterministic laws,
-  each run over a fixed range of seeds via `@Test(arguments:)` (1,400 total
-  cases, full suite runtime ~0.24s): (1) full round trip
-  `parse(uriString(from: r)) == .success(.request(r))` (300 cases); (2)
-  `NonNegativeAmount.zec(z.decimalString()) == z` (300 cases); (3)
-  `MemoBytes(base64URL: m.toBase64URL()) == m` (300 cases); (4)
-  `QcharCodec.decode(QcharCodec.encode(s)) == s` (300 cases); (5) paramindex
-  preservation — a request with sparse indices round-trips preserving
-  `indexedPayments` exactly (200 cases). All seeds are fixed integers; no
-  `Date`/system-random seeding.
-
-### Changed — conformance corpus sync (S15)
-
-- Bumped the `Tests/Vectors` corpus submodule to the adjudicated revision:
-  integer-overflow amounts classify as `amountExceededSupply` (any
-  checked-accumulation overflow necessarily exceeds MAX_MONEY); the spec's
-  fabricated req-asset example addresses are documented as checksum-invalid
-  (`invalidAddress`); a new vector pairs `req-asset` with a checksum-valid UA
-  to isolate `unknownRequiredParameter`.
-- Removed the overflow special-case in `AmountParser` accordingly.
-- The conformance expected-failure map is now **empty**: the implementation
-  matches the librustzcash reference on every corpus vector — parse decision,
-  exact error discriminant, and canonical re-render.
-
-### Breaking changes — v2.0.0 public API reshape
-
-This is the deliberate breaking-change milestone of the v2 rewrite. The public
-surface now matches the cross-language v2 contract shared with the Kotlin
-library.
-
-- **`ZIP321.parse(_:expecting:validator:maxInputBytes:)` is the parsing entry
-  point** and is a *total* function: it returns
-  `Result<PaymentRequest, ZIP321Error>` instead of throwing. The `validator` is
-  REQUIRED and has no default — the library performs no address validation of
-  its own, so there is nothing sensible to default to. Input guards run
-  first: input larger than `maxInputBytes` (default
-  `ZIP321.defaultMaxInputBytes` = 8 KiB) fails with
-  `.invalidURI(reason: .inputTooLarge)`; the empty string fails with
-  `.parseError(reason: .emptyInput)`; a non-`zcash:` scheme fails with
-  `.invalidURI(reason: .notZcashScheme)`; a `//` authority component fails with
-  `.invalidURI(reason: .invalidAuthority)`.
-  The deprecated throwing shim `ZIP321.request(from:context:validatingRecipients:)`
-  is **removed**: its result type no longer exists, so it could not have been
-  kept source-compatible.
-- **`ParserResult` is DELETED and not replaced — parsing returns a
-  `PaymentRequest`.** There is no result enum: `zcash:<addr>` and
-  `zcash:?address=<addr>` are two spellings of the SAME request (ZIP-321 "URI
-  Semantics"), they now parse to **equal** `PaymentRequest` values, and which
-  spelling a URI used is not recorded anywhere in the model — matching the
-  reference `TransactionRequest`. Migration: `case .legacy(let recipient)` /
-  `case .request(let request)` collapse to a single `PaymentRequest`; a bare
-  address URI is simply a one-payment request whose payment carries only a
-  recipient. A single payment at the empty paramindex still RENDERS in the
-  leading-address form by default; the syntax choice lives in the renderer's
-  formatting options, not in the model.
-- **`ZIP321.Errors` (public, v1) was replaced by the sealed `ZIP321Error`
-  taxonomy**, mirroring the conformance corpus's cross-language discriminants:
-  `invalidBase64`, `memoBytesError`, `transparentMemo`,
-  `zeroValuedTransparentOutput`, `tooManyPayments`, `duplicateParameter`,
-  `recipientMissing`, `invalidAddress`, `unknownRequiredParameter`,
-  `invalidParamIndex`, `amountExceededSupply`, `amountInvalid`, `invalidURI`,
-  `parseError`. **Data-leakage policy, enforced by construction**: error
-  payloads carry only parameter names, indices, counts, or fixed
-  `StaticReason` enum values — never addresses, memo contents, amounts, or raw
-  URI slices (the single bounded exception is `invalidParamIndex`'s raw index
-  token, ≤ 5 characters by grammar). Sprout rejection now surfaces as
-  `invalidAddress` (previously `sproutRecipientsNotAllowed`).
-- **`Amount`/`LegacyAmount` was removed entirely.** `Payment.amount` is now
-  `NonNegativeAmount?`. Migration: replace `try Amount(value: 1)` /
-  `try LegacyAmount(string: "1.5")` with `try NonNegativeAmount.zec("1.5").get()` (strict
-  ZIP-321 `amountparam` grammar) or `NonNegativeAmount.zatoshi(150_000_000)` for raw
-  integer counts. `NonNegativeAmount` exposes `value: Int64` and `decimalString()`.
-- **`Payment` construction moved to a `Result` factory.**
-  `Payment.create(recipientAddress:amount:memo:label:message:otherParams:)`
-  returns `Result<Payment, ZIP321Error>` and enforces the reference
-  `to_payment` rules at construction time: a memo to a transparent recipient
-  fails with `.transparentMemo`, and a **zero-valued amount to a transparent
-  recipient fails with `.zeroValuedTransparentOutput`** (new consensus check,
-  also enforced on the parse path). The throwing `Payment.init` remains as a
-  deprecated shim. `label`/`message` are now plain **decoded** `String?`
-  (the `QcharString` wrapper and the `qcharLabel:`/`qcharMessage:` initializer
-  are gone from the public surface; qchar encoding happens at render time).
-- **`PaymentRequest` now preserves ZIP-321 paramindices.** Payments are stored
-  by `paramindex`; `payments: [Payment]` returns them ordered by ascending
-  index and the new `indexedPayments: [(index: UInt, payment: Payment)]`
-  exposes the indices (e.g. a request whose only payment sits at
-  `address.5`/`amount.5` retains index 5). `init(payments:)` auto-indexes
-  sequentially from 0 and enforces the 9999-payment cap
-  (`.tooManyPayments`); the new `init(indexedPayments:)` validates index
-  uniqueness (`.duplicateParameter`) and the ≤ 9999 index bound. **Empty
-  requests are now valid**: `zcash:` and `zcash:?` parse to
-  an empty `PaymentRequest` (previously rejected), and an empty
-  request renders back to `zcash:`. The v1 construction-time
-  network-coherence check (`networkMismatchFound`) was removed — the expected
-  network is enforced once, at the parse boundary, by comparing each
-  recipient's `AddressDescriptor.network` against `expecting:`.
-- **`OtherParam` is now `(name: String, value: String?)`** with plain decoded
-  semantics (previously `key: ParamNameString`, `value: QcharString?`).
-  `QcharString` and `ParamNameString` are no longer public.
-- **`Payment.otherParams` is a non-optional `[OtherParam]`** (defaulting to
-  `[]`). The `nil` vs. `[]` distinction is gone: ZIP-321 cannot spell the
-  difference, both render to the same URI, and keeping both would give two
-  distinct `Payment` values for one URI — breaking the round-trip law.
-  Migration: `otherParams: nil` becomes `otherParams: []` (or is omitted), and
-  `payment.otherParams ?? []` becomes `payment.otherParams`.
-  `Payment.create` additionally **rejects duplicate other-param names** with
-  `.duplicateParameter(name:index: nil)`, matching what the parser already
-  enforces for a URI — so a `Payment` can no longer be constructed that renders
-  to a URI which will not parse back.
-- Rendering entry points keep their existing names and signatures:
-  `uriString(from:formattingOptions:)`, `request(_:formattingOptions:)`.
-- Conformance: the invalid-vector runner now asserts the **exact** error
-  discriminant against the corpus. Expected-failure ledger: burned
-  `structure_empty_request`, `structure_empty_request_query_marker`, and
-  `spec_invalid_zero_valued_transparent_output`; one corpus discriminant
-  dispute (`invalid_req_asset_two_recipients_flattened`) remains pending
-  adjudication.
-
-### Breaking changes — v2.0.0 canonical renderer
-
-- **The renderer now renders from `PaymentRequest.indexedPayments`, preserving
-  each payment's ACTUAL stored `paramindex`.** A request whose only payment
-  sits at index `5` renders `zcash:?address.5=…&amount.5=1` (previously it was
-  collapsed onto the empty index). Per-payment parameter order matches the
-  reference exactly: address, amount, memo, label, message, then `otherParams`
-  in stored order.
-- **The default `formattingOptions` of `uriString(from:)` and
-  `request(_ payment:)` changed to
-  `.useEmptyParamIndex(omitAddressLabel: true)`** — the canonical reference
-  form. A single payment at the empty paramindex renders as the leading-address
-  form `zcash:<addr>?amount=…`; multi-payment (or any payment at a non-zero
-  index) renders as `zcash:?address[.n]=…&…`. The round-trip law
-  `parse(uriString(from: r)) == r` holds for every request `r` under the
-  default options (asserted over the corpus's valid vectors).
-- **`FormattingOptions.enumerateAllPayments` is now a documented NORMALIZATION
-  mode**: it discards stored paramindices and re-numbers payments sequentially
-  from `1` (`address.1=…&address.2=…`) under `zcash:?`. It now emits the
-  mandatory `?` query separator (previously the multi-payment output omitted
-  it, producing a non-round-trippable URI).
-
-### Fixed
-
-- **A bare `zcash:<addr>` now re-renders exactly**, without the spurious
-  trailing `?` the previous renderer emitted for a payment carrying no query
-  parameters. This fixes the `structure_single_address_no_query_params`
-  conformance divergence, which S12 surfaced when it collapsed the
-  single-address result shape into an ordinary one-payment request.
-- **`otherparam` rendering now emits the `=` separator** when the parameter
-  carries a value (`future-param=hello%20world`), matching the reference
-  `str_param`. A value-less otherparam still renders as a bare `name`. This
-  fixes the `structure_unknown_param_preserved` conformance divergence.
-- **A single payment at a non-zero paramindex now re-renders faithfully**
-  instead of being collapsed onto the empty index, fixing the
-  `structure_index_gap_only_address_5` conformance divergence.
-
-### Added — fluent builders
-
-- **`Payment.Builder`** (`init(recipient:)` + chainable `amount(_:)`,
-  `amount(zec:)`, `memo(_:)`, `memo(utf8:)`, `label(_:)`, `message(_:)`,
-  `otherParam(name:value:)`, terminal `build() -> Result<Payment, ZIP321Error>`).
-  Fallible inputs are validated LAZILY at `build()`: a bad `amount(zec:)`
-  surfaces as `.amountInvalid` (or `.amountExceededSupply`), an oversized
-  `memo(utf8:)` as `.memoBytesError`, an invalid `otherParam` name as
-  `.parseError(.invalidParameter)`; a memo to a transparent recipient surfaces
-  as `.transparentMemo` via `Payment.create`. When several fields are invalid,
-  the first error wins in field order (amount → memo → other params →
+- **`NonNegativeAmount`** (`Sources/ZcashPaymentURI/model/NonNegativeAmount.swift`): a public, `Equatable`, `Hashable`,
+  `Sendable`, `Comparable` wrapper around a `UInt64` zatoshi count — unsigned,
+  mirroring the reference implementation's `u64`-backed `Zatoshis`, so negative
+  counts are unrepresentable by construction (`NonNegativeAmount.maxMoney` =
+  `2_100_000_000_000_000`). `Result`-based factories `NonNegativeAmount.zatoshi(_:)` (raw zatoshi) and
+  `NonNegativeAmount.zec(_:)` (decimal ZEC string) enforce the **strict** ZIP-321 `amountparam` grammar
+  (`1*DIGIT [ "." 1*8DIGIT ]`) using checked integer arithmetic only; `decimalString()` renders
+  exactly like the reference `amount_str`.
+- **`ZIP321Error`**: a sealed, data-leakage-free error taxonomy (`invalidBase64`,
+  `memoBytesError`, `transparentMemo`, `zeroValuedTransparentOutput`, `tooManyPayments`,
+  `duplicateParameter`, `recipientMissing`, `invalidAddress`, `unknownRequiredParameter`,
+  `invalidParamIndex`, `amountExceededSupply`, `amountInvalid`, `invalidURI`, `parseError`)
+  mirroring the shared cross-language conformance-corpus discriminants. See Security below.
+- **`AddressValidator`**, **`AddressDescriptor`**, **`ClosureAddressValidator`** and **`Network`**:
+  the delegated address-validation API. `AddressValidator.validate(_:) -> AddressDescriptor?` is the
+  sole authority on recipient-address validity — `nil` rejects, and a returned descriptor
+  (`network`, `isTransparent`, `canReceiveMemos`) is trusted verbatim and drives the ZIP-321
+  payment rules. `Network` (`mainnet`/`testnet`/`regtest`) replaces `ParserContext` as the public
+  network selector. `RecipientAddress` now carries `value` + `descriptor`, built either via
+  `init?(value:validator:)` or `init(value:descriptor:)`.
+- **`ZIP321.parse(_:expecting:validator:maxInputBytes:)`**: a *total* parsing entry point returning
+  `Result<PaymentRequest, ZIP321Error>`. The `validator` is REQUIRED — there is no built-in
+  validation to default to. Input guards run before any grammar work: input above
+  `maxInputBytes` (default `ZIP321.defaultMaxInputBytes` = 8 KiB) fails with
+  `.invalidURI(reason: .inputTooLarge)`; empty input fails with `.parseError(reason: .emptyInput)`;
+  a non-`zcash:` scheme fails with `.invalidURI(reason: .notZcashScheme)`; a `//` authority
+  component fails with `.invalidURI(reason: .invalidAuthority)`.
+- **`Payment.create(recipientAddress:amount:memo:label:message:otherParams:)`**: a `Result`-based
+  construction factory enforcing the reference `to_payment` rules at construction time — a memo to
+  a transparent recipient fails with `.transparentMemo`, and a zero-valued amount to a transparent
+  recipient fails with `.zeroValuedTransparentOutput` (a new consensus check, enforced on both the
+  construction and parse paths).
+- **`Payment.Builder`** (`init(recipient:)` + chainable `amount(_:)`, `amount(zec:)`, `memo(_:)`,
+  `memo(utf8:)`, `label(_:)`, `message(_:)`, `otherParam(name:value:)`, terminal
+  `build() -> Result<Payment, ZIP321Error>`) and **`PaymentRequest.Builder`** (`add(_:)`
+  auto-indexing from `0`, `add(_:at:)` for an explicit `paramindex`, terminal
+  `build() -> Result<PaymentRequest, ZIP321Error>`), plus the **`@resultBuilder
+  PaymentRequestBuilder`** DSL (`PaymentRequest.build { payment1; payment2 }.get()`) supporting
+  `for`-loops and `if`-without-`else`. Fallible inputs are validated lazily at `build()`; when
+  several fields are invalid the first error wins in field order (amount → memo → other params →
   structural rules).
-- **`PaymentRequest.Builder`** (`add(_:)` auto-indexing sequentially from `0`,
-  `add(_:at:)` for an explicit paramindex, terminal
-  `build() -> Result<PaymentRequest, ZIP321Error>`). Deferred validation:
-  a duplicate index fails with `.duplicateParameter`, an index above `9999`
-  with `.tooManyPayments`.
-- **`@resultBuilder PaymentRequestBuilder`** with the `PaymentRequest.build { … }`
-  entry point (`try PaymentRequest.build { payment1; payment2 }.get()`), a thin
-  layer over `PaymentRequest.Builder` that auto-indexes block statements from
-  `0` and accepts both single `Payment` expressions and `[Payment]` arrays. The
-  entry point is `PaymentRequest.build` rather than a bare `PaymentRequest { … }`
-  free function because Swift forbids a global function sharing a name with a
-  type in the same module; `.build` preserves the Result-returning `.get()`
-  totality contract.
-
-### Added
-- **Internal single-pass `Scanner`** (`Sources/ZcashPaymentURI/parser/Scanner.swift`): a
-  byte-level scanner over a `Substring`'s UTF-8 view (`peek`/`advance`/`expect(ascii:)`/
-  `takeWhile`/`matchLiteral`/`isAtEnd`/`currentOffset`) with single-byte lookahead and no
-  backtracking, mirroring the streaming style of the reference `nom` grammar. It is the
-  substrate for the ZIP-321 URI grammar rewrite.
-- **Internal strict `AmountParser`** (`Sources/ZcashPaymentURI/parser/AmountParser.swift`):
-  parses an `amount` value through the strict ZIP-321 `amountparam` grammar (via
-  `NonNegativeAmount.zec`) and maps `NonNegativeAmount.AmountError` onto the closest v1 `ZIP321.Errors` case
-  (`.exceededSupply` → `.amountExceededSupply`, `.invalidDecimalString` →
-  `.invalidParamValue`, `.tooManyFractionalDigits`/`.negativeAmount` → `.amountTooSmall`).
-- **Internal ZIP-321 `qchar` codec** (`Sources/ZcashPaymentURI/parser/QcharCodec.swift`):
-  a self-contained `encode`/`decode` pair that percent-encodes exactly the complement of the
-  ZIP-321 `qchar` set, mirroring the reference `QCHAR_ENCODE` `AsciiSet` in librustzcash
-  `zip321` (space, `"`, `#`, `%`, `&`, `/`, `<`, `=`, `>`, `?`, `[`, `\`, `]`, `^`, `` ` ``,
-  `{`, `|`, `}`, the C0 controls, DEL, and every non-ASCII byte via UTF-8 `%XX`, uppercase
-  hex). `decode` is strict: `%XX` must be two hex digits (either case), raw bytes must be
-  `qchar` bytes, and the decoded bytes must be valid UTF-8 (overlong sequences, lone
-  continuation bytes and unpaired surrogates are rejected). The `String.qcharEncoded()` /
-  `qcharDecode()` extensions now delegate to this codec (previously Foundation's
-  `addingPercentEncoding` / `removingPercentEncoding`), so decoding is stricter than before.
-
-### Changed
-- **The ZIP-321 URI tokenizer was rewritten onto `Scanner`**, replacing the hand-rolled
-  substring-combinator (`ZParser`) port with a single-pass grammar that follows the reference
-  `nom` pipeline: `zcash:` scheme, `take_till('?')` lead address (empty allowed, non-empty must
-  validate), then `&`-separated query segments each parsed as `name [ "." index ] [ "=" value ]`.
-  Parameter names must be `ALPHA *( ALPHA / DIGIT / "+" / "-" )` (a percent-escape in a name is
-  rejected); indices are `NONZERO 0*3DIGIT` (no leading zero, at most four digits); raw values
-  are restricted to `qchar`-permitted bytes. `label`/`message`/`other` values are now
-  percent-decoded via `QcharCodec` (previously `other` values were left raw/double-encoded),
-  while `address`/`amount`/`memo` values are handed to their own grammars verbatim, so a `%` in
-  them is rejected. This fixes the parse/field half of `structure_unknown_param_preserved`
-  (its `renderMismatch` remains, tracked as a render-only expected failure pending the S12
-  Render restructure). Grouping, duplicate detection, empty-request and legacy-URI behavior are
-  unchanged. The dead `ZParser` combinators and the `CharacterSet` definitions they used were
-  removed.
-- **The parser now enforces the strict `amountparam` grammar.** `amount` values are parsed
-  through the new `AmountParser`/`NonNegativeAmount.zec` path instead of the lenient
-  `LegacyAmount(string:)`, so a leading or trailing decimal point (`amount=.5`, `amount=123.`),
-  a sign, whitespace, scientific notation, or a percent-escape are rejected. `Payment.amount`
-  remains `LegacyAmount`-typed (bridged from `NonNegativeAmount` via a new internal `LegacyAmount(zatoshi:)`
-  initializer); the public switch to `NonNegativeAmount` is a later step. Conformance vectors
-  `invalid_amount_trailing_decimal_point` and `invalid_amount_leading_decimal_point` now pass
-  and were removed from the expected-failure map.
-
-### Fixed
-- **Empty `qchar` values are now valid**: `QcharString` accepts the empty string (a valid
-  zero-length `*qchar` value), so a URI containing an empty `message=` or `label=` now parses
-  to a payment with an empty (not rejected) value, matching the reference. The conformance
-  vectors `amount_one_with_empty_message` and `amount_parse_simple_large_decimal` now pass and
-  were removed from the expected-failure map.
-- **Internal strict base64url codec** (`Sources/ZcashPaymentURI/parser/Base64URL.swift`):
-  a pure-Swift, Foundation-free implementation of the unpadded
-  [RFC 4648 §5](https://www.rfc-editor.org/rfc/rfc4648.html#section-5)
-  base64url encoding used by ZIP-321 `memo` values (matching the reference
-  implementation's `BASE64_URL_SAFE_NO_PAD`). `decode` strictly rejects `+`,
-  `/`, `=` padding, whitespace, any character outside the base64url
-  alphabet, impossible lengths (`length % 4 == 1`), and non-canonical
-  encodings with nonzero trailing bits. This will replace the
-  Foundation-based translate-and-pad decode path inside `MemoBytes`.
-- **New public `NonNegativeAmount` value type** (`Sources/ZcashPaymentURI/model/NonNegativeAmount.swift`):
-  an `Equatable`, `Hashable`, `Sendable`, `Comparable` wrapper around an
-  `Int64` count of zatoshi with `NonNegativeAmount.maxMoney` (`2_100_000_000_000_000`)
-  as the upper bound. `Result`-based factories `NonNegativeAmount.zatoshi(_:)` (raw
-  zatoshi) and `NonNegativeAmount.zec(_:)` (decimal ZEC string) enforce the **strict**
-  ZIP-321 `amountparam` grammar (`1*DIGIT [ "." 1*8DIGIT ]`): leading zeros
-  in the whole part are accepted, while `"123."`, `".5"`, empty strings,
-  signs, whitespace, and scientific notation are rejected, using checked
-  integer arithmetic only. `decimalString()` renders exactly like the
-  reference `amount_str` (whole part always, fraction only when nonzero,
-  trailing zeros trimmed). `NonNegativeAmount` is amount-agnostic: zero is
-  representable; zero-amount policy (e.g. zero-valued transparent outputs)
-  belongs to `Payment`-level validation.
-
-### Fixed
-- **Zero-length memos are now valid** (conformance fix): `MemoBytes` accepts
-  0 to 512 bytes, matching the reference implementation (consensus zero-pads
-  memos to 512 bytes, so an empty memo is well-defined). A URI containing
-  `memo=` now parses to a payment with an empty (not absent) memo instead of
-  being rejected, and the conformance vector `structure_empty_memo_on_sapling`
-  now passes — its entry has been removed from the expected-failure map.
-  The `MemoBytes.MemoError.memoEmpty` case has been removed accordingly.
+- **`PaymentRequest.indexedPayments: [(index: UInt, payment: Payment)]`** and
+  **`PaymentRequest.init(indexedPayments:)`**, exposing and accepting explicit, non-contiguous
+  ZIP-321 `paramindex` values (validating index uniqueness via `.duplicateParameter` and the
+  ≤ 9999 index bound).
+- Dependency-free grammar primitives under `Sources/ZcashPaymentURI/parser/`: **`Base64URL`**
+  (unpadded RFC 4648 §5 base64url, matching the reference `BASE64_URL_SAFE_NO_PAD`), a single-pass
+  byte-level **`Scanner`**, and strict **`AmountParser`**/**`QcharCodec`** (percent-encoding exactly
+  the ZIP-321 `qchar` complement) underpinning the URI grammar rewrite.
+- Test-only reference address-encoding checkers under
+  `Tests/ZcashPaymentURITests/Support/` — **`SHA256`** (a thin wrapper over Apple's CryptoKit),
+  **`Base58Check`** (big-integer base58 decode + version-byte + SHA-256d checksum verification) and
+  **`Bech32`** (BIP-173/BIP-350 decode-verify with the 1023-character limit matching the `bech32`
+  crate v0.11.0 used by `zcash_address`) — composed into a `ReferenceAddressValidator` that the test
+  suite and the conformance runner inject. **None of this ships in the library target**; it exists
+  so the corpus's deliberately checksum-corrupted, mixed-case, wrong-network and Sprout address
+  vectors stay executable against a realistic validator.
+- The shared, oracle-verified ZIP-321 conformance corpus
+  ([zecdev/zcash-zip321-test-vectors](https://github.com/zecdev/zcash-zip321-test-vectors)),
+  consumed as a test-only git submodule at `Tests/Vectors` (the `.gitmodules` URL is a temporary
+  local path until that repository is published), plus a conformance test runner
+  (`Tests/ZcashPaymentURITests/Conformance/`) that asserts exact error-discriminant agreement and
+  byte-identical canonical re-rendering against the librustzcash `zip321` reference. The expected-
+  failure ledger, which started at 14 documented divergences, is now **empty**: this implementation
+  matches the reference on every corpus vector.
+- Deterministic property-style round-trip tests (`PropertyTests.swift`/`PropertyGenerators.swift`):
+  a seeded `SplitMix64` PRNG driving eight laws over fixed-seed cases — full parse/render round
+  trip, `NonNegativeAmount` decimal round trip, `MemoBytes` base64url round trip, `QcharCodec`
+  round trip, `paramindex` preservation, the equality of the two single-recipient spellings, the
+  always-array shape of `otherParams`, and an adversarial law asserting that a generated payment
+  with a repeated other-param name is rejected by BOTH `Payment.create` and `Payment.Builder`.
+  Generated recipients are resolved through the same `ReferenceAddressValidator` the parser is
+  handed, so no descriptor is ever hand-written.
+- `scripts/coverage-gate.sh` + `scripts/coverage-gate.py`: a machine-checkable gate that runs the
+  suite with `swift test --enable-code-coverage`, computes LLVM *region* coverage restricted to
+  `Sources/ZcashPaymentURI/**`, and fails, listing every uncovered range, unless coverage is exactly
+  100.00%. Supports a bounded (max 3 sites) `// COVERAGE-EXEMPT: <reason>` annotation for genuinely
+  unreachable defensive guards.
+- A DocC documentation catalog (`Sources/ZcashPaymentURI/Documentation.docc/`): a landing page
+  covering the four canonical usage scenarios, a security section, and a `MigratingFromV1.md`
+  migration article. `xcodebuild docbuild` completes with **zero warnings**; every public symbol
+  has a doc comment.
+- `.github/workflows/ci.yml`: four required jobs on `main` and every PR — `test-macos` (macos-15 /
+  Xcode 16.4 / Swift 6.1, and macos-26 / Xcode 26.5 / Swift 6.2, both via each runner's ambient
+  default Xcode), `coverage` (runs
+  `scripts/coverage-gate.sh`), `lint` (SwiftLint `0.65.0` + toolchain `swift format lint --strict`,
+  both via plain `docker run`), and `docc` (`xcodebuild docbuild`, fails on any `warning:` line).
+  `Tests/Vectors` is checked out via `submodules: recursive`. There is deliberately **no Linux
+  test job**: the library target is platform-neutral, but the TEST target's reference
+  address-encoding checkers use Apple's CryptoKit, which does not exist on Linux, and Linux was
+  never a declared platform of this package (`Package.swift` declares macOS 13 / iOS 16 only). The
+  `lint` job still runs on `ubuntu-latest`, but only inside containers — it never builds for Linux.
+- `.swift-format`: a project `swift-format` configuration (4-space indent, 150-column lines) and
+  `scripts/format.sh` to apply it to `Sources/`.
+- `scripts/check-readme-snippets.sh`: verifies every `swift` code block in the DocC landing page
+  appears verbatim in `README.md`, wired into the `lint` CI job, so the README's Quick Start
+  snippets cannot silently drift from their DocC source.
 
 ### Changed
-- **`MemoBytes` rewritten on the strict base64url codec** (and moved to
-  `Sources/ZcashPaymentURI/model/MemoBytes.swift`): `init(base64URL:)` and
-  `toBase64URL()` now use the internal RFC 4648 §5 `Base64URL` codec instead
-  of Foundation's padded base64 with character translation. Decoding is
-  stricter than before: `=` padding, impossible lengths (`length % 4 == 1`),
-  and non-canonical encodings with nonzero trailing bits are now rejected
-  (previously Foundation silently accepted some of these). No other parser
-  behavior changes; the remaining expected-failure entries are unchanged.
-- **`Amount` is deprecated in favor of `NonNegativeAmount`.** The v1 type keeps working
-  unchanged: the struct is now declared as `LegacyAmount` and `Amount` is a
-  deprecated public typealias for it, so external code that spells `Amount`
-  (or any of its members through that name) gets a deprecation warning while
-  remaining 100% source-compatible. The library refers to the type by its
-  non-deprecated `LegacyAmount` name internally (the parser's switch to
-  `NonNegativeAmount` lands with the v2 parser rewrite), keeping the build warning-free.
-- **Breaking (toolchain):** `swift-tools-version` raised to `6.0`; minimum
-  platforms raised to macOS 13 / iOS 16.
-- **Removed all runtime dependencies.** `zcash-swift-payment-uri` is now a
-  zero-dependency package: `swift-parsing`, `swift-case-paths`, `BigDecimal`,
-  `BigInt`, and `swift-custom-dump` have all been removed.
-  - `Amount` is now backed by a checked `UInt64` zatoshi (1 ZEC =
-    100_000_000 zatoshi) fixed-point representation instead of `BigDecimal`,
-    mirroring the reference implementation's `u64`-backed `Zatoshis`: a
-    ZIP-321 amount is non-negative by grammar, so the unsigned backing type
-    makes negative values unrepresentable.
-    `init(decimal:)` now takes a Foundation `Decimal` (the `BigDecimal`
-    overload is gone). All other `Amount` initializers keep their existing
-    signatures and v1 parsing leniency (e.g. `"123."` and `".5"` are still
-    accepted; grammar tightening is deferred to a later change).
-  - The ZIP-321 URI parser (`Parser.swift`) is now a small hand-rolled
-    substring-combinator implementation instead of `swift-parsing`, with
-    behavior verified to match v1 exactly against the full test suite and the
-    shared conformance corpus (the 14-entry expected-failure map is
-    unchanged).
-  - Test assertions using `swift-custom-dump`'s `expectNoDifference`/
-    `XCTAssertNoDifference` have been replaced with `XCTAssertEqual`.
-- **Test suite migrated from XCTest to [swift-testing](https://github.com/swiftlang/swift-testing).**
-  All test files now use `@Suite`/`@Test`/`#expect`/`#require` instead of
-  `XCTestCase`/`XCTAssert*`. Files that already looped over a fixed set of
-  cases are parameterized with `@Test(arguments:)` (e.g. the conformance
-  runner's valid/invalid vectors, the unified-address test vectors). The
-  conformance suite's `XCTExpectFailure`-based expected-failure mechanism is
-  replaced with `withKnownIssue`, swift-testing's equivalent strict
-  expected-failure primitive; the 14-entry `conformanceExpectedFailures` map
-  is unchanged and every entry still corresponds to an observed known issue.
-  Test coverage is unchanged: 137 tests executed before and after.
 
-### Added
-- The shared ZIP-321 conformance vector corpus
-  ([zcash-zip321-test-vectors](https://github.com/zecdev/zcash-zip321-test-vectors),
-  oracle-verified against the librustzcash `zip321` reference implementation) is
-  now consumed as a test-only git submodule at `Tests/Vectors`. The `.gitmodules`
-  URL is a temporary local path until the corpus repository is published.
-- A conformance test runner (`Tests/ZcashPaymentURITests/Conformance/`) that
-  parses every corpus vector with `ZIP321.request(from:context:)`, asserts
-  field-level agreement (addresses, exact zatoshi amounts, memos, labels,
-  messages, other params) for valid vectors, rejection for invalid vectors, and
-  compares re-rendered URIs against the Rust reference `canonicalUri`.
-  Known divergences of the current implementation from the reference semantics
-  are enumerated in a strict expected-failure map
-  (`ConformanceExpectedFailures.swift`, checked via `XCTExpectFailure`), so the
-  suite is green today while every gap stays machine-checked: fixing a gap
-  without pruning its map entry turns the suite red. The map currently
-  documents 14 divergences (missing address checksum validation, lenient
-  amount grammar, missing zero-valued-transparent-output check, rejection of
-  empty `memo=`/`message=` values, rejection of regtest Sapling addresses,
-  rejection of empty requests, otherparam decoding/rendering issues, and
-  paramindex loss on re-render).
+- **Public API reshape (breaking):**
+  - **`ParserResult` is deleted and not replaced — parsing returns a `PaymentRequest`.** There is
+    no result enum: `zcash:<addr>` and `zcash:?address=<addr>` are two spellings of the SAME
+    request per ZIP-321 "URI Semantics", they parse to **equal** `PaymentRequest` values, and the
+    model does not record which spelling was used (matching the reference `TransactionRequest`).
+    Migration: the `.legacy`/`.request` branches collapse to one value; a bare address URI is a
+    one-payment request whose payment carries only a recipient. A single payment at the empty
+    paramindex still RENDERS in the leading-address form by default — that choice lives in the
+    renderer's formatting options, not in the model.
+  - **`ParserContext` is deleted**, along with `RecipientAddress.ValidatingClosure` and the v1
+    four-method `AddressValidator` protocol (`isValid`/`isTransparent`/`isSprout`/`isShielded`).
+    `Network` + the new `AddressValidator` replace them.
+  - The public `ZIP321.Errors` grab-bag is replaced by the sealed `ZIP321Error` taxonomy (see
+    Added/Security). Sprout rejection now surfaces as `.invalidAddress` (previously
+    `sproutRecipientsNotAllowed`).
+  - `Payment.amount` is now `NonNegativeAmount?` (previously `Amount?`/`LegacyAmount?`).
+  - `OtherParam` is now a plain `(name: String, value: String?)` (previously `key:
+    ParamNameString`, `value: QcharString?`); `label`/`message` are now plain decoded `String?`.
+    `QcharString` and `ParamNameString` are no longer public; qchar encoding now happens at render
+    time instead of construction time.
+  - **`Payment.otherParams` is a non-optional `[OtherParam]`** (default `[]`). ZIP-321 cannot
+    spell the difference between "absent" and "empty" — both render to the same URI — so modelling
+    both produced two distinct `Payment` values for one URI and broke the round-trip law. Replace
+    `otherParams: nil` with `otherParams: []` (or omit it) and `payment.otherParams ?? []` with
+    `payment.otherParams`. `Payment.create` additionally **rejects duplicate other-param names**
+    with `.duplicateParameter(name:index: nil)`, matching what the parser already enforced for a
+    URI, so a `Payment` can no longer be built that renders to a URI which will not parse back.
+  - `PaymentRequest` is now stored keyed by `paramindex`; `payments: [Payment]` returns them
+    ordered by ascending index. `init(payments:)` still auto-indexes sequentially from `0` and
+    enforces the 9999-payment cap (`.tooManyPayments`). **Empty requests are now valid**: `zcash:`
+    and `zcash:?` parse to an empty `PaymentRequest` (previously rejected), and render back to
+    `zcash:`. The v1 construction-time network-coherence check (`networkMismatchFound`) was
+    removed; the expected network is enforced once, at the parse boundary, by comparing each
+    recipient's `AddressDescriptor.network` against `expecting:`.
+  - The throwing `Payment.init(...)` remains as a **deprecated** shim delegating to `create`.
+    `ZIP321.request(from:context:validatingRecipients:)` is **removed** rather than deprecated:
+    its result type no longer exists, so no source-compatible shim was possible.
+- **Canonical renderer (breaking):** the renderer now renders from `PaymentRequest.indexedPayments`,
+  preserving each payment's actual stored `paramindex` (a request whose only payment sits at index
+  `5` renders `zcash:?address.5=…&amount.5=1`, previously collapsed onto the empty index). The
+  default `formattingOptions` of `uriString(from:)`/`request(_:)` changed to
+  `.useEmptyParamIndex(omitAddressLabel: true)` (the canonical reference form); the round-trip law
+  `parse(uriString(from: r)) == r` holds under it for every corpus request. `.enumerateAllPayments`
+  is now a documented NORMALIZATION mode that re-numbers payments sequentially from `1` and emits
+  the mandatory `?` query separator (previously omitted for multi-payment output, producing a
+  non-round-trippable URI).
+- **Recipient-address validation is fully delegated** (see Security). The library contains no
+  Bech32/Bech32m or Base58Check decoding, no SHA-256, no HRP or version-byte tables and no address
+  prefix classification; `Parser.onlyCharsetValidation` and its per-kind charset heuristics are
+  deleted along with the rest. Address validity and capability classification come from the
+  caller's `AddressValidator` and are taken as final: there is no built-in check to compose with,
+  and therefore no AND-composition or defense-in-depth semantics to reason about.
+- **The ZIP-321 URI tokenizer was rewritten onto `Scanner`**, a single-pass grammar following the
+  reference `nom` pipeline, replacing the hand-rolled substring-combinator (`ZParser`) port.
+  `label`/`message`/`other` values are now percent-decoded via `QcharCodec`; `address`/`amount`/
+  `memo` values are handed to their own grammars verbatim.
+- **The parser enforces the strict `amountparam` grammar** via the new `AmountParser`/`NonNegativeAmount.zec`
+  path: a leading/trailing decimal point, a sign, whitespace, scientific notation, or a
+  percent-escape in an amount are all rejected.
+- **`MemoBytes` rewritten on the strict base64url codec** (`Sources/ZcashPaymentURI/model/MemoBytes.swift`):
+  `=` padding, impossible lengths, and non-canonical encodings with nonzero trailing bits are now
+  rejected (previously silently accepted by Foundation's padded-base64 path). `MemoBytes` accepts
+  0 to 512 bytes (consensus zero-pads memos to 512 bytes; an empty memo is well-defined).
+- **The conformance claim is stated narrowly.** This implementation is conformant with ZIP-321
+  except [`req-asset`](https://zips.z.cash/zip-0321#custom-assets) (ZIP-321 Custom Assets / ZSA),
+  which is intentionally rejected with `.unknownRequiredParameter` pending ecosystem support —
+  the behaviour ZIP-321's own forward-compatibility rule requires of a parser that does not
+  implement a `req-` parameter, and the behaviour of the librustzcash `zip321` reference
+  implementation, which does not implement it either. Tracked in
+  [#96](https://github.com/zecdev/zcash-swift-payment-uri/issues/96).
+- **Conformance corpus synced to the adjudicated revision**: integer-overflow amounts classify as
+  `amountExceededSupply`; the spec's fabricated `req-asset` example addresses are documented as
+  checksum-invalid; the `AmountParser` overflow special-case was removed accordingly.
+- **Breaking (toolchain):** `swift-tools-version` raised to `6.0`; minimum platforms raised to
+  macOS 13 / iOS 16.
+- **Test suite migrated from XCTest to [swift-testing](https://github.com/swiftlang/swift-testing)**
+  (`@Suite`/`@Test`/`#expect`/`#require`); the conformance suite's `XCTExpectFailure`-based
+  mechanism was replaced with `withKnownIssue`. Test count was unchanged by the migration itself
+  (137 tests before and after); the suite has since grown to 288 tests via the conformance,
+  property-test, and coverage work above.
+- **CI**: `.github/workflows/ci.yml` replaces `swift.yml` + `swiftlint.yml` (the old macos-14 /
+  Swift 5.10 leg is removed outright — Xcode 15.4 cannot build a `swift-tools-version: 6.0`
+  manifest at all); `release.yml`'s toolchain setup was updated to match (macos-15, ambient default
+  Xcode, `submodules: recursive`). `.swiftlint.yml`'s stale `unused_capture_list` entry (removed
+  from SwiftLint itself two years ago) was dropped; no other lint rules were weakened.
+
+### Removed
+
+- **All runtime dependencies.** `zcash-swift-payment-uri` is now a zero-dependency package:
+  `swift-parsing`, `swift-case-paths`, `BigDecimal`, `BigInt`, and `swift-custom-dump` have all been
+  removed. The only framework the library links is the OS-provided Foundation, which is not a
+  package dependency and never enters a consumer's resolved dependency graph. (The TEST target
+  additionally uses the OS-provided CryptoKit for its reference address checkers.)
+  `swift-docc-plugin` was deliberately **not** added as a `Package.swift` dependency for
+  the same reason (SwiftPM resolves a manifest's entire `dependencies:` array regardless of which
+  products/plugins a consumer actually uses); `xcodebuild docbuild` needs no manifest change.
+- **`Amount`/`LegacyAmount` removed entirely**, replaced by `NonNegativeAmount`. Migration: replace
+  `try Amount(value: 1)` / `try LegacyAmount(string: "1.5")` with `try NonNegativeAmount.zec("1.5").get()` or
+  `NonNegativeAmount.zatoshi(150_000_000)`.
+- **`QcharString` and `ParamNameString` removed from the public surface** (see `OtherParam` above).
+- Dead code identified while driving coverage to 100%: an always-succeeding guard in
+  `QcharString.init`, a redundant `req-` prefix guard in `Param.from`, an unreachable
+  dictionary-subscript guard in `Parser.mapToIndexedPayments`, and the unused
+  `NumberFormatter.zcashNumberFormatter` / `String.asQcharString` (dead since the `Amount` removal
+  above).
+
+### Fixed
+
+- **`otherparam` rendering now emits the `=` separator** when the parameter carries a value
+  (`future-param=hello%20world`), matching the reference `str_param`; a value-less otherparam still
+  renders as a bare `name`.
+- **A single payment at a non-zero `paramindex` now re-renders faithfully** instead of being
+  collapsed onto the empty index.
+- **Regtest Sapling addresses now parse**: the parser no longer routes addresses through a
+  heuristic charset switch that had no `zr` case — it no longer inspects address text at all.
+- **Zero-length memos and empty `qchar` values are now valid**: `memo=`, `message=`, and `label=`
+  parse to a payment with an empty (not rejected) value, matching the reference.
+- **Checksum-bypassing address acceptance is gone.** v1's HRP-prefix + charset heuristic accepted
+  corrupted checksums and mixed-case Bech32. The library no longer approximates address validity at
+  all; the corpus's checksum-corruption vectors are now rejected by the injected validator, which
+  is the point of the boundary.
+- **Signed amount strings are rejected eagerly.** A sign can never begin a valid ZIP-321
+  `amountparam`, so it is rejected before any digit-parsing work rather than after: a leading
+  `-` fails with a negative-amount error and a leading `+` with an invalid-input error. The
+  strict `NonNegativeAmount` grammar that now backs every amount rejects both forms outright.
+- **The amount path is fully covered by tests, and `Sources/` is lint-clean.** Amount parsing
+  is exercised across every construction and rejection shape (malformed decimal shapes,
+  non-finite doubles, the zero constant, rounding, boundary and overflow values), and
+  `Sources/ZcashPaymentURI` is held at 100% region coverage by `scripts/coverage-gate.sh`
+  with SwiftLint and `swift-format` clean in CI.
+
+### Security
+
+- **Address validation is the caller's, and it is authoritative.** URI parsing requires
+  caller-provided Zcash address validation and capability classification: the library implements
+  the ZIP-321 URI grammar and performs no address validation of its own. A validator returning
+  `nil` rejects the address (`.invalidAddress`); a returned `AddressDescriptor` is trusted verbatim
+  and its `canReceiveMemos` / `isTransparent` drive the transparent-memo and
+  zero-valued-transparent-output rules. Nothing re-checks the address afterwards — there is no
+  fallback, no "and also", and no defense-in-depth composition, because a URI parser shipping its
+  own address tables would be a second, weaker source of truth beside the wallet's real one, and
+  the two could disagree. **Wallets should delegate to their Zcash SDK** (librustzcash
+  `ZcashAddress` via the mobile SDKs' FFI/JNI bindings), the only component that can decode Unified
+  Address receivers and decide which address kinds the wallet will pay. The one rule applied on top
+  of the validator's verdict is a comparison, not a validation: an accepted address whose
+  `AddressDescriptor.network` differs from the `expecting:` network makes the request invalid.
+- **Errors never carry sensitive input.** The sealed `ZIP321Error` taxonomy is constructed so that
+  no case can carry an address, memo contents, an amount, or a raw URI slice — only parameter
+  names, indices, counts, or fixed `StaticReason` values (the one bounded exception,
+  `invalidParamIndex(raw:)`, is capped at a few characters by the ZIP-321 grammar).
+- **A bounded input size.** `ZIP321.parse` rejects input above `maxInputBytes` (8 KiB by default)
+  before any grammar or address-validation work runs, bounding the cost of parsing adversarial
+  input.
+- **Zero runtime dependencies**, minimizing supply-chain surface: the library links nothing beyond
+  the Swift standard library and the OS-provided Foundation framework.
+- **100% region test coverage**, deterministic property-based round-trip tests, and full agreement
+  with the shared, oracle-verified cross-language conformance corpus, enforced as required CI gates
+  on every pull request.
 
 ## 1.0.0
 This release contains several **API breaking changes**, but let not be discouraged to

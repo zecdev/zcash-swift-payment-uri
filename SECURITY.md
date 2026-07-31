@@ -26,6 +26,35 @@ In the case where we become aware of security issues affecting other projects th
 
 In the case where we fix a security issue in our projects that also affects the following neighboring projects, our intention is to engage in responsible disclosures with them as described in https://github.com/RD-Crypto-Spec/Responsible-Disclosure, subject to the deviations described in the section at the bottom of this document.
 
+## Scope note: address validation is the integrator's responsibility
+
+As of v2.0.0 this library performs **no recipient-address validation at all**. It implements the
+[ZIP-321](https://zips.z.cash/zip-0321) URI grammar; it contains no Bech32/Bech32m or Base58Check
+decoding, no SHA-256, no human-readable-part or version-byte tables, and no address prefix
+classification.
+
+Integrators MUST supply an `AddressValidator` to `ZIP321.parse(_:expecting:validator:)`. It is
+REQUIRED, and it is **authoritative**:
+
+- returning `nil` rejects the address and the request fails with `.invalidAddress`;
+- returning an `AddressDescriptor` accepts it, and that descriptor is trusted verbatim. Its
+  `canReceiveMemos` decides whether a memo may accompany the recipient; its `isTransparent`
+  decides whether a zero-valued output to it is permitted.
+
+Nothing in this library re-checks an address afterwards. There is no built-in check to compose
+with, no fallback, and no defense-in-depth layering: a URI parser shipping its own address tables
+would be a second, weaker source of truth sitting beside the wallet's real one, and the two could
+disagree — silently, and in the direction of accepting an address the wallet would not.
+
+Implement the validator by delegating to your Zcash SDK (librustzcash `ZcashAddress`, via the
+mobile SDKs' FFI/JNI bindings). That is the only component that can decode Unified Address
+receivers, apply your network's consensus rules, and decide which address kinds your wallet is
+willing to pay. Reject Sprout recipients there: ZIP-321 forbids them.
+
+The one rule this library applies on top of the validator's verdict is a comparison, not a
+validation: an accepted address whose `AddressDescriptor.network` differs from the `expecting:`
+network makes the request invalid.
+
 ## Deviations from the Standard
 
 The standard describes reporters of vulnerabilities including full details of an issue, in order to reproduce it. This is necessary for instance in the case of an external researcher both demonstrating and proving that there really is a security issue, and that security issue really has the impact that they say it has - allowing the development team to accurately prioritize and resolve the issue.
