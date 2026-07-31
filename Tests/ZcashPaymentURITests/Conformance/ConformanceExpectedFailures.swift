@@ -40,14 +40,6 @@ let conformanceExpectedFailures: [String: String] = [
         "v1 accepts: no check that a zero-valued amount to a transparent recipient is "
         + "disallowed by consensus; Amount permits 0 and Payment never rejects it",
 
-    // MARK: Empty parameter values — v1's checked types disallow empty strings
-    "amount_one_with_empty_message":
-        "v1 rejects: 'message=' (empty value) throws qcharDecodeFailed because QcharString "
-        + "disallows empty strings; reference accepts an empty message",
-    "amount_parse_simple_large_decimal":
-        "v1 rejects: same empty-'message=' limitation as amount_one_with_empty_message "
-        + "(QcharString disallows empty strings)",
-
     // MARK: Zero-payment requests — v1 cannot represent an empty request
     "structure_empty_request":
         "v1 rejects: 'zcash:' (a valid empty request per the reference) throws invalidURI; "

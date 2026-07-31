@@ -23,8 +23,12 @@ struct QcharStringTests {
         #expect(result == nil)
     }
 
-    @Test func qcharStringFromEmptyStringFails() throws {
-        #expect(QcharString(value: "") == nil)
+    @Test func qcharStringFromEmptyStringSucceeds() throws {
+        // The empty string is a valid zero-length `*qchar` value (ZIP-321 allows an empty
+        // `message=`/`label=`). It round-trips through both the encoded and decoded views.
+        let empty = try #require(QcharString(value: ""))
+        #expect(empty.value == "")
+        #expect(empty.qcharValue == "")
     }
 
     @Test func qcharDecode() {
