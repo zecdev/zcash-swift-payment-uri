@@ -11,7 +11,10 @@ disabled_rules:
   - notification_center_detachment
   - orphaned_doc_comment
   - todo
-  - unused_capture_list
+  # `unused_capture_list` was removed in SwiftLint 0.53 (deprecated 2 years
+  # prior) in favor of the Swift compiler's own unused-capture warning; kept
+  # out of this list rather than left as a dangling reference (S17 rule-key
+  # drift cleanup).
   - nesting # allow for types to be nested, common pattern in Swift
   - multiple_closures_with_trailing_closure
   - generic_type_name # allow for arbitrarily long generic type names
@@ -122,6 +125,16 @@ function_body_length:
     warning: 150
 
 legacy_hashing: error
+
+# swift-format runs in the same `lint` job with
+# `multiElementCollectionTrailingCommas: true`, so it *adds* the trailing comma
+# that SwiftLint's default `trailing_comma` (mandatory_comma: false) then
+# *removes* — the two formatters would fight forever over the same character.
+# swift-format owns layout here, so SwiftLint is aligned to it rather than the
+# other way around. Note this only ever applies to MULTI-LINE collection
+# literals: SwiftLint skips single-line literals when mandatory_comma is true.
+trailing_comma:
+  mandatory_comma: true
 
 identifier_name:
   excluded:

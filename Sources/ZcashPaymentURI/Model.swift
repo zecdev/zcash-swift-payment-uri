@@ -38,7 +38,7 @@ public struct PaymentRequest: Equatable, Sendable {
     /// sequential paramindices `0, 1, 2, …` in order.
     /// - parameter payments: a sequence of ``Payment`` structs (may be empty).
     /// - throws: ``ZIP321Error/tooManyPayments(count:)`` if more than
-    /// ``maxPaymentCount`` payments are provided.
+    /// `maxPaymentCount` (9999) payments are provided.
     public init(payments: [Payment]) throws {
         guard payments.count <= Int(Self.maxPaymentCount) else {
             throw ZIP321Error.tooManyPayments(count: UInt(payments.count))
@@ -57,7 +57,7 @@ public struct PaymentRequest: Equatable, Sendable {
     /// unique and each `≤ 9999`.
     /// - throws: ``ZIP321Error/duplicateParameter(name:index:)`` if an index
     /// repeats, or ``ZIP321Error/tooManyPayments(count:)`` if any index exceeds
-    /// ``maxPaymentCount``.
+    /// `maxPaymentCount` (9999).
     public init(indexedPayments: [(index: UInt, payment: Payment)]) throws {
         var byIndex: [UInt: Payment] = [:]
 
@@ -150,12 +150,18 @@ public struct Payment: Equatable, Sendable {
     ///   ``ZIP321Error/zeroValuedTransparentOutput(index:)``.
     ///
     /// Errors are produced index-agnostically (`index: nil`); the parser tags
-    /// them with the concrete payment index via ``ZIP321Error/withIndex(_:)``.
+    /// them with the concrete payment index via the internal `withIndex(_:)`.
     ///
+    /// - parameter recipientAddress: the (already validated) recipient of the payment.
+    /// - parameter amount: the payment amount, or `nil` if unspecified.
+    /// - parameter memo: the ZIP-302 memo to attach, or `nil` for no memo.
     /// - parameter label: a plain (decoded) label, or `nil`. Wallets may show
     /// this; it is not included in the blockchain.
     /// - parameter message: a plain (decoded) message, or `nil`. Wallets may
     /// show this; it is not included in the blockchain.
+    /// - parameter otherParams: any additional, non-reserved `otherparam`
+    /// entries. Defaults to none. Names MUST be unique within a payment; a
+    /// repeated name fails with ``ZIP321Error/duplicateParameter(name:index:)``.
     public static func create(
         recipientAddress: RecipientAddress,
         amount: NonNegativeAmount?,
@@ -222,7 +228,9 @@ public struct Payment: Equatable, Sendable {
 /// and `value` is the percent-decoded `*qchar` value (or `nil` when the
 /// parameter had no `= value`).
 public struct OtherParam: Equatable, Sendable {
+    /// The (plain, decoded) `paramname`.
     public let name: String
+    /// The (plain, percent-decoded) `*qchar` value, or `nil` for a value-less parameter.
     public let value: String?
 
     /// Initializes an `OtherParam` with a plain (decoded) name and optional
@@ -241,12 +249,7 @@ public struct OtherParam: Equatable, Sendable {
     }
 
     static func isReservedKey(_ key: String) -> Bool {
-        key == "address" ||
-        key == "amount" ||
-        key == "label" ||
-        key == "memo" ||
-        key == "message" ||
-        key == "req-"
+        key == "address" || key == "amount" || key == "label" || key == "memo" || key == "message" || key == "req-"
     }
 }
 
@@ -302,16 +305,19 @@ extension CharacterSet {
     /// A-Z, a-z, 0-9, _, -
     /// - Note: a Base64URL value can be defined using the following regular expression:
     /// ^[A-Za-z0-9_-]+$
-    static let base64URL = ASCIINum
+    static let base64URL =
+        ASCIINum
         .union(.ASCIIAlpha)
         .union(CharacterSet(arrayLiteral: "-", "_"))
 }
 
 extension String {
     func conformsToCharacterSet(_ characterSet: CharacterSet) -> Bool {
-        guard self.unicodeScalars.allSatisfy({ character in
-            characterSet.contains(character)
-        }) else {
+        guard
+            self.unicodeScalars.allSatisfy({ character in
+                characterSet.contains(character)
+            })
+        else {
             return false
         }
 

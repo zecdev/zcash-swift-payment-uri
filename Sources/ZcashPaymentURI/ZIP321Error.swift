@@ -82,20 +82,20 @@ extension ZIP321Error {
     /// with the concrete payment index once it is known.
     func withIndex(_ index: UInt?) -> ZIP321Error {
         switch self {
-        case .invalidBase64:                 return .invalidBase64(index: index)
-        case .memoBytesError:                return .memoBytesError(index: index)
-        case .transparentMemo:               return .transparentMemo(index: index)
-        case .zeroValuedTransparentOutput:   return .zeroValuedTransparentOutput(index: index)
-        case .recipientMissing:              return .recipientMissing(index: index)
-        case .invalidAddress:                return .invalidAddress(index: index)
-        case .amountExceededSupply:          return .amountExceededSupply(index: index)
-        case .amountInvalid:                 return .amountInvalid(index: index)
+        case .invalidBase64: return .invalidBase64(index: index)
+        case .memoBytesError: return .memoBytesError(index: index)
+        case .transparentMemo: return .transparentMemo(index: index)
+        case .zeroValuedTransparentOutput: return .zeroValuedTransparentOutput(index: index)
+        case .recipientMissing: return .recipientMissing(index: index)
+        case .invalidAddress: return .invalidAddress(index: index)
+        case .amountExceededSupply: return .amountExceededSupply(index: index)
+        case .amountInvalid: return .amountInvalid(index: index)
         case let .duplicateParameter(name, _): return .duplicateParameter(name: name, index: index)
         case .tooManyPayments,
-             .unknownRequiredParameter,
-             .invalidParamIndex,
-             .invalidURI,
-             .parseError:
+            .unknownRequiredParameter,
+            .invalidParamIndex,
+            .invalidURI,
+            .parseError:
             return self
         }
     }

@@ -15,12 +15,17 @@ import Foundation
 /// implementation, which accepts an empty byte slice. Note the distinction between an
 /// *omitted* memo (`Payment.memo == nil`) and an *empty* memo (`memo=` in a URI, 0 bytes).
 public struct MemoBytes: Equatable, Sendable {
+    /// Reasons a candidate memo could not be represented as `MemoBytes`.
     public enum MemoError: Error {
+        /// The memo content is longer than ``MemoBytes/maxLength`` (512) bytes.
         case memoTooLong
+        /// The memo content is not a valid UTF-8 string.
         case notUTF8String
+        /// The `memo` value is not a canonical unpadded base64url string.
         case invalidBase64URL
     }
 
+    /// The maximum number of bytes a memo may contain (512, per ZIP-302).
     public let maxLength = 512
     let data: Data
 
@@ -75,6 +80,7 @@ public struct MemoBytes: Equatable, Sendable {
 }
 
 public extension MemoBytes {
+    /// The raw bytes of this memo, as `Foundation.Data`.
     var memoData: Data {
         self.data
     }

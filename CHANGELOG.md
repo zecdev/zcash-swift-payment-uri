@@ -82,6 +82,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `AmountError.negativeAmount` remains only for the decimal-string path's
   error taxonomy.
 
+### Added — CI, lint/format, and DocC (S17)
+
+- **`.github/workflows/ci.yml`** replaces `swift.yml` + `swiftlint.yml` with four jobs, all
+  required on `main` and on every PR: `test-macos` (matrix: macos-15 / Xcode 16.4 / Swift 6.1, and
+  macos-26 / Xcode 26.5 / Swift 6.2 — both using each runner's ambient default Xcode via
+  `xcode-select -p`, with no `setup-swift` action or explicit `xcode-select -s`), `coverage` (macos-15, runs
+  `scripts/coverage-gate.sh`, the 100% region-coverage gate from S16), `lint` (SwiftLint via the
+  official `ghcr.io/realm/swiftlint:0.65.0` image and the toolchain-bundled `swift format lint
+  --strict`, both invoked via plain `docker run` on `ubuntu-latest` — no toolchain installed on
+  the runner itself), and `docc` (macos-15, `xcodebuild docbuild`, fails the build if the log
+  contains any `warning:` line). The old macos-14 / Swift 5.10 leg (via
+  `swift-actions/setup-swift`) is removed outright: Xcode 15.4 cannot build a
+  `swift-tools-version: 6.0` manifest at all. There is deliberately **no Linux test job**: the library
+  target is platform-neutral Swift, but the TEST target's reference address-encoding checkers
+  verify Base58Check checksums with Apple's CryptoKit, which does not exist on Linux, so
+  `swift test` cannot run there. Linux was never a declared platform of this package
+  (`Package.swift` declares macOS 13 / iOS 16 only). The `lint` job still runs on
+  `ubuntu-latest`, but only inside containers — it never builds for Linux.
+  `Tests/Vectors` is checked out via
+  `submodules: recursive`; this workflow (and every job that runs the test suite) only goes green
+  in CI once the corpus repository is published and `.gitmodules` is re-pointed at it.
+  `release.yml`'s toolchain setup was updated to match (`macos-15`, ambient default Xcode,
+  `submodules: recursive`).
+- **`.swiftlint.yml`**: removed the stale `unused_capture_list` entry from `disabled_rules` — the
+  rule was fully removed from SwiftLint (after a 2-year deprecation in favor of the Swift
+  compiler's own unused-capture-list warning) and no longer exists as of the pinned `0.65.0`.
+  Every other rule name and configuration key in the file was checked against the SwiftLint
+  `0.65.0` source and is still current; no other drift was found. All existing rules are
+  unchanged — `swiftlint lint --strict` was not weakened.
+- **`.swift-format`**: a new Apple `swift-format` (toolchain-bundled `swift format`) configuration
+  matching the project's existing style — 4-space indentation, 150-column lines, `... `/`...`
+  range operators kept spaced (`spacesAroundRangeFormationOperators: true`, to avoid fighting
+  SwiftLint's `operator_usage_whitespace`). Several default-on rules are deliberately disabled to
+  keep the one-time reformat diff reviewable and avoid semantic/structural churn: acronym-style
+  identifier renaming (`AlwaysUseLowerCamelCase`, which would rename e.g. `ASCIIAlphaNum`),
+  hex-literal digit grouping (`GroupNumericLiterals`, which would rewrite the Bech32/Base58
+  constant tables), moving `let` inside `case` patterns (`UseLetInEveryBoundCaseVariable`, which would
+  rewrite ~20 existing `case let .foo(...)` sites against the codebase's prevailing idiom),
+  `public extension` restructuring (`NoAccessLevelOnExtensionDeclaration`), import reordering
+  (`OrderedImports`), and synthesized-initializer/`forEach`-rewriting rules that could change
+  code structure (and, with it, LLVM coverage region shape) without a matching behavior change.
+  Sources/ (Tests/ is out of scope, matching `.swiftlint.yml`'s own `excluded:`) was reformatted
+  once under this configuration: 13 files, 119 insertions / 80 deletions, entirely spacing,
+  trailing-comma, and blank-line fixes — no code-behavior change. `scripts/format.sh` applies the
+  same configuration; CI's `lint` job runs `swift format lint --strict` (fails on any finding).
+- **DocC documentation catalog** (`Sources/ZcashPaymentURI/Documentation.docc/`): a landing page
+  (`ZcashPaymentURI.md`) covering the four canonical usage scenarios (a single address with no
+  amount; an amount + memo + other parameters; multiple recipients via the fluent/DSL builders;
+  parsing a URI), each wiring up a caller-supplied `AddressValidator` first, since URI parsing
+  requires caller-provided Zcash address validation and capability classification. Its security
+  section states that boundary explicitly — the injected validator is the sole authority on
+  address validity, its `AddressDescriptor` drives the payment rules, and nothing in the library
+  re-checks an address — alongside the data-leakage-free `ZIP321Error` taxonomy and the bounded
+  `maxInputBytes` input cap. A migration article (`MigratingFromV1.md`, sourced from this
+  changelog's v2.0.0 "Breaking changes" entries) leads with the validator requirement and the
+  `ParserContext` → `Network` rename. Filled in every public-symbol documentation gap
+  this surfaced (via `xcodebuild docbuild`, which warns on undocumented parameters and on
+  `` ``symbol`` `` doc-links that don't resolve): missing doc comments on `OtherParam.name` /
+  `.value`, the `Network` cases, the `ZIP321` enum and `FormattingOptions` cases, `NonNegativeAmount.AmountError`
+  and its `<` operator, `MemoBytes.MemoError` (and its cases) and `.maxLength`/`.memoData`, and
+  several missing `- parameter` entries on `Payment.create` and one `request(_:formattingOptions:)`
+  overload; fixed doc-links to internal (non-public) symbols (`withIndex(_:)`,
+  `PaymentRequest.maxPaymentCount`), an ambiguous overloaded-function link, and a link to the
+  removed v1 `Amount` type. `xcodebuild docbuild` now completes with **zero warnings**. Considered
+  and rejected adding `swift-docc-plugin` as a Package.swift dependency: SwiftPM resolves a
+  manifest's entire `dependencies:` array regardless of which products/plugins a consumer actually
+  uses, so it would appear in every consumer's resolved graph and violate the zero-runtime-dependency
+  guarantee; `xcodebuild docbuild` needs no manifest change.
+- Filled the same public-API documentation gaps independently of the DocC catalog (see above) —
+  every public symbol in `Sources/ZcashPaymentURI` now has a doc comment.
+
 ### Added — 100% region coverage + machine-checkable gate (S16)
 
 - `scripts/coverage-gate.sh` + `scripts/coverage-gate.py`: runs the full test
@@ -94,8 +165,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   defensive invariant guards; the script fails outright if that budget is
   exceeded. Usage: `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
   scripts/coverage-gate.sh`.
-- Drove region coverage from 91.35% (786 regions, the pre-existing baseline
-  plus the S16 property tests) to **100.00% (757/757)**, via:
+- Drove region coverage to **100.00% (562/562)** — the denominator shrank
+  when the address-encoding primitives left the library target for the test
+  support layer — via:
   - Targeted tests for previously-unexercised code: `Payment.Builder`'s
     `amount(_:NonNegativeAmount)` / `memo(_:MemoBytes)` / `label(_:)` overloads and the
     `otherParam` success path; the `PaymentRequestBuilder` `for`-loop
@@ -109,9 +181,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `ZIP321.Errors.mapFrom` exhaustively over every `MemoBytes.MemoError` /
     `NonNegativeAmount.AmountError` case; `Render.request(_:.enumerateAllPayments)`'s
     non-empty-request branch; `ZIP321.request(_:formattingOptions:)`'s
-    non-default-option branch; `ParserContext.isTransparent`'s non-ASCII
-    charset guard; `Bech32.verify`'s decode-failure branch; indexed
-    (`paramindex > 0`) invalid-address and sprout-address query parameters;
+    non-default-option branch; indexed (`paramindex > 0`) invalid-address
+    query parameters;
     `otherparam`/`label`/`message` values with malformed percent-escapes;
     `NonNegativeAmount.zec`'s whole-part-exceeds-`maxMoney` bound (no fractional part
     involved, distinct from the already-covered overflow paths); several

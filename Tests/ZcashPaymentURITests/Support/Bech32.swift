@@ -104,7 +104,7 @@ enum Bech32 {
         guard let sepIndex = lowered.lastIndex(of: 0x31 /* '1' */) else { return nil }
 
         // HRP occupies everything before the separator: 1..83 chars.
-        let hrpBytes = Array(lowered[0..<sepIndex])
+        let hrpBytes = Array(lowered[0 ..< sepIndex])
         guard hrpBytes.count >= 1, hrpBytes.count <= 83 else { return nil }
         for byte in hrpBytes where byte < 33 || byte > 126 {
             return nil
@@ -141,7 +141,7 @@ enum Bech32 {
         // input can reach (and that the 100% region-coverage gate could not cover).
         let hrp = String(decoding: hrpBytes, as: UTF8.self)
         // Strip the 6-character checksum from the returned data.
-        let data = Array(values[0..<(values.count - 6)])
+        let data = Array(values[0 ..< (values.count - 6)])
         return (hrp: hrp, data: data, variant: variant)
     }
 
@@ -156,13 +156,13 @@ enum Bech32 {
 
     private static func polymod(_ values: [UInt8]) -> UInt32 {
         let generator: [UInt32] = [
-            0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3
+            0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3,
         ]
         var chk: UInt32 = 1
         for value in values {
             let top = chk >> 25
             chk = ((chk & 0x1ffffff) << 5) ^ UInt32(value)
-            for i in 0..<5 where (top >> UInt32(i)) & 1 != 0 {
+            for i in 0 ..< 5 where (top >> UInt32(i)) & 1 != 0 {
                 chk ^= generator[i]
             }
         }

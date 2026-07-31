@@ -33,10 +33,10 @@ enum QcharCodec {
     static func isQcharByte(_ byte: UInt8) -> Bool {
         switch byte {
         // ALPHA
-        case 0x41...0x5A, 0x61...0x7A:
+        case 0x41 ... 0x5A, 0x61 ... 0x7A:
             return true
         // DIGIT
-        case 0x30...0x39:
+        case 0x30 ... 0x39:
             return true
         // unreserved extras: "-" "." "_" "~"
         case 0x2D, 0x2E, 0x5F, 0x7E:
@@ -70,7 +70,7 @@ enum QcharCodec {
             if isQcharByte(byte) {
                 out.append(byte)
             } else {
-                out.append(0x25) // "%"
+                out.append(0x25)  // "%"
                 out.append(hexDigits[Int(byte >> 4)])
                 out.append(hexDigits[Int(byte & 0x0F)])
             }
@@ -95,7 +95,7 @@ enum QcharCodec {
         var i = 0
         while i < bytes.count {
             let byte = bytes[i]
-            if byte == 0x25 { // "%"
+            if byte == 0x25 {  // "%"
                 guard i + 3 <= bytes.count,
                     let high = hexValue(bytes[i + 1]),
                     let low = hexValue(bytes[i + 2])
@@ -118,9 +118,9 @@ enum QcharCodec {
 
     private static func hexValue(_ byte: UInt8) -> UInt8? {
         switch byte {
-        case 0x30...0x39: return byte - 0x30           // 0-9
-        case 0x41...0x46: return byte - 0x41 + 10      // A-F
-        case 0x61...0x66: return byte - 0x61 + 10      // a-f
+        case 0x30 ... 0x39: return byte - 0x30  // 0-9
+        case 0x41 ... 0x46: return byte - 0x41 + 10  // A-F
+        case 0x61 ... 0x66: return byte - 0x61 + 10  // a-f
         default: return nil
         }
     }
