@@ -27,14 +27,6 @@
 ///   - "renderMismatch": v1 parses correctly but its re-rendered URI differs
 ///     from the Rust reference `canonicalUri` (documented expectation only).
 let conformanceExpectedFailures: [String: String] = [
-    // MARK: Amount grammar — BigDecimal(string:) is more lenient than the ZIP-321 grammar
-    "invalid_amount_trailing_decimal_point":
-        "v1 accepts: 'amount=123.' parses via BigDecimal to 123; ZIP-321 grammar requires "
-        + "at least one digit after the decimal point",
-    "invalid_amount_leading_decimal_point":
-        "v1 accepts: 'amount=.5' parses via BigDecimal to 0.5; ZIP-321 grammar requires "
-        + "a whole-number part before the decimal point",
-
     // MARK: Missing consensus check
     "spec_invalid_zero_valued_transparent_output":
         "v1 accepts: no check that a zero-valued amount to a transparent recipient is "

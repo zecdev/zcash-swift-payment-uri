@@ -527,13 +527,9 @@ extension Param {
 
                 return .address(addr)
             case .amount:
-                do {
-                    return .amount(try LegacyAmount(string: value))
-                } catch {
-                    let amountError = try error.mapToErrorOrRethrow(LegacyAmount.AmountError.self)
-
-                    throw ZIP321.Errors.mapFrom(amountError, index: index)
-                }
+                // Strict ZIP-321 `amountparam` grammar via `NonNegativeAmount`, bridged to the
+                // still-`LegacyAmount`-typed `Payment.amount`.
+                return .amount(LegacyAmount(zatoshi: try AmountParser.parse(value, index: index)))
             case .label:
                 let qcharDecoded = try tryDecodeQcharValue(value)
 

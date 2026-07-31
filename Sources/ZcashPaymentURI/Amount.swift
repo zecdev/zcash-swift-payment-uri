@@ -108,6 +108,14 @@ public struct LegacyAmount: Equatable, Sendable {
         self.zatoshi = unchecked
     }
 
+    /// Bridges a strict ``NonNegativeAmount`` into the v1 `LegacyAmount` representation. Both types store
+    /// a checked `Int64` zatoshi count, so this conversion is exact. Used by the parser while
+    /// `Payment.amount` remains `LegacyAmount`-typed (the public switch to `NonNegativeAmount` is a later
+    /// step in the v2 rewrite).
+    init(zatoshi: NonNegativeAmount) {
+        self.zatoshi = zatoshi.value
+    }
+
     public func toString() -> String {
         let whole = self.zatoshi / Self.zatoshiPerZec
         let fraction = self.zatoshi % Self.zatoshiPerZec
