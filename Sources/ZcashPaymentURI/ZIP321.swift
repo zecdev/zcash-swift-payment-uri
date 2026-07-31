@@ -147,13 +147,17 @@ public extension ZIP321 {
     /// payment URI for a single recipient with no amount
     ///  - parameter recipient: A recipient address
     ///  - parameter formattingOptions: the rendered form; defaults to the canonical reference form.
-    ///  - returns a URI string of the sort `zcash:{recipient_address_string}` if default formatting is specified, or `zcash:address={recipient_address_string}` otherwise
+    ///  - returns a URI string of the sort `zcash:{recipient_address_string}` if default formatting is specified, or a
+    ///  labeled form (`zcash:?address={recipient_address_string}` /
+    ///  `zcash:?address.1={recipient_address_string}`) otherwise. Every form parses back.
     static func request(_ recipient: RecipientAddress, formattingOptions: FormattingOptions = .useEmptyParamIndex(omitAddressLabel: true)) -> String {
         switch formattingOptions {
         case .useEmptyParamIndex(omitAddressLabel: true):
             "zcash:".appending(Render.parameter(recipient, index: nil, omittingAddressLabel: true))
-        default:
-            "zcash:".appending(Render.parameter(recipient, index: nil, omittingAddressLabel: false))
+        case .useEmptyParamIndex(omitAddressLabel: false):
+            "zcash:?".appending(Render.parameter(recipient, index: nil, omittingAddressLabel: false))
+        case .enumerateAllPayments:
+            "zcash:?".appending(Render.parameter(recipient, index: 1, omittingAddressLabel: false))
         }
     }
 

@@ -318,13 +318,25 @@ struct CoverageGapTests {
     @Test func requestWithExplicitAddressLabelUsesAddressEqualsForm() throws {
         let address = try recipient(Self.saplingTestnet)
 
+        let payment = try Payment.create(
+            recipientAddress: address, amount: nil,
+            memo: nil, label: nil, message: nil, otherParams: []
+        ).get()
+
+        // Regression (found via Kotlin parity review): both labeled forms previously
+        // omitted the mandatory "?" and rendered unparsable URIs.
+        let labeled = ZIP321.request(address, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false))
+        #expect(labeled == "zcash:?address=\(Self.saplingTestnet)")
         #expect(
-            ZIP321.request(address, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false))
-            == "zcash:address=\(Self.saplingTestnet)"
+            try ZIP321.parse(labeled, expecting: .testnet, validator: ReferenceAddressValidator.testnet).get()
+            == PaymentRequest(singlePayment: payment)
         )
+
+        let enumerated = ZIP321.request(address, formattingOptions: .enumerateAllPayments)
+        #expect(enumerated == "zcash:?address.1=\(Self.saplingTestnet)")
         #expect(
-            ZIP321.request(address, formattingOptions: .enumerateAllPayments)
-            == "zcash:address=\(Self.saplingTestnet)"
+            try ZIP321.parse(enumerated, expecting: .testnet, validator: ReferenceAddressValidator.testnet).get()
+            == (try PaymentRequest(indexedPayments: [(index: 1, payment: payment)]))
         )
     }
 
