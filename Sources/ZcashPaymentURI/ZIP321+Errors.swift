@@ -26,19 +26,7 @@ extension ZIP321.Errors {
         }
     }
 
-    static func mapFrom(_ amountError: LegacyAmount.AmountError, index: UInt) -> ZIP321.Errors {
-        switch amountError {
-        case .greaterThanSupply:
-            return .amountExceededSupply(index)
-        case .invalidTextInput:
-            return .invalidParamValue(param: "amount", index: index == 0 ? nil : index)
-        case .negativeAmount, .tooManyFractionalDigits:
-            return .amountTooSmall(index)
-        }
-    }
-
-    /// Maps a strict ``NonNegativeAmount/AmountError`` onto the closest v1 `amount` error, preserving
-    /// the mapping already used for the deprecated `LegacyAmount` path:
+    /// Maps a strict ``NonNegativeAmount/AmountError`` onto the closest v1 `amount` error:
     ///   - `.exceededSupply`          → `.amountExceededSupply(index)`
     ///   - `.invalidDecimalString`    → `.invalidParamValue(param: "amount", index:)`
     ///     (the grammar-shape failure — empty whole/fraction part, sign, stray characters —

@@ -13,7 +13,7 @@ struct RendererTests {
     @Test func amountRendersNoParamIndex() throws {
         let expected = "amount=123.456"
 
-        let amount = try LegacyAmount(string: "123.456")
+        let amount = try NonNegativeAmount.zec("123.456").get()
 
         #expect(Render.parameter(amount, index: nil) == expected)
         #expect(Render.parameter(amount, index: nil) == expected)
@@ -22,7 +22,7 @@ struct RendererTests {
     @Test func amountRendersWithParamIndex() throws {
         let expected = "amount.1=123.456"
 
-        let amount = try LegacyAmount(string: "123.456")
+        let amount = try NonNegativeAmount.zec("123.456").get()
 
         #expect(Render.parameter(amount, index: 1) == expected)
     }
@@ -50,37 +50,37 @@ struct RendererTests {
     @Test func messageParamRendersNoParamIndex() throws {
         let expected = "message=Thank%20you%20for%20your%20purchase"
 
-        #expect(Render.parameter(message: "Thank you for your purchase".asQcharString!, index: nil) == expected)
+        #expect(Render.parameter(message: "Thank you for your purchase", index: nil) == expected)
     }
 
     @Test func messageParamRendersWithParamIndex() throws {
         let expected = "message.10=Thank%20you%20for%20your%20purchase"
 
-        #expect(Render.parameter(message: "Thank you for your purchase".asQcharString!, index: 10) == expected)
+        #expect(Render.parameter(message: "Thank you for your purchase", index: 10) == expected)
     }
 
     @Test func labelRendersNoParamIndex() throws {
         let expected = "label=Lunch%20Tab"
 
-        #expect(Render.parameter(label: "Lunch Tab".asQcharString!, index: nil) == expected)
+        #expect(Render.parameter(label: "Lunch Tab", index: nil) == expected)
     }
 
     @Test func labelRendersWithParamIndex() throws {
         let expected = "label.1=Lunch%20Tab"
 
-        #expect(Render.parameter(label: "Lunch Tab".asQcharString!, index: 1) == expected)
+        #expect(Render.parameter(label: "Lunch Tab", index: 1) == expected)
     }
 
     @Test func reqParamRendersNoParamIndex() throws {
         let expected = "req-futureParam=Future%20is%20Z"
 
-        #expect(Render.parameter(label: "req-futureParam", value: "Future is Z".asQcharString!, index: nil) == expected)
+        #expect(Render.parameter(named: "req-futureParam", decodedValue: "Future is Z", index: nil) == expected)
     }
 
     @Test func reqParamRendersWithParamIndex() throws {
         let expected = "req-futureParam.1=Future%20is%20Z"
 
-        #expect(Render.parameter(label: "req-futureParam", value: "Future is Z".asQcharString!, index: 1) == expected)
+        #expect(Render.parameter(named: "req-futureParam", decodedValue: "Future is Z", index: 1) == expected)
     }
 
     @Test func memoParamRendersNoParamIndex() throws {
@@ -104,14 +104,14 @@ struct RendererTests {
 
         let recipient0 = try #require(RecipientAddress(value: address0, validator: ReferenceAddressValidator.testnet))
 
-        let payment0 = try Payment(
+        let payment0 = try Payment.create(
             recipientAddress: recipient0,
-            amount: try LegacyAmount(value: 123.456),
+            amount: try NonNegativeAmount.zec("123.456").get(),
             memo: nil,
             label: nil,
             message: nil,
-            otherParams: nil
-        )
+            otherParams: []
+        ).get()
 
         #expect(Render.payment(payment0, index: nil) == expected)
     }
@@ -124,14 +124,14 @@ struct RendererTests {
 
         let recipient1 = try #require(RecipientAddress(value: address1, validator: ReferenceAddressValidator.testnet))
 
-        let payment1 = try Payment(
+        let payment1 = try Payment.create(
             recipientAddress: recipient1,
-            amount: try LegacyAmount(value: 0.789),
+            amount: try NonNegativeAmount.zec("0.789").get(),
             memo: try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"),
             label: nil,
             message: nil,
-            otherParams: nil
-        )
+            otherParams: []
+        ).get()
 
         #expect(Render.payment(payment1, index: 1) == expected)
     }
@@ -143,14 +143,14 @@ struct RendererTests {
 
         let recipient0 = try #require(RecipientAddress(value: address0, validator: ReferenceAddressValidator.testnet))
 
-        let payment0 = try Payment(
+        let payment0 = try Payment.create(
             recipientAddress: recipient0,
-            amount: try LegacyAmount(value: 123.456),
+            amount: try NonNegativeAmount.zec("123.456").get(),
             memo: nil,
             label: nil,
             message: nil,
-            otherParams: nil
-        )
+            otherParams: []
+        ).get()
 
         #expect(Render.payment(payment0, index: nil, omittingAddressLabel: true) == expected)
     }
@@ -163,14 +163,14 @@ struct RendererTests {
 
         let recipient1 = try #require(RecipientAddress(value: address1, validator: ReferenceAddressValidator.testnet))
 
-        let payment1 = try Payment(
+        let payment1 = try Payment.create(
             recipientAddress: recipient1,
-            amount: try LegacyAmount(value: 0.789),
+            amount: try NonNegativeAmount.zec("0.789").get(),
             memo: try MemoBytes(utf8String: "This is a unicode memo ✨🦄🏆🎉"),
             label: nil,
             message: nil,
-            otherParams: nil
-        )
+            otherParams: []
+        ).get()
 
         #expect(Render.payment(payment1, index: 1, omittingAddressLabel: true) == expected)
     }

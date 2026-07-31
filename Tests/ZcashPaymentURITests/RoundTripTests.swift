@@ -12,11 +12,7 @@ import Testing
 struct RoundTripTests {
     @Test func example() throws {
         let url = "zcash:tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU?amount=123.45&label=apple+banana"
-        let parserResult = try ZIP321.request(from: url, expecting: .testnet, validator: ReferenceAddressValidator.testnet)
-        guard case ParserResult.request(let request) = parserResult else {
-            Issue.record("Expected Request type, found \(parserResult)")
-            return
-        }
+        let request = try ZIP321.parse(url, expecting: .testnet, validator: ReferenceAddressValidator.testnet).get()
 
         let roundTrip = ZIP321.uriString(from: request, formattingOptions: .useEmptyParamIndex(omitAddressLabel: true))
         #expect(roundTrip == url)

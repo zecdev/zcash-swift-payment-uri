@@ -20,26 +20,17 @@ struct PaymentTests {
 
         let params: [Param] = [
             .address(recipient),
-            .amount(try LegacyAmount(value: 1)),
+            .amount(try NonNegativeAmount.zec("1").get()),
             .message(QcharString(value: "Thanks")!),
             .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg")),
             .label(QcharString(value: "payment")!),
-            .other(
-                try OtherParam(
-                    key: ParamNameString(
-                        value: "future"
-                    )!,
-                    value: QcharString(
-                        value: "is awesome"
-                    )!
-                )
-            )
+            .other(try OtherParam(name: "future", value: "is awesome"))
         ]
 
         #expect {
             try Payment.uniqueIndexedParameters(index: 1, parameters: params)
         } throws: { error in
-            guard case ZIP321.Errors.transparentMemoNotAllowed(1) = error else { return false }
+            guard case ZIP321Error.transparentMemo(index: 1) = error else { return false }
             return true
         }
     }
@@ -53,30 +44,59 @@ struct PaymentTests {
 
         let params: [Param] = [
             .address(recipient),
-            .amount(try LegacyAmount(value: 1)),
+            .amount(try NonNegativeAmount.zec("1").get()),
             .message(QcharString(value: "Thanks")!),
             .label(QcharString(value: "payment")!),
-            .other(
-                try OtherParam(
-                    key: ParamNameString(
-                        value: "future"
-                    )!,
-                    value: QcharString(
-                        value: "is awesome"
-                    )!
-                )
-            )
+            .other(try OtherParam(name: "future", value: "is awesome"))
         ]
 
         let payment = try Payment.uniqueIndexedParameters(index: 1, parameters: params)
 
-        #expect(try Payment(
+        #expect(try Payment.create(
             recipientAddress: recipient,
-            amount: try LegacyAmount(value: 1),
+            amount: try NonNegativeAmount.zec("1").get(),
             memo: nil,
             label: "payment",
             message: "Thanks",
-            otherParams: [OtherParam(key: "future", value: "is awesome")]
-        ) == payment)
+            otherParams: [OtherParam(name: "future", value: "is awesome")]
+        ).get() == payment)
+    }
+
+    // MARK: Zero-valued transparent output (to_payment consensus check)
+
+    @Test func createRejectsZeroValuedTransparentOutput() throws {
+        let recipient = try #require(RecipientAddress(
+            value: "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU",
+            validator: ReferenceAddressValidator.testnet
+        ))
+
+        let result = Payment.create(
+            recipientAddress: recipient,
+            amount: try NonNegativeAmount.zec("0").get(),
+            memo: nil,
+            label: nil,
+            message: nil,
+            otherParams: []
+        )
+
+        #expect(result == .failure(.zeroValuedTransparentOutput(index: nil)))
+    }
+
+    @Test func createAllowsZeroValuedShieldedOutput() throws {
+        let recipient = try #require(RecipientAddress(
+            value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
+            validator: ReferenceAddressValidator.testnet
+        ))
+
+        #expect(throws: Never.self) {
+            try Payment.create(
+                recipientAddress: recipient,
+                amount: try NonNegativeAmount.zec("0").get(),
+                memo: nil,
+                label: nil,
+                message: nil,
+                otherParams: []
+            ).get()
+        }
     }
 }

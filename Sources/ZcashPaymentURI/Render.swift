@@ -26,12 +26,13 @@ enum Render {
         }
     }
 
-    static func parameter(label: String, value: QcharString, index: UInt?) -> String? {
-        return "\(label)\(parameterIndex(index))=\(value.qcharValue)"
+    /// Renders a `name[.index]=value` query parameter, qchar-encoding the provided (decoded) value.
+    static func parameter(named name: String, decodedValue: String, index: UInt?) -> String {
+        "\(name)\(parameterIndex(index))=\(QcharCodec.encode(decodedValue))"
     }
 
-    static func parameter(_ amount: LegacyAmount, index: UInt?) -> String {
-        "\(ReservedParamName.amount.rawValue)\(parameterIndex(index))=\(amount)"
+    static func parameter(_ amount: NonNegativeAmount, index: UInt?) -> String {
+        "\(ReservedParamName.amount.rawValue)\(parameterIndex(index))=\(amount.decimalString())"
     }
 
     static func parameter(_ memo: MemoBytes, index: UInt?) -> String {
@@ -46,23 +47,26 @@ enum Render {
         }
     }
 
-    static func parameter(label: QcharString, index: UInt?) -> String {
+    static func parameter(label: String, index: UInt?) -> String {
         // TODO: [#6] Handle format issues of qchar encoding
         // https://github.com/pacu/zcash-swift-payment-uri/issues/6
-        parameter(label: ReservedParamName.label.rawValue, value: label, index: index) ?? ""
+        parameter(named: ReservedParamName.label.rawValue, decodedValue: label, index: index)
     }
 
-    static func parameter(message: QcharString, index: UInt?) -> String {
+    static func parameter(message: String, index: UInt?) -> String {
         // TODO: [#6] Handle format issues of qchar encoding
         // https://github.com/pacu/zcash-swift-payment-uri/issues/6
-        parameter(label: ReservedParamName.message.rawValue, value: message, index: index) ?? ""
+        parameter(named: ReservedParamName.message.rawValue, decodedValue: message, index: index)
     }
 
     static func parameter(other: OtherParam, index: UInt?) -> String {
-        var parameter = "\(other.key.value)\(parameterIndex(index))"
+        // NOTE: the `=` separator is intentionally NOT emitted here — this
+        // preserves the known S13 render bug tracked by the
+        // `structure_unknown_param_preserved` conformance expected-failure.
+        var parameter = "\(other.name)\(parameterIndex(index))"
 
         if let value = other.value {
-            parameter.append(value.qcharValue)
+            parameter.append(QcharCodec.encode(value))
         }
 
         return parameter
@@ -84,12 +88,12 @@ enum Render {
         var result = ""
 
         result.append(parameter(payment.recipientAddress, index: index, omittingAddressLabel: omittingAddressLabel))
-        
+
         if index == nil && omittingAddressLabel {
             // mark the start of the query params. Otherwise this will marked by caller
             result.append("?")
         }
-        
+
         if let amount = payment.amount {
             if !result.hasSuffix("?") {
                 result.append("&")
@@ -118,13 +122,11 @@ enum Render {
             result.append((parameter(message: message, index: index)))
         }
 
-        if let otherParams = payment.otherParams {
-            for otherParam in otherParams {
-                if !result.hasSuffix("?") {
-                    result.append("&")
-                }
-                result.append(parameter(other: otherParam, index: index))
+        for otherParam in payment.otherParams {
+            if !result.hasSuffix("?") {
+                result.append("&")
             }
+            result.append(parameter(other: otherParam, index: index))
         }
 
         return result
@@ -135,11 +137,16 @@ enum Render {
 
         // we want this to be a contiguous array so we can trust the `enumerated()` iterator to have contiguous indices.
         var payments = ContiguousArray(paymentRequest.payments)
-        
+
         // this is the offset that will give the paramindex number from what their real position in the array is.
         let paramIndexOffset = startIndex ?? 1
 
         if startIndex == nil {
+            guard !payments.isEmpty else {
+                // Empty request renders as the bare `zcash:` scheme.
+                return result
+            }
+
             // this is the special case where the URI String can start either with `zcash:` or `zcash:?`
             result.append(omittingFirstAddressLabel ? "" : "?")
 
@@ -153,7 +160,7 @@ enum Render {
                 result.append("&")
             }
         }
-        
+
         let count = payments.count
 
         for (elementIndex, element) in payments.enumerated() {

@@ -14,7 +14,7 @@ import Foundation
 /// so a zero-length memo is a well-defined (empty) memo — matching the reference
 /// implementation, which accepts an empty byte slice. Note the distinction between an
 /// *omitted* memo (`Payment.memo == nil`) and an *empty* memo (`memo=` in a URI, 0 bytes).
-public struct MemoBytes: Equatable {
+public struct MemoBytes: Equatable, Sendable {
     public enum MemoError: Error {
         case memoTooLong
         case notUTF8String

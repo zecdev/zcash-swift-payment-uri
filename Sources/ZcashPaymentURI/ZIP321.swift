@@ -5,6 +5,9 @@
 import Foundation
 
 public enum ZIP321 {
+    /// The default maximum accepted input size for ``parse(_:expecting:validator:maxInputBytes:)``.
+    public static let defaultMaxInputBytes = 8 * 1024
+
     /// Allows to specify the resulting URI String to match the possible variants specified by [ZIP-321](https://zips.z.cash/zip-0321)
     ///
     /// `.enumerateAllPayments` will generate a URI where all of its `queryparams` have an index indicating it payment index starting with the index 1
@@ -17,8 +20,13 @@ public enum ZIP321 {
         case useEmptyParamIndex(omitAddressLabel: Bool)
     }
 
-    /// Things that can go wrong when handling ZIP-321 URI Payment requests
-    public enum Errors: Error {
+    /// The internal v1 error taxonomy raised by the throwing parse pipeline.
+    ///
+    /// - Important: this is an **internal** type in v2. The public error surface
+    /// is the sealed ``ZIP321Error`` taxonomy returned by
+    /// ``parse(_:expecting:validator:maxInputBytes:)``; every case below is
+    /// translated by `ZIP321Error.init(_:)`.
+    enum Errors: Error {
         /// There's a payment exceeding the max supply as [ZIP-321](https://zips.z.cash/zip-0321) forbids.
         case amountExceededSupply(UInt)
 
@@ -47,6 +55,9 @@ public enum ZIP321 {
         /// The payment at the associated value attempted to include a memo when sending to a transparent recipient address, which is not supported by the [Zcash protocol](https://zips.z.cash/protocol/protocol.pdf).
         case transparentMemoNotAllowed(UInt?)
 
+        /// A zero-valued amount was requested for a transparent recipient, which is disallowed by consensus.
+        case zeroValuedTransparentOutput(UInt?)
+
         /// The payment which index is included in the associated value did not include a recipient address.
         case recipientMissing(UInt?)
 
@@ -58,7 +69,7 @@ public enum ZIP321 {
 
         /// The [ZIP-321](https://zips.z.cash/zip-0321) URI was malformed and failed to parse.
         case parseError(String)
-        
+
         /// A value was expected to be qchar-encoded but its decoding failed. Associated type has the value that failed.
         case qcharDecodeFailed(String)
 
@@ -67,14 +78,10 @@ public enum ZIP321 {
 
         /// The parser found a required parameter it does not recognize. Associated string contains the unrecognized input.
         /// See [Forward compatibilty](https://zips.z.cash/zip-0321#forward-compatibility)
-        /// Variables which are prefixed with a req- are considered required. If a parser does not recognize any
-        /// variables which are prefixed with req-, it MUST consider the entire URI invalid. Any other variables that
-        /// are not recognized, but that are not prefixed with a req-, SHOULD be ignored.)
         case unknownRequiredParameter(String)
 
-        
-        /// Not all of the payments of this request belong to the same network
-        case networkMismatchFound
+        /// The parser found a Sprout recipient and these are explicitly not allowed by the ZIP-321 specification
+        case sproutRecipientsNotAllowed(UInt?)
 
         /// Attempt to use a reserved keyword on `otherparams` key
         case otherParamUsesReservedKey(String)
@@ -84,18 +91,6 @@ public enum ZIP321 {
 
         /// attempt to create ``OtherParam`` with an empty key
         case otherParamKeyEmpty
-    }
-}
-
-extension ZIP321 {
-    static func legacyURI(from indexedParameter: IndexedParameter) throws -> ParserResult {
-        guard indexedParameter.index == 0,
-            case let Param.address(recipient) = indexedParameter.param
-        else {
-            throw ZIP321.Errors.recipientMissing(nil)
-        }
-
-        return ParserResult.legacy(recipient)
     }
 }
 
@@ -129,45 +124,116 @@ public extension ZIP321 {
         uriString(from: PaymentRequest(singlePayment: payment), formattingOptions: formattingOptions)
     }
 
-    /// Parses a [ZIP-321](https://zips.z.cash/zip-0321) payment request URI.
+    /// Parses a [ZIP-321](https://zips.z.cash/zip-0321) payment request from a URI string.
     ///
-    /// - parameter uriString: the `zcash:` URI to parse.
-    /// - parameter network: the consensus network the request is expected to be for.
+    /// This is a **total** function: every input maps to a `Result`, never a
+    /// thrown error or a trap.
+    ///
+    /// Both spellings of a single recipient — the leading-address form
+    /// `zcash:<addr>` and the labeled form `zcash:?address=<addr>` — parse to
+    /// the SAME ``PaymentRequest``. Which of the two the URI used is a syntax
+    /// choice and is not encoded in the parsed model, matching the reference
+    /// implementation.
+    ///
+    /// - parameter uri: the `zcash:` URI to parse.
+    /// - parameter network: the consensus network this request is expected to
+    /// be for. Every recipient the `validator` accepts must report this network
+    /// in its ``AddressDescriptor``, or the request is rejected with
+    /// ``ZIP321Error/invalidAddress(index:)``.
     /// - parameter validator: the caller-supplied authority on recipient
-    /// addresses. This library performs NO address validation of its own, so
-    /// this argument is REQUIRED: whatever the validator accepts (and however it
-    /// describes what it accepted) is what the parser works with.
-    static func request(
-        from uriString: String,
+    /// addresses. This is REQUIRED: the library performs NO address validation
+    /// of its own, so an address is valid exactly when this validator says so,
+    /// and the ``AddressDescriptor`` it returns is what drives the ZIP-321
+    /// payment rules (memo support, zero-valued transparent outputs).
+    /// - parameter maxInputBytes: the maximum accepted UTF-8 byte length of
+    /// `uri`. Inputs above this are rejected with ``ZIP321Error/invalidURI(reason:)``
+    /// / ``StaticReason/inputTooLarge`` before any parsing work happens.
+    /// - returns: `.success` with the parsed ``PaymentRequest`` or `.failure`
+    /// with a sealed ``ZIP321Error``.
+    static func parse(
+        _ uri: String,
         expecting network: Network,
-        validator: any AddressValidator
-    ) throws -> ParserResult {
-        let partialResult = try Parser.leadingAddress(
-            uriString,
-            network: network,
-            validator: validator
-        )
+        validator: any AddressValidator,
+        maxInputBytes: Int = ZIP321.defaultMaxInputBytes
+    ) -> Result<PaymentRequest, ZIP321Error> {
+        // Input guards run FIRST, before any grammar work.
+        guard uri.utf8.count <= maxInputBytes else {
+            return .failure(.invalidURI(reason: .inputTooLarge))
+        }
 
-        switch partialResult {
+        guard !uri.isEmpty else {
+            // The corpus classifies the empty string (which has no `zcash:`
+            // prefix to even begin parsing) as `parseError`.
+            return .failure(.parseError(reason: .emptyInput))
+        }
+
+        guard uri.hasPrefix("zcash:") else {
+            return .failure(.invalidURI(reason: .notZcashScheme))
+        }
+
+        // A `//` authority component is forbidden by ZIP-321's top-level grammar.
+        if uri.dropFirst("zcash:".count).hasPrefix("//") {
+            return .failure(.invalidURI(reason: .invalidAuthority))
+        }
+
+        do {
+            return .success(try parsePipeline(uri, network: network, validator: validator))
+        } catch let error as ZIP321Error {
+            // Raised directly by `PaymentRequest`/`Payment` construction.
+            return .failure(error)
+        } catch let error as ZIP321.Errors {
+            return .failure(ZIP321Error(error))
+        } catch {
+            return .failure(.parseError(reason: .malformedURI))
+        }
+    }
+}
+
+extension ZIP321 {
+    /// The throwing parse core wrapped by ``parse(_:expecting:validator:maxInputBytes:)``.
+    /// Precondition: `uri` has already passed the input guards (`zcash:` prefix,
+    /// non-empty, no `//` authority, within the size limit).
+    static func parsePipeline(
+        _ uri: String,
+        network: Network,
+        validator: any AddressValidator
+    ) throws -> PaymentRequest {
+        let (rest, leadingAddress) = try Parser.leadingAddress(uri, network: network, validator: validator)
+
+        switch (rest, leadingAddress) {
         case (.none, .none):
-            throw ZIP321.Errors.invalidURI
-        case (.none, .some(let param)):
-            return try Self.legacyURI(from: param)
-        case let (.some(rest), optionalParam):
-            return ParserResult.request(
-                try PaymentRequest(
-                    payments: try Parser
-                        .mapToPayments(
-                            try Parser
-                                .parseParameters(
-                                    rest,
-                                    leadingAddress: optionalParam,
-                                    network: network,
-                                    validator: validator
-                                )
-                    )
-                )
+            // Bare `zcash:` — a valid empty request.
+            return try PaymentRequest(payments: [])
+
+        case let (.none, .some(param)):
+            // Bare `zcash:<address>`. This is the leading-address SPELLING of a
+            // one-payment request, not a distinct kind of result: it goes
+            // through exactly the same construction as `zcash:?address=<addr>`,
+            // so both produce an EQUAL `PaymentRequest` (ZIP-321 URI Semantics;
+            // matches the reference implementation).
+            return try PaymentRequest(indexedPayments: Parser.mapToIndexedPayments([param]))
+
+        case let (.some(rest), leadingParam):
+            let indexedParameters = try Parser.parseParameters(
+                rest,
+                leadingAddress: leadingParam,
+                network: network,
+                validator: validator
             )
+
+            // `zcash:?` (empty query, no leading address) is a valid empty request.
+            guard !indexedParameters.isEmpty else {
+                return try PaymentRequest(payments: [])
+            }
+
+            let indexedPayments = try Parser.mapToIndexedPayments(indexedParameters)
+
+            // NOTE (mirroring the reference `TransactionRequest`): the
+            // 9999-payment cap enforced by this constructor is unreachable from
+            // the parse path — the `paramindex` grammar (`NONZERO 0*3DIGIT`)
+            // already rejects any index above 9999 with `invalidParamIndex`.
+            // The cap only bites for programmatic construction.
+            return try PaymentRequest(indexedPayments: indexedPayments)
         }
     }
 }
