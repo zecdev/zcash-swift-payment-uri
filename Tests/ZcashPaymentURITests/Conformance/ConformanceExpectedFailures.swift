@@ -27,17 +27,6 @@
 ///   - "renderMismatch": v1 parses correctly but its re-rendered URI differs
 ///     from the Rust reference `canonicalUri` (documented expectation only).
 let conformanceExpectedFailures: [String: String] = [
-    // MARK: Address validation — v1 is charset/HRP-heuristic only, no checksum
-    "invalid_address_sapling_bad_checksum":
-        "v1 accepts: address validation is HRP-prefix + bech32-charset only; a corrupted "
-        + "bech32 checksum (last char z→q) still satisfies the charset, so no error is raised",
-    "invalid_address_unified_mainnet_bad_checksum":
-        "v1 accepts: no bech32m checksum verification for unified addresses; corrupted "
-        + "checksum passes the u1-prefix + bech32-charset heuristic",
-    "invalid_address_transparent_bad_checksum":
-        "v1 accepts: no base58check checksum verification for transparent addresses; "
-        + "corrupted checksum (last char U→1) still satisfies the base58 charset",
-
     // MARK: Amount grammar — BigDecimal(string:) is more lenient than the ZIP-321 grammar
     "invalid_amount_trailing_decimal_point":
         "v1 accepts: 'amount=123.' parses via BigDecimal to 123; ZIP-321 grammar requires "
@@ -58,12 +47,6 @@ let conformanceExpectedFailures: [String: String] = [
     "amount_parse_simple_large_decimal":
         "v1 rejects: same empty-'message=' limitation as amount_one_with_empty_message "
         + "(QcharString disallows empty strings)",
-
-    // MARK: Regtest Sapling addresses — dead branch in the charset validator
-    "spec_valid_regtest_example":
-        "v1 rejects: onlyCharsetValidation switches on the first two characters and has no "
-        + "'zr' case, so zregtestsapling1... is rejected as invalidAddress even though "
-        + "saplingEncodingCharsetParser has an (unreachable) 'zregtestsapling1' branch",
 
     // MARK: Zero-payment requests — v1 cannot represent an empty request
     "structure_empty_request":

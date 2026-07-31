@@ -32,7 +32,7 @@ struct RendererTests {
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        let recipient0 = try #require(RecipientAddress(value: address0, context: .testnet))
+        let recipient0 = try #require(RecipientAddress(value: address0, validator: ReferenceAddressValidator.testnet))
 
         #expect(Render.parameter(recipient0, index: nil) == expected)
     }
@@ -42,7 +42,7 @@ struct RendererTests {
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        let recipient0 = try #require(RecipientAddress(value: address0, context: .testnet))
+        let recipient0 = try #require(RecipientAddress(value: address0, validator: ReferenceAddressValidator.testnet))
 
         #expect(Render.parameter(recipient0, index: 1) == expected)
     }
@@ -102,7 +102,7 @@ struct RendererTests {
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        let recipient0 = try #require(RecipientAddress(value: address0, context: .testnet))
+        let recipient0 = try #require(RecipientAddress(value: address0, validator: ReferenceAddressValidator.testnet))
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
@@ -122,7 +122,7 @@ struct RendererTests {
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        let recipient1 = try #require(RecipientAddress(value: address1, context: .testnet))
+        let recipient1 = try #require(RecipientAddress(value: address1, validator: ReferenceAddressValidator.testnet))
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
@@ -141,7 +141,7 @@ struct RendererTests {
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        let recipient0 = try #require(RecipientAddress(value: address0, context: .testnet))
+        let recipient0 = try #require(RecipientAddress(value: address0, validator: ReferenceAddressValidator.testnet))
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
@@ -161,7 +161,7 @@ struct RendererTests {
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        let recipient1 = try #require(RecipientAddress(value: address1, context: .testnet))
+        let recipient1 = try #require(RecipientAddress(value: address1, validator: ReferenceAddressValidator.testnet))
 
         let payment1 = try Payment(
             recipientAddress: recipient1,

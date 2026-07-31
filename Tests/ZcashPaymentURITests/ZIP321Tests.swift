@@ -6,7 +6,7 @@ struct ZcashSwiftPaymentUriTests {
     @Test func singleRecipient() throws {
         let recipient = try #require(RecipientAddress(
             value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
-            context: .testnet
+            validator: ReferenceAddressValidator.testnet
         ))
 
         #expect(
@@ -20,7 +20,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let recipient = try #require(RecipientAddress(
             value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
-            context: .testnet
+            validator: ReferenceAddressValidator.testnet
         ))
 
         let payment = try Payment(
@@ -44,7 +44,7 @@ struct ZcashSwiftPaymentUriTests {
 
         // Roundtrip test
         #expect(
-            try ZIP321.request(from: expected, context: .testnet, validatingRecipients: nil)
+            try ZIP321.request(from: expected, expecting: .testnet, validator: ReferenceAddressValidator.of(.testnet))
             == ParserResult.request(try PaymentRequest(payments: [payment]))
         )
     }
@@ -54,7 +54,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        let recipient0 = try #require(RecipientAddress(value: address0, context: .testnet))
+        let recipient0 = try #require(RecipientAddress(value: address0, validator: ReferenceAddressValidator.testnet))
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
@@ -67,7 +67,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        let recipient1 = try #require(RecipientAddress(value: address1, context: .testnet))
+        let recipient1 = try #require(RecipientAddress(value: address1, validator: ReferenceAddressValidator.testnet))
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
@@ -88,7 +88,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        let recipient0 = try #require(RecipientAddress(value: address0, context: .testnet))
+        let recipient0 = try #require(RecipientAddress(value: address0, validator: ReferenceAddressValidator.testnet))
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
@@ -101,7 +101,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        let recipient1 = try #require(RecipientAddress(value: address1, context: .testnet))
+        let recipient1 = try #require(RecipientAddress(value: address1, validator: ReferenceAddressValidator.testnet))
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
@@ -114,7 +114,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let paymentRequest = try PaymentRequest(payments: [payment0, payment1])
 
-        let result = try ZIP321.request(from: uriString, context: .testnet)
+        let result = try ZIP321.request(from: uriString, expecting: .testnet, validator: ReferenceAddressValidator.testnet)
 
         #expect(result == ParserResult.request(paymentRequest))
     }
@@ -123,14 +123,14 @@ struct ZcashSwiftPaymentUriTests {
         let invalidBase64URI = "zcash:u19spl3y4zu73twemxrzm33tm3eefepecv4zdssn0hfd4tjaqpgmlcm9nhyjqlvaytwpknqjqctvdscjmg47ex20j03cu4gx3zmy26y2hunpenvw083dmtlq4y7re5rwsygpteq57wwllr3zhs4rw43j5puxgrcqdq4f9dd38qksl4f9p2hc7x3kj582zdjxsnj8urmnc3msfjw72kej0?amount=0.01&memo=QTw+Qg"
 
         #expect(throws: (any Error).self) {
-            try ZIP321.request(from: invalidBase64URI, context: .mainnet)
+            try ZIP321.request(from: invalidBase64URI, expecting: .mainnet, validator: ReferenceAddressValidator.mainnet)
         }
     }
 
     @Test func ensureThatAllPaymentsBelongToTheSameNetwork() throws {
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        let recipient0 = try #require(RecipientAddress(value: address0, context: .testnet))
+        let recipient0 = try #require(RecipientAddress(value: address0, validator: ReferenceAddressValidator.testnet))
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
@@ -141,9 +141,9 @@ struct ZcashSwiftPaymentUriTests {
             otherParams: nil
         )
 
-        let address1 = "zs10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
+        let address1 = "zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya"
 
-        let recipient1 = try #require(RecipientAddress(value: address1, context: .mainnet))
+        let recipient1 = try #require(RecipientAddress(value: address1, validator: ReferenceAddressValidator.mainnet))
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
@@ -167,7 +167,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        let recipient0 = try #require(RecipientAddress(value: address0, context: .testnet))
+        let recipient0 = try #require(RecipientAddress(value: address0, validator: ReferenceAddressValidator.testnet))
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
@@ -180,7 +180,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        let recipient1 = try #require(RecipientAddress(value: address1, context: .testnet))
+        let recipient1 = try #require(RecipientAddress(value: address1, validator: ReferenceAddressValidator.testnet))
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
@@ -193,7 +193,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let paymentRequest = try PaymentRequest(payments: [payment0, payment1])
 
-        let result = try ZIP321.request(from: uriString, context: .testnet)
+        let result = try ZIP321.request(from: uriString, expecting: .testnet, validator: ReferenceAddressValidator.testnet)
 
         #expect(result == ParserResult.request(paymentRequest))
 
@@ -205,7 +205,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let address0 = "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU"
 
-        let recipient0 = try #require(RecipientAddress(value: address0, context: .testnet))
+        let recipient0 = try #require(RecipientAddress(value: address0, validator: ReferenceAddressValidator.testnet))
 
         let payment0 = try Payment(
             recipientAddress: recipient0,
@@ -218,7 +218,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let address1 = "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez"
 
-        let recipient1 = try #require(RecipientAddress(value: address1, context: .testnet))
+        let recipient1 = try #require(RecipientAddress(value: address1, validator: ReferenceAddressValidator.testnet))
 
         let payment1 = try Payment(
             recipientAddress: recipient1,
@@ -231,7 +231,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let paymentRequest = try PaymentRequest(payments: [payment0, payment1])
 
-        let result = try ZIP321.request(from: uriString, context: .testnet)
+        let result = try ZIP321.request(from: uriString, expecting: .testnet, validator: ReferenceAddressValidator.testnet)
 
         #expect(result == ParserResult.request(paymentRequest))
         #expect(uriString == ZIP321.uriString(from: paymentRequest, formattingOptions: .useEmptyParamIndex(omitAddressLabel: false)))
@@ -242,7 +242,7 @@ struct ZcashSwiftPaymentUriTests {
 
         let recipient = try #require(RecipientAddress(
             value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
-            context: .testnet
+            validator: ReferenceAddressValidator.testnet
         ))
 
         let payment = try Payment(
@@ -266,14 +266,14 @@ struct ZcashSwiftPaymentUriTests {
 
         // Roundtrip test
         #expect(
-            try ZIP321.request(from: expected, context: .testnet, validatingRecipients: nil)
+            try ZIP321.request(from: expected, expecting: .testnet, validator: ReferenceAddressValidator.of(.testnet))
             == ParserResult.request(try PaymentRequest(payments: [payment]))
         )
     }
 
     @Test func thanSeeminglyValidEmptyRequestThrows() throws {
         #expect(throws: (any Error).self) {
-            try ZIP321.request(from: "zcash:?", context: .testnet)
+            try ZIP321.request(from: "zcash:?", expecting: .testnet, validator: ReferenceAddressValidator.testnet)
         }
     }
 
@@ -282,7 +282,7 @@ struct ZcashSwiftPaymentUriTests {
     @Test func throwsWhenAmountIsMaxMoney() {
         let invalidURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=21000000.00000001"
         #expect {
-            try ZIP321.request(from: invalidURI, context: .testnet)
+            try ZIP321.request(from: invalidURI, expecting: .testnet, validator: ReferenceAddressValidator.testnet)
         } throws: { error in
             guard case ZIP321.Errors.amountExceededSupply(0) = error else { return false }
             return true
@@ -295,7 +295,7 @@ struct ZcashSwiftPaymentUriTests {
         let invalidURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=18446744073709551624"
 
         #expect {
-            try ZIP321.request(from: invalidURI, context: .testnet)
+            try ZIP321.request(from: invalidURI, expecting: .testnet, validator: ReferenceAddressValidator.testnet)
         } throws: { error in
             guard case ZIP321.Errors.amountExceededSupply(0) = error else { return false }
             return true
@@ -307,7 +307,7 @@ struct ZcashSwiftPaymentUriTests {
     @Test func throwsWhenAmountExceedsSupply() {
         let invalidURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=9223372036854775808"
         #expect {
-            try ZIP321.request(from: invalidURI, context: .testnet)
+            try ZIP321.request(from: invalidURI, expecting: .testnet, validator: ReferenceAddressValidator.testnet)
         } throws: { error in
             guard case ZIP321.Errors.amountExceededSupply(0) = error else { return false }
             return true
@@ -317,7 +317,7 @@ struct ZcashSwiftPaymentUriTests {
     @Test func throwsWhenMemoIsInvalid() {
         let invalidURI = "zcash:ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez?amount=1&memo=VGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgVGhpcyBpcyBhIHNqqqw222ncssspbXBsZSBtZW1vLgIHNqqqw222ncssspbXBsZSBtZW1vLg&message=Thank%20you%20for%20your%20purchase"
         #expect {
-            try ZIP321.request(from: invalidURI, context: .testnet)
+            try ZIP321.request(from: invalidURI, expecting: .testnet, validator: ReferenceAddressValidator.testnet)
         } throws: { error in
             guard case ZIP321.Errors.memoBytesError(MemoBytes.MemoError.memoTooLong, nil) = error else { return false }
             return true
@@ -328,7 +328,7 @@ struct ZcashSwiftPaymentUriTests {
         let invalidURI = "zcash:?address=tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU&amount=123.456&memo=eyAia2V5IjogIlRoaXMgaXMgYSBKU09OLXN0cnVjdHVyZWQgbWVtby4iIH0&address.1=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount.1=0.789&memo.1=VGhpcyBpcyBhIHVuaWNvZGUgbWVtbyDinKjwn6aE8J-PhvCfjok"
 
         #expect {
-            try ZIP321.request(from: invalidURI, context: .testnet)
+            try ZIP321.request(from: invalidURI, expecting: .testnet, validator: ReferenceAddressValidator.testnet)
         } throws: { error in
             guard case ZIP321.Errors.transparentMemoNotAllowed(nil) = error else { return false }
             return true
@@ -341,13 +341,13 @@ struct ZcashSwiftPaymentUriTests {
 
         // TODO: Fix leading address error type. (error is thrown but is not as expected)
         #expect(throws: (any Error).self) {
-            try ZIP321.request(from: invalidURI, context: .testnet)
+            try ZIP321.request(from: invalidURI, expecting: .testnet, validator: ReferenceAddressValidator.testnet)
         }
     }
 
     @Test(arguments: TestVectors.unifiedAddresses)
     func parserSuccessfullyParsesAllTestVectorAddresses(_ ua: String) throws {
-        let request = try ZIP321.request(from: "zcash:\(ua)", context: .mainnet)
+        let request = try ZIP321.request(from: "zcash:\(ua)", expecting: .mainnet, validator: ReferenceAddressValidator.mainnet)
 
         if case let .legacy(address) = request {
             #expect(address.value == ua)
@@ -358,13 +358,13 @@ struct ZcashSwiftPaymentUriTests {
 
     @Test func parserSuccessfullyParsesLegacySaplingPaymentRequest() throws {
         #expect(throws: Never.self) {
-            try ZIP321.request(from: "zcash:zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya", context: .mainnet)
+            try ZIP321.request(from: "zcash:zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9slya", expecting: .mainnet, validator: ReferenceAddressValidator.mainnet)
         }
     }
 
     @Test func parserSuccessfullyParsesLegacyOrchardOnlyUAPaymentRequest() throws {
         #expect(throws: Never.self) {
-            try ZIP321.request(from: "zcash:u16cynw2u6nshm44gjv9vy9dvav6zvvksphexzjs3tjke8mr3p942er0pu8held7zy7wpjxzqgkpdrjzd72h7pwf34df8a0xcv0su3acx7", context: .mainnet)
+            try ZIP321.request(from: "zcash:u16cynw2u6nshm44gjv9vy9dvav6zvvksphexzjs3tjke8mr3p942er0pu8held7zy7wpjxzqgkpdrjzd72h7pwf34df8a0xcv0su3acx7", expecting: .mainnet, validator: ReferenceAddressValidator.mainnet)
         }
     }
 }

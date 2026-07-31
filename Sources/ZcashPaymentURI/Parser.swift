@@ -285,43 +285,14 @@ enum Parser {
         return (name, index, value)
     }
 
-    /// Parser that splits a sapling address human readable and Bech32 parts and verifies that
-    /// HRP is any of the accepted networks (main, test, regtest) and that the supposedly Bech32
-    /// part contains valid Bech32 characters
-    static let saplingEncodingCharsetParser: ZParser<Substring> = ZParser { input in
-        try zOneOfLiterals(["ztestsapling1", "zregtestsapling1", "zs1"]).run(&input)
-        return try zCharacterSet(.bech32).run(&input)
-    }
-
-    /// Parser that splits a unified address human readable and Bech32 parts and verifies that
-    /// HRP is any of the accepted networks (main, test, regtest) and that the supposedly Bech32
-    /// part contains valid Bech32 characters
-    static let unifiedEncodingCharsetParser: ZParser<Substring> = ZParser { input in
-        try zOneOfLiterals(["u1", "utest1", "uregtest1"]).run(&input)
-        return try zCharacterSet(.bech32).run(&input)
-    }
-
-    static let texEncodingCharsetParser: ZParser<Substring> = ZParser { input in
-        try zOneOfLiterals(["tex1", "textest1"]).run(&input)
-        return try zCharacterSet(.bech32).run(&input)
-    }
-
-    static let transparentEncodingCharsetParser: ZParser<Substring> = ZParser { input in
-        var attempt = input
-        if let result = try? Parser.texEncodingCharsetParser.run(&attempt) {
-            input = attempt
-            return result
-        }
-        return try zCharacterSet(.base58).run(&input)
-    }
-
     /// maps a parsed Query Parameter key and value into an `IndexedParameter`
-    /// providing validation of Query keys and values. An address validation can be provided.
+    /// providing validation of Query keys and values. Recipient addresses are resolved
+    /// by the caller-supplied `validator`.
     static func zcashParameter(
         // swiftlint:disable:next large_tuple
         _ input: (Substring, Int?, Substring?),
-        context: ParserContext,
-        validating: @escaping RecipientAddress.ValidatingClosure = Parser.onlyCharsetValidation
+        network: Network,
+        validator: any AddressValidator
     ) throws -> IndexedParameter {
         let queryKey = String(input.0)
 
@@ -344,8 +315,8 @@ enum Parser {
             queryKey: queryKey,
             value: value,
             index: index,
-            context: context,
-            validating: validating
+            network: network,
+            validator: validator
         )
 
         return IndexedParameter(index: index, param: param)
@@ -353,13 +324,13 @@ enum Parser {
 
     /// Attempts to parse the leading address and returns the rest of the input
     /// - parameter input: the input String of the URI
-    /// - parameter validating a validation closure for all detected addressses
+    /// - parameter validator: the caller-supplied authority on recipient addresses
     /// - returns a tuple containing an optional `IndexedParameter` and the rest of the remaining
     /// subsequence.
     static func leadingAddress(
         _ input: String,
-        context: ParserContext,
-        validating: @escaping RecipientAddress.ValidatingClosure = Parser.onlyCharsetValidation
+        network: Network,
+        validator: any AddressValidator
     ) throws -> (Substring?, IndexedParameter?) {
         guard input.starts(with: "zcash:") else {
             throw ZIP321.Errors.parseError("Not `zcash:` uri")
@@ -368,11 +339,7 @@ enum Parser {
         let partial = try maybeLeadingAddress.parse(input)
 
         if let maybeAddress = partial.0, !maybeAddress.isEmpty {
-            guard let address = RecipientAddress(value: String(maybeAddress), context: context, validating: validating) else {
-                if context.isSprout(address: String(maybeAddress)) {
-                    throw ZIP321.Errors.sproutRecipientsNotAllowed(nil)
-                }
-
+            guard let address = Parser.recipient(String(maybeAddress), network: network, validator: validator) else {
                 throw ZIP321.Errors.invalidAddress(nil)
             }
 
@@ -386,12 +353,12 @@ enum Parser {
     /// - parameter substring: a substring with the sequence after `?` separator
     /// - parameter leadingAddress: an optional indexed parameter with the previously parsed
     /// leading address if any
-    /// - parameter validating: a closure that validates any recipients addresses found
+    /// - parameter validator: the caller-supplied authority on recipient addresses
     static func parseParameters(
         _ substring: Substring.SubSequence,
         leadingAddress: IndexedParameter?,
-        context: ParserContext,
-        validating: @escaping RecipientAddress.ValidatingClosure = onlyCharsetValidation
+        network: Network,
+        validator: any AddressValidator
     ) throws -> [IndexedParameter] {
         var indexedParameters: [IndexedParameter] = []
 
@@ -409,7 +376,7 @@ enum Parser {
         indexedParameters.append(
             contentsOf: try tokens
                 .map { try Parser.queryKeyAndValue.parse($0) }
-                .map { try zcashParameter($0, context: context, validating: validating) }
+                .map { try zcashParameter($0, network: network, validator: validator) }
         )
 
         return indexedParameters
@@ -550,20 +517,13 @@ extension Param {
         queryKey: String,
         value: String?,
         index: UInt,
-        context: ParserContext,
-        validating: @escaping RecipientAddress.ValidatingClosure
+        network: Network,
+        validator: any AddressValidator
     ) throws -> Param {
         if let paramName = ReservedParamName(rawValue: queryKey), let value = value {
             switch paramName {
             case .address:
-                guard let addr = RecipientAddress(
-                    value: value,
-                    context: context,
-                    validating: validating
-                ) else {
-                    if context.isSprout(address: value) {
-                        throw ZIP321.Errors.sproutRecipientsNotAllowed(index > 0 ? index : nil)
-                    }
+                guard let addr = Parser.recipient(value, network: network, validator: validator) else {
                     throw ZIP321.Errors.invalidAddress(index > 0 ? index : nil)
                 }
 
@@ -617,23 +577,22 @@ extension Param {
     }
 }
 
-// MARK: recipient validation
-extension Parser {
-    static let onlyCharsetValidation: RecipientAddress.ValidatingClosure = { address in
-        guard !address.isEmpty, address.count > 2 else { return false }
+// MARK: - Recipient resolution
 
-        switch String(address.prefix(2)) {
-        case "zc":
-            return false // sprout not allowed
-        case "zt", "zs":
-            return (try? Parser.saplingEncodingCharsetParser.parse(address)) != nil
-        case "u1", "ut":
-            return (try? Parser.unifiedEncodingCharsetParser.parse(address)) != nil
-        case "t1", "t2", "t3", "tm", "te":
-            return (try? Parser.transparentEncodingCharsetParser.parse(address)) != nil
-        default:
-            return false
-        }
+extension Parser {
+    /// Resolves a raw address string into a ``RecipientAddress`` using the
+    /// caller-supplied ``AddressValidator``.
+    ///
+    /// The validator is AUTHORITATIVE: this library performs no address
+    /// validation of its own, so a `nil` return here means the caller rejected
+    /// the address and the request is invalid.
+    /// - parameter value: the raw address string as it appeared in the URI.
+    /// - parameter network: the network the request is being parsed for.
+    /// - parameter validator: the caller-supplied authority on addresses.
+    static func recipient(_ value: String, network: Network, validator: any AddressValidator) -> RecipientAddress? {
+        guard let descriptor = validator.validate(value) else { return nil }
+
+        return RecipientAddress(value: value, descriptor: descriptor)
     }
 }
 

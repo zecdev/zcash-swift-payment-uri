@@ -77,7 +77,7 @@ struct ParsingTests {
 
     @Test func zcashParamParserFailsOnUnknownRequiredParam() throws {
         #expect(throws: (any Error).self) {
-            try Parser.zcashParameter(("req-unknown-future-option"[...], nil, "true"[...]), context: .testnet)
+            try Parser.zcashParameter(("req-unknown-future-option"[...], nil, "true"[...]), network: .testnet, validator: ReferenceAddressValidator.testnet)
         }
     }
 
@@ -90,8 +90,8 @@ struct ParsingTests {
             IndexedParameter(index: 0, param: .amount(try LegacyAmount(string: String(value))))
             == (try Parser.zcashParameter(
                 (query, nil, value),
-                context: .testnet,
-                validating: Parser.onlyCharsetValidation
+                network: .testnet,
+validator: ReferenceAddressValidator.testnet
             ))
         )
     }
@@ -106,8 +106,8 @@ struct ParsingTests {
             IndexedParameter(index: UInt(index), param: .message(qcharDecodedValue))
             == (try Parser.zcashParameter(
                 (query, index, value),
-                context: .testnet,
-                validating: Parser.onlyCharsetValidation
+                network: .testnet,
+validator: ReferenceAddressValidator.testnet
             ))
         )
     }
@@ -123,8 +123,8 @@ struct ParsingTests {
             IndexedParameter(index: UInt(index), param: .label(qcharDecodedValue))
             == (try Parser.zcashParameter(
                 (query, index, value),
-                context: .testnet,
-                validating: Parser.onlyCharsetValidation
+                network: .testnet,
+validator: ReferenceAddressValidator.testnet
             ))
         )
     }
@@ -138,8 +138,8 @@ struct ParsingTests {
             IndexedParameter(index: UInt(index), param: .memo(try MemoBytes(base64URL: "VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg")))
             == (try Parser.zcashParameter(
                 (query, index, value),
-                context: .testnet,
-                validating: Parser.onlyCharsetValidation
+                network: .testnet,
+validator: ReferenceAddressValidator.testnet
             ))
         )
     }
@@ -156,8 +156,8 @@ struct ParsingTests {
             IndexedParameter(index: UInt(index), param: .other(try OtherParam(key: queryKey, value: qcharDecodedValue)))
             == (try Parser.zcashParameter(
                 (query, index, value),
-                context: .testnet,
-                validating: Parser.onlyCharsetValidation
+                network: .testnet,
+validator: ReferenceAddressValidator.testnet
             ))
         )
     }
@@ -173,8 +173,8 @@ struct ParsingTests {
             IndexedParameter(index: UInt(index), param: .label(qcharEncodedValue))
             == (try Parser.zcashParameter(
                 (query, index, value),
-                context: .testnet,
-                validating: Parser.onlyCharsetValidation
+                network: .testnet,
+validator: ReferenceAddressValidator.testnet
             ))
         )
     }
@@ -184,7 +184,7 @@ struct ParsingTests {
     @Test func thatIndexParametersAreParsedWithNoLeadingAddress() throws {
         let validAddressURI = "?address=ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez&amount=1&memo=VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg&message=Thank%20you%20for%20your%20purchase"[...]
 
-        let recipient = try #require(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet))
+        let recipient = try #require(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", validator: ReferenceAddressValidator.testnet))
 
         let expected = [
             IndexedParameter(index: 0, param: .address(recipient)),
@@ -196,8 +196,8 @@ struct ParsingTests {
         let result = try Parser.parseParameters(
             validAddressURI,
             leadingAddress: nil,
-            context: .testnet,
-            validating: Parser.onlyCharsetValidation
+            network: .testnet,
+validator: ReferenceAddressValidator.testnet
         )
 
         #expect(result == expected)
@@ -206,7 +206,7 @@ struct ParsingTests {
     @Test func thatIndexParametersAreParsedWithLeadingAddress() throws {
         let validAddressURI = "?amount=1&memo=VGhpcyBpcyBhIHNpbXBsZSBtZW1vLg&message=Thank%20you%20for%20your%20purchase"[...]
 
-        let recipient = try #require(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", context: .testnet))
+        let recipient = try #require(RecipientAddress(value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez", validator: ReferenceAddressValidator.testnet))
 
         let expected = [
             IndexedParameter(index: 0, param: .address(recipient)),
@@ -221,8 +221,8 @@ struct ParsingTests {
                 index: 0,
                 param: .address(recipient)
             ),
-            context: .testnet,
-            validating: Parser.onlyCharsetValidation
+            network: .testnet,
+validator: ReferenceAddressValidator.testnet
         )
 
         #expect(result == expected)

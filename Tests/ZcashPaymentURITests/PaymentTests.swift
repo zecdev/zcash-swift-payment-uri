@@ -15,7 +15,7 @@ struct PaymentTests {
     @Test func throwsWhenMemoIsPresentOnTransparentRecipient() throws {
         let recipient = try #require(RecipientAddress(
             value: "tmEZhbWHTpdKMw5it8YDspUXSMGQyFwovpU",
-            context: .testnet
+            validator: ReferenceAddressValidator.testnet
         ))
 
         let params: [Param] = [
@@ -48,7 +48,7 @@ struct PaymentTests {
     @Test func paymentIsCreatedFromIndexedParameters() throws {
         let recipient = try #require(RecipientAddress(
             value: "ztestsapling10yy2ex5dcqkclhc7z7yrnjq2z6feyjad56ptwlfgmy77dmaqqrl9gyhprdx59qgmsnyfska2kez",
-            context: .testnet
+            validator: ReferenceAddressValidator.testnet
         ))
 
         let params: [Param] = [

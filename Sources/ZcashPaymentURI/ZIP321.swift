@@ -72,8 +72,6 @@ public enum ZIP321 {
         /// are not recognized, but that are not prefixed with a req-, SHOULD be ignored.)
         case unknownRequiredParameter(String)
 
-        /// The parser found a Sprout recipient and these are explicitly not allowed by the ZIP-321 specification
-        case sproutRecipientsNotAllowed(UInt?)
         
         /// Not all of the payments of this request belong to the same network
         case networkMismatchFound
@@ -131,15 +129,23 @@ public extension ZIP321 {
         uriString(from: PaymentRequest(singlePayment: payment), formattingOptions: formattingOptions)
     }
 
+    /// Parses a [ZIP-321](https://zips.z.cash/zip-0321) payment request URI.
+    ///
+    /// - parameter uriString: the `zcash:` URI to parse.
+    /// - parameter network: the consensus network the request is expected to be for.
+    /// - parameter validator: the caller-supplied authority on recipient
+    /// addresses. This library performs NO address validation of its own, so
+    /// this argument is REQUIRED: whatever the validator accepts (and however it
+    /// describes what it accepted) is what the parser works with.
     static func request(
         from uriString: String,
-        context: ParserContext,
-        validatingRecipients: RecipientAddress.ValidatingClosure? = nil
+        expecting network: Network,
+        validator: any AddressValidator
     ) throws -> ParserResult {
         let partialResult = try Parser.leadingAddress(
             uriString,
-            context: context,
-            validating: validatingRecipients ?? Parser.onlyCharsetValidation
+            network: network,
+            validator: validator
         )
 
         switch partialResult {
@@ -156,9 +162,9 @@ public extension ZIP321 {
                                 .parseParameters(
                                     rest,
                                     leadingAddress: optionalParam,
-                                    context: context,
-                            validating: validatingRecipients ?? Parser.onlyCharsetValidation
-                        )
+                                    network: network,
+                                    validator: validator
+                                )
                     )
                 )
             )

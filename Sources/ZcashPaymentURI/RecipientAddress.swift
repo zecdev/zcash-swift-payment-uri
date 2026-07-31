@@ -7,60 +7,59 @@
 
 import Foundation
 
-/// Represents a Zcash recipient address.
-public struct RecipientAddress: Equatable {
-    public typealias Network = ParserContext
-    public typealias ValidatingClosure = @Sendable (String) -> Bool
-    
-    /// string-encoded value of the address
+/// A Zcash recipient address that some ``AddressValidator`` has accepted,
+/// carried together with what that validator said about it.
+///
+/// A `RecipientAddress` is an opaque string plus a ``descriptor``. This library
+/// never inspects ``value`` — it does not decode, re-check or classify the
+/// address in any way. Every capability question it needs to answer while
+/// applying the [ZIP-321](https://zips.z.cash/zip-0321) payment rules is read
+/// off the descriptor the validator produced.
+public struct RecipientAddress: Equatable, Sendable {
+    /// The string-encoded address, verbatim as the validator saw it.
     public let value: String
-    /// network that the recipient address is assumed to be for
-    public let network: Network
 
-    /// Initialize an opaque Recipient address that's conversible to a String with or without a validating function.
-    /// - Parameter value: the string representing the recipient
-    /// - Parameter context: the context in which this address should be evaluated (mainnet, testnet, regtest)
-    /// - Parameter validating: a closure that validates the given input. If none is provided, default validations will be performed.
-    /// - Returns: `nil` if the validating function resolves the input as invalid, or a `RecipientAddress` if the input is valid or no validating closure is passed.
-    public init?(value: String, context: ParserContext, validating: ValidatingClosure? = nil) {
-        self.network = context
-        
-        // always perform context validations
-        guard context.isValid(address: value) else {
-            return nil
-        }
-        
-        // then perform other validations if provided
-        if let validatingClosure = validating {
-            guard validatingClosure(value) else { return nil }
-        }
-        
+    /// What the ``AddressValidator`` reported about ``value``.
+    public let descriptor: AddressDescriptor
+
+    /// Wraps an address a caller has ALREADY validated, together with its
+    /// description.
+    ///
+    /// Use this when the address came from somewhere other than a URI — a
+    /// wallet's own address book, a QR scan the wallet has already resolved,
+    /// a test fixture. The descriptor is trusted as-is.
+    /// - parameter value: the string-encoded address.
+    /// - parameter descriptor: what the address is (network and capabilities).
+    public init(value: String, descriptor: AddressDescriptor) {
         self.value = value
+        self.descriptor = descriptor
     }
+
+    /// Validates `value` with `validator` and, if accepted, wraps it.
+    /// - parameter value: the string-encoded address.
+    /// - parameter validator: the authority on this address. Returning `nil`
+    /// from ``AddressValidator/validate(_:)`` rejects the address.
+    /// - returns: `nil` when the validator rejects `value`.
+    public init?(value: String, validator: any AddressValidator) {
+        guard let descriptor = validator.validate(value) else { return nil }
+
+        self.value = value
+        self.descriptor = descriptor
+    }
+}
+
+public extension RecipientAddress {
+    /// The consensus network this address belongs to, as reported by the
+    /// validator that accepted it.
+    var network: Network { descriptor.network }
 }
 
 extension RecipientAddress {
-    var isTransparent: Bool {
-        self.network.isTransparent(address: self.value)
-    }
-    
-    var canReceiveMemos: Bool {
-        self.network.isShielded(address: self.value)
-    }
-}
+    /// Whether funds sent here land in the transparent pool. Read straight off
+    /// the validator's descriptor.
+    var isTransparent: Bool { descriptor.isTransparent }
 
-/// Expected behavior for an address validator. Implementors should be able to
-/// receive a string-encoded address and determine some validity
-public protocol AddressValidator {
-    /// determines whether the ``address`` is valid in the context of the ZIP-321
-    /// payment request specification. Example: Sprout addresses are not allowed
-    func isValid(address: String) -> Bool
-    /// determines whether the address corresponds to a transparent recipient
-    func isTransparent(address: String) -> Bool
-    /// determines whether this adderss is Sprout receiver
-    func isSprout(address: String) -> Bool
-    /// determines whether this address is a **non-sprout** shielded address.
-    /// - Note: Unified addreses are assumed to be Revision 0 which should always
-    /// contain a shielded address and therefore they are considered shielded.
-    func isShielded(address: String) -> Bool
+    /// Whether this recipient can receive a ZIP-302 memo. Read straight off the
+    /// validator's descriptor.
+    var canReceiveMemos: Bool { descriptor.canReceiveMemos }
 }
