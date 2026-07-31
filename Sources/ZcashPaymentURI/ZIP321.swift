@@ -8,13 +8,24 @@ public enum ZIP321 {
     /// The default maximum accepted input size for ``parse(_:expecting:validator:maxInputBytes:)``.
     public static let defaultMaxInputBytes = 8 * 1024
 
-    /// Allows to specify the resulting URI String to match the possible variants specified by [ZIP-321](https://zips.z.cash/zip-0321)
+    /// Selects the rendered form of a ``PaymentRequest``, reconciled with v2's
+    /// paramindex preservation.
     ///
-    /// `.enumerateAllPayments` will generate a URI where all of its `queryparams` have an index indicating it payment index starting with the index 1
+    /// - ``useEmptyParamIndex(omitAddressLabel:)`` renders each payment at its
+    ///   ACTUAL stored `paramindex` (the empty paramindex — stored index `0` —
+    ///   renders with no `.n` suffix; index `5` renders `address.5=…`). When
+    ///   `omitAddressLabel` is `true` and the request holds exactly one payment
+    ///   at index `0`, the canonical single-payment leading-address form is
+    ///   emitted (`zcash:<addr>?amount=…`); otherwise the general
+    ///   `zcash:?address[.n]=…&…` form is used. This is the canonical reference
+    ///   form and the default for ``uriString(from:formattingOptions:)``.
+    /// - ``enumerateAllPayments`` is a NORMALIZATION mode: it discards the
+    ///   stored paramindices and re-numbers payments SEQUENTIALLY from `1`
+    ///   (`address.1=…&address.2=…`), always with explicit address labels under
+    ///   `zcash:?`. Use it to canonicalize a request onto a contiguous
+    ///   `1…n` index space.
     ///
-    /// `.useEmptyParamIndex(false)` will generate a URI where the first parameter will contain an empty parameter index `zcash:address=zs1...`
-    ///
-    /// `.useEmptyParamIndex(false)` will generate a URI where the first parameter will contain an empty parameter index and the address label will be omitted for the first payment `zcash:zs1...&amount=0.1`
+    /// The empty request renders as the bare `zcash:` scheme in either mode.
     public enum FormattingOptions {
         case enumerateAllPayments
         case useEmptyParamIndex(omitAddressLabel: Bool)
@@ -96,15 +107,21 @@ public enum ZIP321 {
 
 public extension ZIP321 {
     /// Transforms this `PaymentRequest` struct into a [ZIP-321](https://zips.z.cash/zip-0321)
-    /// payment request `String`
+    /// payment request `String`.
+    ///
+    /// The default `formattingOptions` is the canonical reference form
+    /// (``FormattingOptions/useEmptyParamIndex(omitAddressLabel:)`` with
+    /// `omitAddressLabel: true`): a single payment at the empty paramindex
+    /// renders as `zcash:<addr>?amount=…`, and the round-trip law
+    /// `parse(uriString(from: r)) == r` holds for every request `r`.
     /// - parameter request: a `PaymentRequest` struct
-    static func uriString(from request: PaymentRequest, formattingOptions: FormattingOptions = .enumerateAllPayments) -> String {
-        switch formattingOptions {
-        case .enumerateAllPayments:
-            Render.request(request, startIndex: 1, omittingFirstAddressLabel: false)
-        case .useEmptyParamIndex(let omitAddressLabel):
-            Render.request(request, startIndex: nil, omittingFirstAddressLabel: omitAddressLabel)
-        }
+    /// - parameter formattingOptions: the rendered form; defaults to the
+    /// canonical reference form.
+    static func uriString(
+        from request: PaymentRequest,
+        formattingOptions: FormattingOptions = .useEmptyParamIndex(omitAddressLabel: true)
+    ) -> String {
+        Render.request(request, formattingOptions: formattingOptions)
     }
 
     /// Convenience function that allows to generate a [ZIP-321](https://zips.z.cash/zip-0321)
@@ -120,7 +137,13 @@ public extension ZIP321 {
         }
     }
 
-    static func request(_ payment: Payment, formattingOptions: FormattingOptions = .enumerateAllPayments) -> String {
+    /// Renders a single-payment [ZIP-321](https://zips.z.cash/zip-0321) request
+    /// to a URI string. Defaults to the canonical leading-address form
+    /// (`zcash:<addr>?amount=…`).
+    static func request(
+        _ payment: Payment,
+        formattingOptions: FormattingOptions = .useEmptyParamIndex(omitAddressLabel: true)
+    ) -> String {
         uriString(from: PaymentRequest(singlePayment: payment), formattingOptions: formattingOptions)
     }
 

@@ -172,11 +172,72 @@ library.
 - Conformance: the invalid-vector runner now asserts the **exact** error
   discriminant against the corpus. Expected-failure ledger: burned
   `structure_empty_request`, `structure_empty_request_query_marker`, and
-  `spec_invalid_zero_valued_transparent_output`; the two render-owned entries
-  remain for S13 — joined by `structure_single_address_no_query_params`, which
-  now re-renders through `Render.request` and picks up its trailing `?` — plus
-  one corpus discriminant dispute
-  (`invalid_req_asset_two_recipients_flattened`) pending adjudication.
+  `spec_invalid_zero_valued_transparent_output`; one corpus discriminant
+  dispute (`invalid_req_asset_two_recipients_flattened`) remains pending
+  adjudication.
+
+### Breaking changes — v2.0.0 canonical renderer
+
+- **The renderer now renders from `PaymentRequest.indexedPayments`, preserving
+  each payment's ACTUAL stored `paramindex`.** A request whose only payment
+  sits at index `5` renders `zcash:?address.5=…&amount.5=1` (previously it was
+  collapsed onto the empty index). Per-payment parameter order matches the
+  reference exactly: address, amount, memo, label, message, then `otherParams`
+  in stored order.
+- **The default `formattingOptions` of `uriString(from:)` and
+  `request(_ payment:)` changed to
+  `.useEmptyParamIndex(omitAddressLabel: true)`** — the canonical reference
+  form. A single payment at the empty paramindex renders as the leading-address
+  form `zcash:<addr>?amount=…`; multi-payment (or any payment at a non-zero
+  index) renders as `zcash:?address[.n]=…&…`. The round-trip law
+  `parse(uriString(from: r)) == r` holds for every request `r` under the
+  default options (asserted over the corpus's valid vectors).
+- **`FormattingOptions.enumerateAllPayments` is now a documented NORMALIZATION
+  mode**: it discards stored paramindices and re-numbers payments sequentially
+  from `1` (`address.1=…&address.2=…`) under `zcash:?`. It now emits the
+  mandatory `?` query separator (previously the multi-payment output omitted
+  it, producing a non-round-trippable URI).
+
+### Fixed
+
+- **A bare `zcash:<addr>` now re-renders exactly**, without the spurious
+  trailing `?` the previous renderer emitted for a payment carrying no query
+  parameters. This fixes the `structure_single_address_no_query_params`
+  conformance divergence, which S12 surfaced when it collapsed the
+  single-address result shape into an ordinary one-payment request.
+- **`otherparam` rendering now emits the `=` separator** when the parameter
+  carries a value (`future-param=hello%20world`), matching the reference
+  `str_param`. A value-less otherparam still renders as a bare `name`. This
+  fixes the `structure_unknown_param_preserved` conformance divergence.
+- **A single payment at a non-zero paramindex now re-renders faithfully**
+  instead of being collapsed onto the empty index, fixing the
+  `structure_index_gap_only_address_5` conformance divergence.
+
+### Added — fluent builders
+
+- **`Payment.Builder`** (`init(recipient:)` + chainable `amount(_:)`,
+  `amount(zec:)`, `memo(_:)`, `memo(utf8:)`, `label(_:)`, `message(_:)`,
+  `otherParam(name:value:)`, terminal `build() -> Result<Payment, ZIP321Error>`).
+  Fallible inputs are validated LAZILY at `build()`: a bad `amount(zec:)`
+  surfaces as `.amountInvalid` (or `.amountExceededSupply`), an oversized
+  `memo(utf8:)` as `.memoBytesError`, an invalid `otherParam` name as
+  `.parseError(.invalidParameter)`; a memo to a transparent recipient surfaces
+  as `.transparentMemo` via `Payment.create`. When several fields are invalid,
+  the first error wins in field order (amount → memo → other params →
+  structural rules).
+- **`PaymentRequest.Builder`** (`add(_:)` auto-indexing sequentially from `0`,
+  `add(_:at:)` for an explicit paramindex, terminal
+  `build() -> Result<PaymentRequest, ZIP321Error>`). Deferred validation:
+  a duplicate index fails with `.duplicateParameter`, an index above `9999`
+  with `.tooManyPayments`.
+- **`@resultBuilder PaymentRequestBuilder`** with the `PaymentRequest.build { … }`
+  entry point (`try PaymentRequest.build { payment1; payment2 }.get()`), a thin
+  layer over `PaymentRequest.Builder` that auto-indexes block statements from
+  `0` and accepts both single `Payment` expressions and `[Payment]` arrays. The
+  entry point is `PaymentRequest.build` rather than a bare `PaymentRequest { … }`
+  free function because Swift forbids a global function sharing a name with a
+  type in the same module; `.build` preserves the Result-returning `.get()`
+  totality contract.
 
 ### Added
 - **Internal single-pass `Scanner`** (`Sources/ZcashPaymentURI/parser/Scanner.swift`): a
