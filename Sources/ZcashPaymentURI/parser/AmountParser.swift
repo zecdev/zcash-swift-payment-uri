@@ -30,16 +30,9 @@ enum AmountParser {
         case .failure(.exceededSupply):
             // `NonNegativeAmount.zec` reports `.exceededSupply` both for a value that
             // parses cleanly but exceeds `MAX_MONEY` AND for a whole-number part
-            // too large to represent. The corpus distinguishes these: an
-            // arithmetic overflow while parsing is `amountInvalid`, whereas a
-            // representable value above `MAX_MONEY` is `amountExceededSupply`.
-            // The whole-number digit run failing to fit `Int64` is exactly the
-            // overflow case (mirroring the reference `parse_amount`, whose u64
-            // parse / `checked_mul` failure surfaces as a plain parse error).
-            let wholeDigits = string.prefix(while: { $0.isASCII && $0.isNumber })
-            if Int64(wholeDigits) == nil {
-                throw ZIP321.Errors.invalidParamValue(param: "amount", index: index == 0 ? nil : index)
-            }
+            // too large to represent: any amount whose checked accumulation
+            // overflows the `UInt64` accumulator is necessarily greater than `MAX_MONEY`, so the
+            // corpus classifies both as `amountExceededSupply`.
             throw ZIP321.Errors.amountExceededSupply(index)
         case .failure(let error):
             throw ZIP321.Errors.mapFrom(error, index: index)
